@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>红狮骑士团 · 文字冒险</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= 舞台：背景 / 立绘 / 对话框 / 选项 ================= -->
+  <main id="stage" aria-label="游戏舞台">
+
+    <!-- 背景图（加载失败时露出下面的颜色块占位） -->
+    <div id="bg-layer" class="bg-layer" aria-hidden="true"></div>
+    <div id="bg-placeholder" class="bg-placeholder" aria-hidden="true">
+      <div class="ph-card">
+        <span class="ph-tag">背景占位 · 颜色块</span>
+        <span class="ph-path" id="bg-ph-path">images/bg_hall.jpg</span>
+        <span class="ph-tip">把图片放到这个路径即可自动替换</span>
+      </div>
+    </div>
+
+    <!-- 立绘 -->
+    <div id="portrait-layer" class="portrait-layer" aria-hidden="true">
+      <img id="portrait-img" class="portrait-img" alt="" />
+      <div id="portrait-placeholder" class="portrait-placeholder">
+        <span class="ph-name" id="portrait-ph-name">Sibylla</span>
+        <span class="ph-path" id="portrait-ph-path">images/sibylla.png</span>
+      </div>
+    </div>
+
+    <!-- 场景标题 -->
+    <div id="scene-title" class="scene-title"></div>
+
+    <!-- 对话框 -->
+    <section id="dialogue-box" class="dialogue-box" role="button" tabindex="0"
+             aria-label="点击继续对话">
+      <div id="speaker-plate" class="speaker-plate">
+        <span id="speaker-name" class="speaker-name"></span>
+      </div>
+      <p id="dialogue-text" class="dialogue-text"></p>
+      <span id="next-indicator" class="next-indicator" aria-hidden="true">▼</span>
+    </section>
+
+    <!-- 选项 -->
+    <div id="choices" class="choices" role="group" aria-label="选项"></div>
+  </main>
+
+  <!-- ================= 顶部状态栏 ================= -->
+  <header id="hud" class="hud">
+    <div class="hud-stats">
+      <div class="stat">
+        <span class="stat-icon heart">♥</span>
+        <span class="stat-label" id="affection-label">Sibylla 好感度</span>
+        <span class="stat-bar"><i id="affection-bar"></i></span>
+        <span class="stat-value" id="affection-value">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-icon sword">⚔</span>
+        <span class="stat-label">剑术力量</span>
+        <span class="stat-value" id="power-value">0</span>
+      </div>
+    </div>
+    <div class="hud-actions">
+      <span id="server-dot" class="server-dot" title="存档服务状态：检测中…"></span>
+      <button id="save-btn" class="ghost-btn" type="button">保存进度</button>
+      <button id="load-btn" class="ghost-btn" type="button">读取进度</button>
+      <button id="restart-btn" class="ghost-btn" type="button">重新开始</button>
+    </div>
+  </header>
+
+  <!-- 数值变化提示 -->
+  <div id="toast-area" class="toast-area" aria-live="polite"></div>
+  <!-- 转场遮罩 -->
+  <div id="veil" class="veil" aria-hidden="true"></div>
+
+  <!-- ================= 标题页 ================= -->
+  <div id="title-screen" class="overlay-screen">
+    <div class="overlay-card">
+      <p class="eyebrow">Text Adventure</p>
+      <h1 class="title-main">红狮骑士团</h1>
+      <p class="title-sub">Red Lion Knights</p>
+      <button id="start-btn" class="primary-btn" type="button">开始游戏</button>
+      <ul class="help-list">
+        <li>点击对话框 / <kbd>空格</kbd> / <kbd>回车</kbd>：继续对话</li>
+        <li><kbd>1</kbd>–<kbd>9</kbd>：快速选择选项</li>
+        <li><kbd>Ctrl</kbd>+<kbd>S</kbd>：保存进度　<kbd>Ctrl</kbd>+<kbd>L</kbd>：读取进度</li>
+        <li><kbd>R</kbd>：重新开始</li>
+      </ul>
+      <p class="title-note">
+        进度存在服务器端 <code>save.json</code>，需要先运行 <code>node server.js</code>；
+        从 <code>http://localhost:3000</code> 打开即可看到右上角的连接指示灯变绿。
+      </p>
+      <p class="title-note">
+        图片现在是颜色块占位。把美术素材按 <code>images/README.md</code> 里的文件名放进 <code>images/</code> 目录，刷新即可自动替换。
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= 结局页 ================= -->
+  <div id="ending-screen" class="overlay-screen hidden">
+    <div class="overlay-card">
+      <h1 class="title-main">— 完 —</h1>
+      <p class="title-sub" id="ending-text"></p>
+      <button id="ending-restart-btn" class="primary-btn" type="button">再玩一次</button>
+    </div>
+  </div>
+
+</div>
+<script src="game.js"></script>
+</body>
+</html>

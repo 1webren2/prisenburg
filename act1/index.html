@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第一幕 · 沃伯爵的府邸</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 加载失败时的提示（比如用 file:// 直接双击打开，fetch 读不到 story.json） -->
+<pre id="boot-error"></pre>
+
+<div id="app">
+
+  <!-- ============ 舞台 ============ -->
+  <div id="stage">
+
+    <!-- 背景：像素块网格 + 真实图片层。
+         图片层盖在网格上面；图不存在（404）时浏览器什么都不画，像素块就露出来了。
+         换成真图：把文件放到 act1/images/<素材key>.jpg —— 见 ui.js 顶部的说明 -->
+    <div id="bg-layer">
+      <div id="bg-grid-host"></div>
+      <div id="bg-image" data-src="images/bg_hall.jpg"></div>
+    </div>
+    <div id="bg-veil"></div>
+
+    <!-- 视角切换提示（只在刚切视角的那个节点显示一次） -->
+    <div id="pov-banner"></div>
+
+    <!-- 章节标题（左） + 视角（右，由 ui.js 写进 data-pov） -->
+    <div id="title-bar" data-pov=""></div>
+
+    <!-- 立绘：同样网格 + 图片层两层 -->
+    <div id="portrait-layer">
+      <div id="portrait-grid-host"></div>
+      <div id="portrait-image" data-src="images/chr_sibylla.jpg"></div>
+    </div>
+
+    <!-- 底部对话框 -->
+    <div id="dialogue-box">
+      <div id="speaker-plate"></div>
+      <p id="dialogue-text"></p>
+      <div id="next-hint"></div>
+    </div>
+
+    <!-- 选项按钮（由 ui.js 生成） -->
+    <div id="choices"></div>
+  </div>
+
+  <!-- ============ 数值面板（默认隐藏，按 V 展开） ============ -->
+  <aside id="stats-panel">
+    <h2>内心</h2>
+    <div id="stats-body"></div>
+    <p class="stats-foot">剧情里只会给「感觉」，真实数字要自己按 V 看</p>
+  </aside>
+
+  <!-- ============ 控制条 ============ -->
+  <div id="hud">
+    <button id="stats-toggle" class="hud-btn" data-on="0">查看数值 (V)</button>
+    <button id="save-btn" class="hud-btn">保存进度</button>
+    <button id="load-btn" class="hud-btn">读取进度</button>
+    <button id="restart-btn" class="hud-btn">重新开始</button>
+    <span id="server-dot" class="server-dot">正在连接存档服务器…</span>
+    <span class="hud-keys">空格/回车 继续 · 1-9 选择 · V 数值 · Ctrl+S 保存 · Ctrl+L 读取 · R 重来</span>
+  </div>
+
+  <!-- ============ 浮字提示 ============ -->
+  <div id="toast"></div>
+
+  <!-- ============ 开始界面 ============ -->
+  <div id="title-screen" class="on">
+    <!-- 背景图（马车）由 ui.js 按 story.json 里 bg_carriage 的路径填进来 -->
+    <div id="title-bg"></div>
+    <div id="title-veil"></div>
+    <div class="title-card">
+      <h1 class="title-name">普里森堡</h1>
+      <p class="title-sub">第一幕 · 沃伯爵的府邸</p>
+      <button id="title-start" class="hud-btn title-start-btn">开始游戏</button>
+      <p class="title-hint">空格 / 回车 也可以开始</p>
+    </div>
+  </div>
+
+  <!-- ============ 结局 ============ -->
+  <div id="end-screen">
+    <div class="end-card">
+      <h2>第一幕 · 完</h2>
+      <p class="end-sub">西比拉·德·克莱尔住进了伊莎贝尔的隔壁。</p>
+      <div id="end-stats"></div>
+      <button id="end-restart" class="hud-btn" onclick="window.act1 && window.act1.ui.restart()">重新开始</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- 引擎（不依赖 DOM，Node 里也能跑） -->
+<script src="game.js"></script>
+<!-- 渲染层（把引擎数据画成上面的 DOM） -->
+<script src="ui.js"></script>
+</body>
+</html>

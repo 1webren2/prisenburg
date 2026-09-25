@@ -1,0 +1,791 @@
+/* =====================================================================
+   第一幕 · 沃伯爵的府邸 —— 视觉样式
+   ---------------------------------------------------------------------
+   像素图的做法：引擎给出一张「颜色矩阵」（比如背景 46×13、立绘 15×20），
+   ui.js 把它铺成 CSS Grid 的格子，每格一个 <i>，背景色写在内联 style 里。
+   所以像素风的清晰度靠的是「格子边界」，不需要任何图片。
+
+   换成真实图片时（见 ui.js 顶部的说明）：
+     把 bg_hall.jpg 放到 act1/images/ 下即可，
+     .bg-image / .portrait-image 这两层会自动盖住像素块。
+   ===================================================================== */
+
+:root {
+  --ink:        #0b0a09;
+  --parchment:  #e8e0d0;
+  --parchment-dim: #a89d8a;
+  --gold:       #c9a05a;
+  --gold-soft:  #8a6f42;
+  --blue:       #5b7fa8;
+  --panel:      rgba(14, 12, 10, 0.82);
+  --panel-edge: rgba(201, 160, 90, 0.28);
+  --shadow:     0 18px 50px rgba(0, 0, 0, 0.55);
+  --radius:     10px;
+
+  /* 底部 HUD 是 position:fixed 的，脱离文档流，所以要给它量出高度、
+     #stage 用 padding-bottom 把这块钱让出来，否则按钮会压在对话框/选项上。 */
+  --hud-bottom: 18px;   /* HUD 距窗口底边 */
+  --hud-h:      36px;   /* HUD 单行高度（窄屏会换行，见媒体查询） */
+  --hud-gap:    16px;   /* 让出来的空隙，别让两者贴在一起 */
+
+  /* 立绘离底边多高。对话框是横向铺满的，立绘必须抬起来，
+     让头部和上半身落在对话框上方；抬到对话框上沿往下一点点，
+     下摆刚好被对话框压住，不会悬空。 */
+  --portrait-lift: clamp(84px, 12vh, 150px);
+
+  /* 立绘头顶要留出来的空地：章节标题那一行大概占这么高。
+     立绘高度是按宽度算的（26vw），宽屏但很矮的窗口里会长得顶到标题栏，
+     所以拿 --portrait-lift + 这个值当高度上限压一道（见 #portrait-layer）。 */
+  --portrait-headroom: 100px;
+
+  /* 对话框横向铺满底部，但文字不能跟着贴到窗口边上。
+     这个「左右留白」宽屏时正好把正文收在中间 940px 那一栏，
+     窄屏时退化成固定的 26px（见媒体查询）。
+     百分数按 #stage 的内容盒算，而 #stage 左右没有 padding，
+     所以对话框和选项算出来的留白完全一样，两边的文字是对齐的。
+     说话人牌子和「继续」提示也用它对齐。 */
+  --dialogue-gutter: max(26px, calc((100% - 940px) / 2));
+
+  /* 对话框底色：上下浅、中间深，上沿不能有硬边，否则会像贴了一条黑条 */
+  --dialogue-bg: linear-gradient(180deg,
+                   rgba(10, 9, 8, 0.30) 0%,
+                   rgba(10, 9, 8, 0.74) 38%,
+                   rgba(10, 9, 8, 0.88) 100%);
+  /* 数值面板那一栏的宽度（见 #app 的 grid-template-columns） */
+  --panel-w:    240px;
+  --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", Georgia, serif;
+  --font-sans:  "Noto Sans SC", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--parchment);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* =====================================================================
+   舞台
+   ===================================================================== */
+
+/* 剧本读出来之前先藏住，免得闪一下没排版的画面（ui.js 成功后会加 .ready） */
+body:not(.ready) #app { opacity: 0; }
+
+/* 两栏布局：左栏＝剧情（对话框 + 选项），右栏＝数值面板。
+   两栏是 grid 的两个格子，各占各的地方 —— 所以不管窗口多矮、选项有几条，
+   选项都压不到数值面板上，不需要算高度。 */
+#app {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--panel-w);
+  grid-template-rows: minmax(0, 1fr);
+  transition: opacity 0.4s ease;
+}
+
+#stage {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  /* 明确抬到背景层（z-index 0）之上。
+     不写这个的话，#bg-layer 虽然 fixed 到视口，但它在 DOM 里是 #stage 的子节点，
+     绘制顺序要按 z-index 排才说得清 */
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;       /* 对话框和选项贴底 */
+  align-items: center;
+  /* 左右不留 padding：对话框要一路铺到窗口两边，
+     正文的左右留白改由 --dialogue-gutter 在对话框自己身上做。
+     底下那条 padding 是给 HUD 让位：HUD 是 fixed 的，不占文档流，
+     不让位就会压在对话框和选项上（也就是「选项与底层 UI 重合」） */
+  padding: 0 0 calc(var(--hud-bottom) + var(--hud-h) + var(--hud-gap));
+  min-width: 0;                    /* 让 1fr 真的能收缩，否则长文本会撑破格子 */
+  gap: 0;
+}
+
+/* ---------------- 背景层 ---------------- */
+
+/* 背景要铺满整个窗口，不能被左栏裁掉，所以直接 fixed 到视口。
+   （祖先里没有 transform / filter，fixed 不会被 #app 收走） */
+#bg-layer { position: fixed; inset: 0; overflow: hidden; z-index: 0; }
+
+/* 像素块网格：铺满整层，格子用 1fr 自适应，所以窗口怎么缩放都不变形 */
+#bg-grid-host { position: absolute; inset: 0; }
+
+.pixel-grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+}
+
+.pixel-grid i {
+  display: block;
+  /* 格子之间不留缝，否则会出现网格线 */
+  margin: 0;
+  padding: 0;
+}
+
+.pixel-grid i.empty { background: transparent; }
+
+/* 真实背景图这一层盖在像素块上面。
+   图不存在（404）时浏览器什么都不画，底下的像素块自然露出来 —— 不用写探测代码。 */
+#bg-image {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  /* 换成手绘的像素风背景时，把下面这行打开，放大后不会糊 */
+  /* image-rendering: pixelated; */
+}
+
+/* 压暗一层，保证对话框和文字永远压得住背景 */
+#bg-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(8, 7, 6, 0.55) 0%, rgba(8, 7, 6, 0.10) 32%,
+                            rgba(8, 7, 6, 0.30) 62%, rgba(8, 7, 6, 0.88) 100%);
+}
+
+/* ---------------- 立绘层 ---------------- */
+
+/* 立绘容器必须是「完全看不见的」：不能有边框、底色、阴影，
+   否则透明背景的 PNG 会被衬出一个方框（这就是原来的「边界感」）。
+   容器只负责定位和尺寸，画本身全部交给 #portrait-image 那一层。 */
+#portrait-layer {
+  position: absolute;
+  /* 往右靠一点，避开左下角的 HUD，也让构图不那么贴着边 */
+  left: 5vw;
+  /* 抬起来：对话框现在是横向铺满底部的，立绘不抬就会被它压住半张脸。
+     抬到对话框上沿往下一点点，下摆被对话框挡住，看着像站在后面。 */
+  bottom: var(--portrait-lift);
+  width: clamp(200px, 26vw, 380px);
+  /* 锁住 PNG 的真实比例 1672×2508，缩放时不会拉扁 */
+  aspect-ratio: 1672 / 2508;
+  /* 高度是按宽度算出来的，所以在「宽屏但很矮」的窗口（1366×768 之类）里
+     会长得顶到章节标题上。这条上限把它压回来：
+     立绘顶端最多到 --portrait-headroom 那一条线。
+     被压短之后图片本身不会变形 —— #portrait-image 用的是 contain，
+     它自己缩到框里，还是贴着底边居中。 */
+  max-height: calc(100vh - var(--portrait-lift) - var(--portrait-headroom));
+  pointer-events: none;
+  transform-origin: bottom left;
+  transition: transform 0.4s ease;
+
+  /* ↓ 这三行是「消除边界感」的正主，别删 */
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* 网格层是「真图没到之前」的替代品：真图一旦加载成功，
+   ui.js 会把 #portrait-grid-host 的 display 设成 none。
+   它同理不能带底色/边框，不然没真图时反而多一个方块。 */
+#portrait-grid-host,
+#portrait-image {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+#portrait-image {
+  /* 贴左下角：框没被 max-height 压短时框和图一样宽，center 和 left 没区别；
+     被压短时用 left 才能让图仍然贴着框的左边（也就是 left: 5vw 那条线），
+     不会缩着缩着往右飘。 */
+  background-position: bottom left;
+  background-size: contain;
+  background-repeat: no-repeat;
+  transform-origin: bottom center;
+  transition: filter 0.4s ease, opacity 0.4s ease;
+  /* 不要 drop-shadow：透明 PNG 加上投影会在人物轮廓外描一圈黑边，
+     看着就像贴在场景上的一张纸。要让人物融进背景，就不能有这层影。 */
+  filter: none;
+  /* 立绘换成立绘图后如果放大发糊，打开这行 */
+  /* image-rendering: pixelated; */
+}
+
+/* 不是西比拉在说话时：立绘往后缩一点、压暗一点。
+   是她在说话（#portrait-layer.speaking）时就是上面那个正常状态。 */
+#portrait-layer:not(.speaking) {
+  transform: translateX(-1.5vw) scale(0.93);
+}
+#portrait-layer:not(.speaking) #portrait-image {
+  filter: brightness(0.42) saturate(0.5);
+}
+/* 像素占位图那一层也一起压暗，免得没有真图时立绘还亮着 */
+#portrait-layer:not(.speaking) #portrait-grid-host { opacity: 0.4; }
+
+/* ---------------- 视角切换提示 ---------------- */
+
+#pov-banner {
+  position: absolute;
+  top: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(680px, 88vw);
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+#pov-banner.on { opacity: 1; }
+
+#pov-banner .pov-line {
+  font-family: var(--font-serif);
+  font-size: clamp(15px, 1.7vw, 20px);
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+}
+
+#pov-banner .pov-hint {
+  margin-top: 10px;
+  font-size: clamp(12px, 1.2vw, 14px);
+  line-height: 1.7;
+  color: var(--parchment-dim);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+}
+
+/* ---------------- 章节标题 ---------------- */
+
+#title-bar {
+  position: absolute;
+  top: 22px;
+  left: 26px;
+  font-family: var(--font-serif);
+  font-size: clamp(13px, 1.4vw, 17px);
+  letter-spacing: 0.14em;
+  color: var(--parchment);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+  padding-left: 12px;
+  border-left: 2px solid var(--gold-soft);
+}
+
+#title-bar::after {
+  content: attr(data-pov);
+  display: block;
+  margin-top: 5px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--parchment-dim);
+}
+
+/* =====================================================================
+   对话框
+   ===================================================================== */
+
+/* 对话框横向铺满底部：
+   - align-self: stretch 吃掉 #stage 的 align-items: center，让它撑满整行，
+     一路铺到窗口两边；
+   - 正文用 --dialogue-gutter 收回中间那一栏，
+     所以是「板子铺满、字还是原来那么宽」，跟上下其他东西对齐。
+   底色用渐变而不是纯色：上沿淡到几乎看不见，下沿厚一些，
+   这样对话框和场景之间没有一条硬邦邦的分界线。 */
+#dialogue-box {
+  position: relative;
+  align-self: stretch;
+  width: auto;
+  margin: 0;
+  padding: 20px var(--dialogue-gutter) 22px;
+  border-radius: 0;
+  border: 0;
+  border-top: 1px solid rgba(201, 160, 90, 0.22);
+  /* 半透明 + 毛玻璃：背后的像素块还看得见 */
+  background: var(--dialogue-bg);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  /* 纯黑的投影在这种铺满底部的长条上没有意义，换成往上打的一层柔光 */
+  box-shadow: 0 -14px 40px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: opacity 0.25s ease;
+}
+
+/* 选项出来时把对话框压暗，把注意力让给按钮（ui.js 在选项/结局时加 .choices-open） */
+#dialogue-box.choices-open { opacity: 0.5; }
+
+#speaker-plate {
+  position: absolute;
+  top: -13px;
+  left: var(--dialogue-gutter);
+  padding: 3px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-edge);
+  background: linear-gradient(180deg, #2a2219, #171310);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+/* 旁白没有说话人：牌子的位置留空，不显示 */
+#speaker-plate.narration { display: none; }
+
+#dialogue-text {
+  margin: 6px 0 0;
+  min-height: 3.4em;              /* 留两行高度，避免每次换行整块跳动 */
+  font-family: var(--font-serif);
+  font-size: clamp(15px, 1.75vw, 19px);
+  line-height: 1.75;
+  color: var(--parchment);
+}
+
+#next-hint {
+  position: absolute;
+  right: var(--dialogue-gutter);
+  bottom: 10px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--gold-soft);
+}
+#next-hint:not(:empty)::after { content: ""; }
+
+/* =====================================================================
+   选项
+   ===================================================================== */
+
+/* 选项跟对话框用同一套留白，按钮的左右边和上面的正文严丝合缝 */
+#choices {
+  align-self: stretch;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 14px 0 0;
+  padding: 0 var(--dialogue-gutter);
+}
+
+.choice-btn {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 20px;
+  text-align: left;
+  font-family: var(--font-serif);
+  font-size: clamp(14px, 1.5vw, 17px);
+  color: var(--parchment);
+  background: rgba(20, 17, 14, 0.80);
+  border: 1px solid var(--panel-edge);
+  border-radius: var(--radius);
+  cursor: pointer;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  animation: choice-in 0.28s ease backwards;
+}
+
+.choice-btn:nth-child(1) { animation-delay: 0.02s; }
+.choice-btn:nth-child(2) { animation-delay: 0.07s; }
+.choice-btn:nth-child(3) { animation-delay: 0.12s; }
+.choice-btn:nth-child(4) { animation-delay: 0.17s; }
+
+@keyframes choice-in {
+  from { opacity: 0; transform: translateY(9px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.choice-btn:hover:not(:disabled),
+.choice-btn:focus-visible:not(:disabled) {
+  background: rgba(48, 39, 27, 0.92);
+  border-color: var(--gold);
+  transform: translateX(4px);
+  outline: none;
+}
+
+.choice-key {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  line-height: 21px;
+  text-align: center;
+  border-radius: 5px;
+  border: 1px solid var(--gold-soft);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--gold);
+}
+
+.choice-text { flex: 1; }
+
+.choice-hint {
+  flex: none;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--parchment-dim);
+  opacity: 0.85;
+}
+
+/* 条件不足的选项：灰掉、不可点，并说明原因 */
+.choice-btn.locked {
+  cursor: not-allowed;
+  opacity: 0.45;
+  background: rgba(14, 12, 11, 0.72);
+}
+.choice-btn.locked:hover { transform: none; }
+
+.choice-lock {
+  flex: none;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: #b08a6a;
+}
+
+/* =====================================================================
+   数值面板（默认只显示一行提示，按 V 才给真实数字）
+   ===================================================================== */
+
+/* 占右栏的第 1 行，顶部对齐 —— 不再是 fixed，所以它是「真有地方待着」的，
+   不会盖到左栏的选项上 */
+#stats-panel {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  margin: 22px 22px 0 0;
+  padding: 16px 18px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-edge);
+  background: var(--panel);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  box-shadow: var(--shadow);
+  z-index: 5;
+}
+
+#stats-panel h2 {
+  margin: 0 0 12px;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  color: var(--gold);
+}
+
+.stat-row { margin-bottom: 11px; }
+
+.stat-label {
+  display: block;
+  font-size: 12px;
+  color: var(--parchment-dim);
+}
+
+.stat-value {
+  float: right;
+  margin-top: -16px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--parchment);
+}
+
+.stat-track {
+  height: 4px;
+  margin-top: 5px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.stat-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-soft), var(--gold));
+  transition: width 0.35s ease;
+}
+
+.stat-hidden {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--parchment-dim);
+  padding: 2px 0 6px;
+}
+
+/* 未展开时把面板压低存在感，展开后才亮起来 */
+#stats-panel:not(.revealed) { opacity: 0.72; }
+
+.stats-foot {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(201, 160, 90, 0.14);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--gold-soft);
+}
+
+/* =====================================================================
+   HUD / 提示 / 结局
+   ===================================================================== */
+
+/* 电脑布局下 HUD 只占一行：--hud-h 就是按一行算的，
+   一旦换行 #stage 让出来的高度就不够了（窄屏见文件末尾的媒体查询） */
+#hud {
+  position: fixed;
+  left: 22px;
+  bottom: var(--hud-bottom);
+  max-width: calc(100% - var(--panel-w) - 44px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  z-index: 5;
+}
+
+.hud-btn {
+  padding: 7px 14px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--parchment-dim);
+  background: rgba(20, 17, 14, 0.78);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+.hud-btn:hover { color: var(--gold); border-color: var(--gold-soft); }
+.hud-btn[data-on="1"] { color: var(--gold); border-color: var(--gold); }
+
+.hud-keys {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--gold-soft);
+  letter-spacing: 0.03em;
+}
+
+.server-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--parchment-dim);
+}
+.server-dot::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6b6b66;
+}
+.server-dot.online { color: #7fae7f; }
+.server-dot.online::before { background: #5fbf5f; box-shadow: 0 0 8px #5fbf5f; }
+.server-dot.offline { color: #c07a7a; }
+.server-dot.offline::before { background: #bf5f5f; }
+
+#toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  pointer-events: none;
+  z-index: 9;
+}
+
+.toast-item {
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(12, 10, 9, 0.90);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  color: var(--parchment);
+  box-shadow: var(--shadow);
+  animation: toast-in 0.3s ease backwards;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------------- 开始界面 ---------------- */
+
+/* z-index 18：压在结局层(8)和控制条(5)之上，但仍在加载失败提示(20)之下 */
+#title-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 18;
+  transition: opacity 0.6s ease;
+}
+/* 开始之后淡出，淡完就不再接收点击 */
+#title-screen:not(.on) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#title-bg {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transform: scale(1.03);
+}
+
+/* 压暗 + 暗角，让标题字压得住这张画 */
+#title-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at center, rgba(6, 5, 4, 0.30) 0%, rgba(6, 5, 4, 0.86) 100%),
+    linear-gradient(180deg, rgba(6, 5, 4, 0.60) 0%, rgba(6, 5, 4, 0.25) 40%, rgba(6, 5, 4, 0.75) 100%);
+}
+
+.title-card {
+  position: relative;
+  text-align: center;
+  padding: 0 24px;
+}
+
+.title-name {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(40px, 8vw, 76px);
+  font-weight: 400;
+  letter-spacing: 0.42em;
+  /* letter-spacing 会在最后一个字右边也留出一份，往左挪半个字宽补回来 */
+  text-indent: 0.42em;
+  color: var(--parchment);
+  text-shadow: 0 4px 26px rgba(0, 0, 0, 0.9), 0 0 60px rgba(201, 160, 90, 0.28);
+}
+
+.title-sub {
+  margin: 14px 0 0;
+  font-family: var(--font-serif);
+  font-size: clamp(12px, 1.6vw, 15px);
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  color: var(--gold);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+}
+
+.title-start-btn {
+  margin-top: 40px;
+  padding: 11px 40px;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  text-indent: 0.22em;
+  background: rgba(201, 160, 90, 0.14);
+  border-color: rgba(201, 160, 90, 0.55);
+  color: var(--parchment);
+}
+.title-start-btn:hover {
+  background: rgba(201, 160, 90, 0.26);
+}
+
+.title-hint {
+  margin: 16px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--parchment-dim);
+  opacity: 0.7;
+}
+
+#end-screen {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 5, 4, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 8;
+}
+#end-screen.on { display: flex; }
+
+.end-card {
+  width: min(520px, 88vw);
+  padding: 34px 38px;
+  text-align: center;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-edge);
+  background: rgba(18, 15, 12, 0.94);
+  box-shadow: var(--shadow);
+}
+
+.end-card h2 {
+  margin: 0 0 6px;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 0.28em;
+  color: var(--gold);
+}
+
+.end-sub {
+  margin: 0 0 22px;
+  font-size: 13px;
+  color: var(--parchment-dim);
+}
+
+.end-stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(201, 160, 90, 0.12);
+  font-size: 13px;
+}
+.end-stat-label { color: var(--parchment-dim); }
+.end-stat-value { color: var(--parchment); font-family: var(--font-sans); }
+
+.end-card .hud-btn { margin-top: 24px; }
+
+/* 加载失败提示 */
+#boot-error {
+  display: none;
+  position: fixed;
+  inset: auto 0 0 0;
+  margin: 0;
+  padding: 18px 24px;
+  background: #2a1414;
+  color: #e8c0c0;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  z-index: 20;
+}
+
+/* =====================================================================
+   窄屏
+   ---------------------------------------------------------------------
+   TODO（以后调手机布局时再处理）：这里只是把两栏都压窄，让它先别散架。
+   手机竖屏真正要做的是「面板改成浮层、立绘居中、选项占满宽度」，
+   现在先不管，电脑布局才是当前重点。
+   ===================================================================== */
+
+@media (max-width: 820px) {
+  :root {
+    --panel-w: 170px;
+    --hud-h: 36px;
+    /* 窄屏底下对话框也矮，立绘跟着少抬一点，别顶到标题栏 */
+    --portrait-lift: clamp(64px, 9vh, 110px);
+  }
+  #portrait-layer { width: 130px; left: 3vw; opacity: 0.85; }
+  #stats-panel { margin: 14px 14px 0 0; padding: 12px 14px; }
+  #hud { left: 14px; max-width: calc(100% - var(--panel-w) - 28px); }
+  .hud-keys { display: none; }
+}
+
+/* 系统开了「减少动画」就全部关掉，避免有人看着晕 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
