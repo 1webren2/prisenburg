@@ -95,6 +95,12 @@ async function main() {
     t.eq(health.status, 200, '/api/health 返回 200');
     t.eq(hb.ok, true, '/api/health 里 ok=true');
     t.ok(hb.act1 && hb.act1.loaded !== false, '服务器启动时载入了 act1/story.json');
+    t.eq(hb.act1.nodes, 69, '两幕的节点并进了同一张表（34 + 35，第二幕里有 8 个是自由活动的锚点）');
+    t.eq(
+      hb.act1.stats,
+      ['伊莎贝尔_好感', '西比拉_好感', '西比拉_警惕'],
+      '数值表还是第一幕定义的那三个'
+    );
 
     /* ---------- 静态页面 ---------- */
     t.section('静态页面');
@@ -106,10 +112,37 @@ async function main() {
     t.ok(html.includes('普里森堡'), '页面上有开始界面');
     t.ok(html.includes('title-bg'), '页面上有开始界面的背景层');
 
+    // 一幕一个 story.json，服务器各发各的（合并是浏览器/引擎那边做的）
     const storyRes = await get('/act1/story.json');
     const storyBody = await storyRes.json();
     t.eq(storyRes.status, 200, 'GET /act1/story.json 返回 200');
-    t.eq(storyBody.nodes.length, 34, '拿到的剧本是 34 个节点');
+    t.eq(storyBody.nodes.length, 34, '第一幕的剧本是 34 个节点');
+    t.eq(storyBody.meta.continues, ['../act2/story.json'], '第一幕指着后面的第二幕');
+
+    const story2Res = await get('/act2/story.json');
+    const story2Body = await story2Res.json();
+    t.eq(story2Res.status, 200, 'GET /act2/story.json 返回 200');
+    t.eq(story2Body.nodes.length, 35, '第二幕的剧本是 35 个节点（27 段剧情 + 8 个自由活动锚点）');
+    t.eq(story2Body.nodes[0].id, 'b1_room', '第二幕从 b1_room 开始');
+    // 自由活动的锚点是追加在后面的，所以「最后一个节点」不再是 b25_end；
+    // 该守的规矩是「b25_end 还是最后一段真正的剧情」
+    t.ok(!!story2Body.nodes.find((n) => n.id === 'b25_end'), '第二幕里有 b25_end 这个收尾节点');
+    t.eq(
+      story2Body.nodes.filter((n) => !n.freeRoam).pop().id,
+      'b25_end',
+      '第二幕最后一段剧情仍然以 b25_end 收尾（自由活动锚点在它后面）'
+    );
+    t.ok(
+      story2Body.nodes.some((n) => n.freeRoam && n.id === 'fr_the_end' && n.ending),
+      '自由活动区里也有自己的结局节点（「结束游戏」落在它上面）'
+    );
+
+    // 收尾节点确实接得上：第一幕的出口就是第二幕的入口
+    t.eq(
+      storyBody.nodes.find((n) => n.id === 'a10_end').continueTo,
+      story2Body.nodes[0].id,
+      '第一幕结局的 continueTo 就是第二幕的第一个节点'
+    );
 
     const css = await get('/act1/style.css');
     t.eq(css.status, 200, 'GET /act1/style.css 返回 200');
@@ -120,9 +153,24 @@ async function main() {
 
     const files = [
       ['/act1/images/chr_sibylla.png', 'images/chr_sibylla.png'],
+      ['/act1/images/chr_brown.png', 'images/chr_brown.png'],
       ['/act1/images/bg_carriage.png', 'images/bg_carriage.png'],
       ['/act1/images/bg_gate.png', 'images/bg_gate.png'],
       ['/act1/images/bg_hall.png', 'images/bg_hall.png'],
+      ['/act2/images/chr_sibylla_teacher.png', '第二幕的牧师服立绘'],
+      ['/act2/images/bg_sibylla_room.png', '第二幕的新房间背景'],
+      ['/act2/images/bg_corridor.png', '第二幕的三楼过道背景'],
+      ['/act2/images/bg_classroom.png', '第二幕的教室背景'],
+      ['/act2/images/bg_isabelle_room.png', '伊莎贝尔房间的背景'],
+      ['/act2/images/bg_aubrey_room.png', '奥布里房间的背景（自由活动的 hub）'],
+      ['/act2/images/chr_sibylla_riding.png', '西比拉的骑装半身像'],
+      ['/act2/images/chr_sibylla_black.png', '西比拉的黑礼服半身像'],
+      ['/act1/images/chr_aubrey.png', '奥布里的立绘（自由活动里站左槽）'],
+      ['/act1/images/chr_isabelle.png', '伊莎贝尔的立绘'],
+      ['/act2/images/full_sibylla_maid.png', '女仆装全身图（换装浮层用）'],
+      ['/act2/images/full_sibylla_teacher.png', '牧师服全身图（换装浮层用）'],
+      ['/act2/images/full_sibylla_riding.png', '骑装全身图（换装浮层用）'],
+      ['/act2/images/full_sibylla_black.png', '黑礼服全身图（换装浮层用）'],
     ];
     for (const [url, label] of files) {
       const r = await get(url);
@@ -132,14 +180,19 @@ async function main() {
       t.ok(len > 100000, `${label} 不是空文件（${len} 字节）`);
     }
 
-    // story.json 里写了 src 的素材，路径要真能对上
+    // story.json 里写了 src 的素材，路径要真能对上。
+    // 用 new URL(src, 这一幕的目录) 来拼 —— 第二幕的 src 是「../act2/images/...」，
+    // 直接字符串接在 /act1/ 后面会拼出 /act1/../act2/... 这种歪路径。
     const missing = [];
-    for (const [key, asset] of Object.entries(storyBody.art.assets)) {
-      if (!asset.src) continue;
-      const r = await fetch(`${BASE}/act1/${asset.src}`);
-      if (r.status !== 200) missing.push(`${key} 的 src「${asset.src}」取不到（HTTP ${r.status}）`);
+    for (const [dir, body] of [['/act1/', storyBody], ['/act2/', story2Body]]) {
+      for (const [key, asset] of Object.entries((body.art && body.art.assets) || {})) {
+        if (!asset.src) continue;
+        const url = new URL(asset.src, BASE + dir);
+        const r = await fetch(url);
+        if (r.status !== 200) missing.push(`${dir} ${key} 的 src「${asset.src}」取不到（HTTP ${r.status}）`);
+      }
     }
-    t.empty(missing, 'story.json 里写了 src 的素材，服务器上都拿得到');
+    t.empty(missing, '两幕里写了 src 的素材，服务器上都拿得到');
 
     /* ---------- 存档 ---------- */
     t.section('存档');
@@ -162,7 +215,7 @@ async function main() {
     t.eq(got.history, snap.history, '读回来的来路一致');
 
     // 存一份能真的喂给引擎的
-    const api = require(path.join(ROOT, 'act1', 'game.js'));
+    const api = require(path.join(ROOT, 'act1', 'engine.js'));
     const engine = new api.StoryEngine(storyBody);
     t.ok(!!engine.restore(got), '服务器存下来的快照，引擎能直接恢复');
 
@@ -204,6 +257,16 @@ async function main() {
       t.eq(r.status, 403, `${p} 被挡在 403`);
     }
 
+    // 小说原文不是游戏资源，不该能被直接下载（两幕的 source/ 都要挡住）
+    const sources = [
+      '/act1/source/' + encodeURIComponent('第一幕原文.txt'),
+      '/act2/source/' + encodeURIComponent('普里森堡第二章.txt'),
+    ];
+    for (const p of sources) {
+      const r = await get(p);
+      t.eq(r.status, 403, `${decodeURIComponent(p)} 被挡在 403`);
+    }
+
     const unknown = await get('/api/没有这个接口');
     t.eq(unknown.status, 404, '未知接口返回 404');
     t.ok((await unknown.json()).ok === false, '未知接口返回的是 JSON');
@@ -215,6 +278,71 @@ async function main() {
     t.eq(again.status, 200, '可以覆盖保存');
     const reload = await (await get('/api/act1/load')).json();
     t.eq((reload.save.snapshot || reload.save).nodeId, 'a10_end', '读回来的是最新那份');
+
+    /* ---------- 跨幕存档 ---------- */
+    t.section('跨幕存档');
+
+    // 存档是同一个页面、同一份 act1/save.json 共用的。玩家走进第二幕之后
+    // 停在的是 b 开头的节点 —— 服务器只认第一幕的节点表的话，一到第二幕就存不了档。
+    const act2Snap = validSave({
+      nodeId: 'b12_morning',
+      pov: '西比拉',
+      stats: { 伊莎贝尔_好感: 2, 西比拉_警惕: 1 },
+      lineIndex: 1,
+      history: ['p1_carriage', 'p5_bridge', 'a1_returned', 'a10_end', 'b1_room', 'b12_morning'],
+      visited: ['p1_carriage', 'a10_end', 'b1_room', 'b12_morning'],
+    });
+    const act2Res = await postJSON('/api/act1/save', act2Snap);
+    t.eq(act2Res.status, 200, '第二幕的节点也能存（服务器认得 b 开头的节点）');
+    t.eq((await act2Res.json()).ok, true, '第二幕存档成功');
+
+    const act2Back = await (await get('/api/act1/load')).json();
+    const got2 = act2Back.save.snapshot || act2Back.save;
+    t.eq(got2.nodeId, 'b12_morning', '读回来的还是第二幕那个节点');
+    t.eq(got2.history, act2Snap.history, '跨幕的来路原样存下来了');
+
+    // 存下来的这份要能直接喂给合并后的引擎
+    const composed = new api.StoryEngine(api.composeStories([storyBody, story2Body]));
+    t.ok(!!composed.restore(got2), '服务器存下来的跨幕快照，引擎能直接恢复');
+    t.eq(composed.pov, '西比拉', '恢复后停在第二幕的西比拉视角');
+    t.eq(composed.currentArt().portrait, 'chr_sibylla_teacher', '连「此刻穿着哪套衣服」都恢复得回来');
+
+    // 一眼假的节点照样拒绝（校验没有因为跨幕而放松）
+    const bogus = await postJSON('/api/act1/save', validSave({ nodeId: 'b999_不存在' }));
+    t.ok(bogus.status >= 400, '第二幕里不存在的节点照样拒绝');
+
+    /* ---------- 自由活动的存档 ---------- */
+    t.section('自由活动存档');
+
+    // 自由活动的「位置」就是锚点节点（装束＝位置），所以服务器一行都不用改：
+    // 存档里存的还是普通的 nodeId，只不过这个节点在第二幕的自由活动区里。
+    const roamSnap = validSave({
+      nodeId: 'fr_sib_riding',
+      pov: '奥布里',
+      stats: { 伊莎贝尔_好感: 2, 西比拉_好感: 3, 西比拉_警惕: 2 },
+      lineIndex: 0,
+      history: ['p1_carriage', 'a10_end', 'fr_hub', 'fr_sib_riding'],
+      visited: ['p1_carriage', 'a10_end', 'fr_hub', 'fr_sib_riding'],
+    });
+    const roamRes = await postJSON('/api/act1/save', roamSnap);
+    t.eq(roamRes.status, 200, '自由活动的锚点节点也能存（服务器顺着 continues 收到了它）');
+    const roamBack = await (await get('/api/act1/load')).json();
+    const got3 = roamBack.save.snapshot || roamBack.save;
+    t.eq(got3.nodeId, 'fr_sib_riding', '读回来还停在那个房间');
+
+    const roamEngine = new api.StoryEngine(api.composeStories([storyBody, story2Body]));
+    t.ok(!!roamEngine.restore(got3), '自由活动的快照，引擎能直接恢复');
+    t.eq(roamEngine.pov, '奥布里', '恢复成奥布里的视角');
+    t.eq(roamEngine.getStat('西比拉_好感'), 3, '新增的好感度也存得住');
+    // 房间的开场白先排掉，然后才是菜单 —— 菜单上带着「她此刻站在右槽的哪张图」
+    let roamView = roamEngine.advance();
+    for (let i = 0; i < 5 && roamView.type !== 'choices'; i++) roamView = roamEngine.advance();
+    t.eq((roamView.room || {}).portrait, 'chr_sibylla_riding',
+      '「她此刻穿着哪套」跟着存档一起回来了（装束＝位置换来的）');
+
+    // 一眼假的锚点照样拒绝
+    const bogusRoam = await postJSON('/api/act1/save', validSave({ nodeId: 'fr_没有这个房间' }));
+    t.ok(bogusRoam.status >= 400, '自由活动里不存在的锚点照样拒绝');
   } finally {
     if (child) child.kill();
     // 把存档还原成跑测试之前的样子

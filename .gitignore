@@ -13,6 +13,9 @@ node_modules/
 # 存档：运行时写出来的玩家进度，不是源码
 save.json
 
+# 无头截图的产物：tests/shots.cjs 跑出来的图，随时能重新生成（脚本要留）
+tests/shots/
+
 # 系统 / 编辑器的临时文件
 Thumbs.db
 desktop.ini

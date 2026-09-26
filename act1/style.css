@@ -46,6 +46,10 @@
      说话人牌子和「继续」提示也用它对齐。 */
   --dialogue-gutter: max(26px, calc((100% - 940px) / 2));
 
+  /* 换装浮层里除了立绘之外的那几行（标题 + 台词框 + 衣服那一排）大概占多高。
+     全身立绘的高度就是「一屏减掉 HUD 再减掉这个」，见 #outfit-portrait。 */
+  --outfit-chrome: 220px;
+
   /* 对话框底色：上下浅、中间深，上沿不能有硬边，否则会像贴了一条黑条 */
   --dialogue-bg: linear-gradient(180deg,
                    rgba(10, 9, 8, 0.30) 0%,
@@ -155,12 +159,15 @@ body:not(.ready) #app { opacity: 0; }
                             rgba(8, 7, 6, 0.30) 62%, rgba(8, 7, 6, 0.88) 100%);
 }
 
-/* ---------------- 立绘层 ---------------- */
+/* ---------------- 立绘层（左右两个槽位） ---------------- */
+
+/* 左槽 = 主视角角色此刻的样子，右槽 = 正在说话的那一位。
+   两个槽位是一套样式，右边那条把 left 换成 right、并且左右镜像。 */
 
 /* 立绘容器必须是「完全看不见的」：不能有边框、底色、阴影，
    否则透明背景的 PNG 会被衬出一个方框（这就是原来的「边界感」）。
-   容器只负责定位和尺寸，画本身全部交给 #portrait-image 那一层。 */
-#portrait-layer {
+   容器只负责定位和尺寸，画本身全部交给 .portrait-image 那一层。 */
+.portrait-slot {
   position: absolute;
   /* 往右靠一点，避开左下角的 HUD，也让构图不那么贴着边 */
   left: 5vw;
@@ -173,12 +180,12 @@ body:not(.ready) #app { opacity: 0; }
   /* 高度是按宽度算出来的，所以在「宽屏但很矮」的窗口（1366×768 之类）里
      会长得顶到章节标题上。这条上限把它压回来：
      立绘顶端最多到 --portrait-headroom 那一条线。
-     被压短之后图片本身不会变形 —— #portrait-image 用的是 contain，
+     被压短之后图片本身不会变形 —— .portrait-image 用的是 contain，
      它自己缩到框里，还是贴着底边居中。 */
   max-height: calc(100vh - var(--portrait-lift) - var(--portrait-headroom));
   pointer-events: none;
   transform-origin: bottom left;
-  transition: transform 0.4s ease;
+  transition: transform 0.4s ease, opacity 0.3s ease;
 
   /* ↓ 这三行是「消除边界感」的正主，别删 */
   border: 0;
@@ -186,11 +193,28 @@ body:not(.ready) #app { opacity: 0; }
   box-shadow: none;
 }
 
+/* 右槽镜像到右边。往中间让开半个身位，免得和左槽叠在一起 */
+#portrait-layer-r {
+  left: auto;
+  right: 5vw;
+  transform-origin: bottom right;
+}
+
+/* 这个槽位这一格没人 —— 整个藏掉。
+   只是「不画图」不够：真图没有的时候底下那层像素占位网格会露出来，
+   右槽没人时就会多出一块马赛克方块，等于把边界感搬到了右边。 */
+.portrait-slot.empty {
+  opacity: 0;
+  visibility: hidden;
+}
+
 /* 网格层是「真图没到之前」的替代品：真图一旦加载成功，
-   ui.js 会把 #portrait-grid-host 的 display 设成 none。
+   ui.js 会把网格容器的 display 设成 none。
    它同理不能带底色/边框，不然没真图时反而多一个方块。 */
 #portrait-grid-host,
-#portrait-image {
+#portrait-image,
+#portrait-grid-host-r,
+#portrait-image-r {
   position: absolute;
   inset: 0;
   border: 0;
@@ -198,10 +222,11 @@ body:not(.ready) #app { opacity: 0; }
   box-shadow: none;
 }
 
-#portrait-image {
+#portrait-image,
+#portrait-image-r {
   /* 贴左下角：框没被 max-height 压短时框和图一样宽，center 和 left 没区别；
      被压短时用 left 才能让图仍然贴着框的左边（也就是 left: 5vw 那条线），
-     不会缩着缩着往右飘。 */
+     不会缩着缩着往右飘。右槽同理贴右下角。 */
   background-position: bottom left;
   background-size: contain;
   background-repeat: no-repeat;
@@ -214,8 +239,10 @@ body:not(.ready) #app { opacity: 0; }
   /* image-rendering: pixelated; */
 }
 
-/* 不是西比拉在说话时：立绘往后缩一点、压暗一点。
-   是她在说话（#portrait-layer.speaking）时就是上面那个正常状态。 */
+#portrait-image-r { background-position: bottom right; }
+
+/* 没在说话的那一槽：往后缩一点、压暗一点。
+   在说话（.portrait-slot.speaking）时就是上面那个正常状态。 */
 #portrait-layer:not(.speaking) {
   transform: translateX(-1.5vw) scale(0.93);
 }
@@ -224,6 +251,15 @@ body:not(.ready) #app { opacity: 0; }
 }
 /* 像素占位图那一层也一起压暗，免得没有真图时立绘还亮着 */
 #portrait-layer:not(.speaking) #portrait-grid-host { opacity: 0.4; }
+
+/* 右槽镜像：往后缩的方向相反 */
+#portrait-layer-r:not(.speaking) {
+  transform: translateX(1.5vw) scale(0.93);
+}
+#portrait-layer-r:not(.speaking) #portrait-image-r {
+  filter: brightness(0.42) saturate(0.5);
+}
+#portrait-layer-r:not(.speaking) #portrait-grid-host-r { opacity: 0.4; }
 
 /* ---------------- 视角切换提示 ---------------- */
 
@@ -308,11 +344,21 @@ body:not(.ready) #app { opacity: 0; }
   /* 纯黑的投影在这种铺满底部的长条上没有意义，换成往上打的一层柔光 */
   box-shadow: 0 -14px 40px rgba(0, 0, 0, 0.45);
   cursor: pointer;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
-/* 选项出来时把对话框压暗，把注意力让给按钮（ui.js 在选项/结局时加 .choices-open） */
-#dialogue-box.choices-open { opacity: 0.5; }
+/* 出选项 / 走到结局时，对话框整个收起来（ui.js 的 setDialogueOpen(false)）。
+   以前只是 opacity: .5，上一句话会以半透明状态赖在屏幕底部不走。
+
+   用 transform 往下推、不用 display: none，是因为 #stage 是
+   flex-direction: column + justify-content: flex-end ——
+   transform 不脱离文档流，对话框仍然占着原来的高度，
+   上面的 #choices 不会因为对话框收起而忽然往下跳。 */
+#dialogue-box.collapsed {
+  opacity: 0;
+  transform: translateY(100%);
+  pointer-events: none;
+}
 
 #speaker-plate {
   position: absolute;
@@ -439,6 +485,19 @@ body:not(.ready) #app { opacity: 0; }
   font-family: var(--font-sans);
   font-size: 12px;
   color: #b08a6a;
+}
+
+/* 现在就穿着的那一套：不是「不能点」，是「点了也没变化」，所以只做个记号 */
+.choice-btn.worn {
+  border-color: var(--gold);
+  background: rgba(48, 39, 27, 0.85);
+}
+.choice-worn {
+  flex: none;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--gold);
+  opacity: 0.8;
 }
 
 /* =====================================================================
@@ -744,6 +803,137 @@ body:not(.ready) #app { opacity: 0; }
 
 .end-card .hud-btn { margin-top: 24px; }
 
+/* 「继续下一幕」只在结局节点写了 continueTo 时才出现（ui.js 把没用的那个 display:none） */
+.end-continue-btn {
+  border-color: var(--gold);
+  color: var(--gold);
+  letter-spacing: 0.12em;
+}
+
+/* ---------------- 换装浮层 ----------------
+   只在自由活动、且在西比拉房间里才开。要求是：对话框收起、全身立绘居中、
+   背景糊掉。z-index 取 10 —— 结局层是 8、控制条是 5、开始界面是 18，
+   于是它压得住游戏画面，但被开始界面压住（重开时不会露在标题上面）。 */
+#outfit-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: opacity 0.28s ease;
+}
+#outfit-screen:not(.on) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 背景模糊。**只能加在这一层身上**：给 #stage / #app 加 filter 会让
+   position:fixed 的 #bg-layer 换掉包含块，背景就不再贴着视口了
+   （见本文件开头 #bg-layer 那一段的警告）。 */
+#outfit-veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(6, 5, 4, 0.34) 0%, rgba(6, 5, 4, 0.82) 100%);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+.outfit-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  /* 一屏高减去上下留白：全身图长得快是宽的两倍，得按高度来卡 */
+  max-height: calc(100vh - var(--hud-h) - 34px);
+  padding: 0 18px;
+}
+
+.outfit-heading {
+  flex: none;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  color: var(--gold);
+}
+
+/* 居中的全身立绘。四张全身图都是 1448×2896（正好 1:2），所以这个盒子
+   按高度定尺、宽度由比例跟出来，image 那边再用 background-size: contain 兜底。
+
+   高度是算出来的，不是 flex 撑出来的：flex 列的交叉轴尺寸要靠内容定，
+   而内容又依赖比例，绕回自己了；索性把「标题 + 台词框 + 衣服那一排」的
+   大概高度写成 --outfit-chrome，一减就得到立绘能占多少。 */
+#outfit-portrait {
+  position: relative;
+  flex: none;
+  height: calc(100vh - var(--hud-h) - var(--outfit-chrome));
+  aspect-ratio: 1448 / 2896;
+  width: auto;
+  max-width: 92vw;
+  margin: 0 auto;
+}
+
+/* 像素占位网格 + 真图两层，和别处一样：图到了就把网格收起来 */
+#outfit-grid-host,
+#outfit-image {
+  position: absolute;
+  inset: 0;
+  background-position: center bottom;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+#outfit-line {
+  flex: none;
+  width: min(680px, 88vw);
+  min-height: 2.6em;
+  padding: 12px 20px;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: clamp(14px, 1.5vw, 17px);
+  line-height: 1.6;
+  color: var(--parchment);
+  background: rgba(20, 17, 14, 0.86);
+  border: 1px solid var(--panel-edge);
+  border-radius: var(--radius);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.outfit-speaker {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+}
+
+/* 衣服那一排：**必须是一排**，因为立绘的高度是按「一排」估出来的
+   （--outfit-chrome）。所以这里 nowrap：按钮宁可各自收窄一点，
+   也不许折行 —— 折了行第二行就会掉到窗口外面去（真掉过一次）。
+   宽度按「最坏情况」给：最多 7 个按钮（四套衣服 + 退出换装 +
+   进入下一幕 + 结束游戏），每个 min-width 132、间距 8 ——
+   7×132 + 6×8 = 972，取 1100 留余量。 */
+#outfit-choices {
+  flex: none;
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 8px;
+  width: min(1100px, 96vw);
+}
+
+#outfit-choices .choice-btn {
+  width: auto;
+  flex: 0 1 auto;
+  min-width: 132px;
+  justify-content: center;
+  padding: 10px 16px;
+}
+
 /* 加载失败提示 */
 #boot-error {
   display: none;
@@ -775,7 +965,9 @@ body:not(.ready) #app { opacity: 0; }
     /* 窄屏底下对话框也矮，立绘跟着少抬一点，别顶到标题栏 */
     --portrait-lift: clamp(64px, 9vh, 110px);
   }
+  /* 窄屏：两个槽位各让开一点、缩小，都往中间靠，别互相压住 */
   #portrait-layer { width: 130px; left: 3vw; opacity: 0.85; }
+  #portrait-layer-r { width: 130px; right: 3vw; opacity: 0.85; }
   #stats-panel { margin: 14px 14px 0 0; padding: 12px 14px; }
   #hud { left: 14px; max-width: calc(100% - var(--panel-w) - 28px); }
   .hud-keys { display: none; }

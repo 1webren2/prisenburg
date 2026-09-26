@@ -31,10 +31,18 @@
     <!-- 章节标题（左） + 视角（右，由 ui.js 写进 data-pov） -->
     <div id="title-bar" data-pov=""></div>
 
-    <!-- 立绘：同样网格 + 图片层两层 -->
-    <div id="portrait-layer">
+    <!-- 立绘：左右两个槽位，每个槽位都是「像素网格 + 图片层」两层。
+         左槽 = 主视角角色此刻的样子（节点里的 art.portrait）；
+         右槽 = 正在说话的那一位（characters[speaker].portrait）。
+         主视角角色自己开口时右槽收起来，左槽由压暗变点亮。
+         换装不需要额外机制：给换衣服的那个节点写一个不同的 art.portrait 就行。 -->
+    <div id="portrait-layer" class="portrait-slot">
       <div id="portrait-grid-host"></div>
       <div id="portrait-image" data-src="images/chr_sibylla.jpg"></div>
+    </div>
+    <div id="portrait-layer-r" class="portrait-slot portrait-slot--right">
+      <div id="portrait-grid-host-r"></div>
+      <div id="portrait-image-r" data-src="images/chr_sibylla.jpg"></div>
     </div>
 
     <!-- 底部对话框 -->
@@ -82,19 +90,42 @@
   </div>
 
   <!-- ============ 结局 ============ -->
+  <!-- 标题/副题由 ui.js 按结局节点填（第一幕、第二幕各有自己的），
+       「继续下一幕」只在节点写了 continueTo 时才出现 -->
   <div id="end-screen">
     <div class="end-card">
-      <h2>第一幕 · 完</h2>
-      <p class="end-sub">西比拉·德·克莱尔住进了伊莎贝尔的隔壁。</p>
+      <h2 id="end-title">完</h2>
+      <p class="end-sub" id="end-sub"></p>
       <div id="end-stats"></div>
+      <button id="end-continue" class="hud-btn end-continue-btn">继续下一幕 ▶</button>
+      <!-- 幕间自由活动：哪个结局之后能进由 story.json 的 freeRoam.hubs[].after 决定，
+           ui.js 按当前结局节点把按钮显示/藏起来并写上 data-anchor -->
+      <button id="end-roam" class="hud-btn end-continue-btn">自由活动 ▶</button>
       <button id="end-restart" class="hud-btn" onclick="window.act1 && window.act1.ui.restart()">重新开始</button>
+    </div>
+  </div>
+
+  <!-- ============ 换装浮层（只在自由活动、且在西比拉的房间里能开） ============
+       全身立绘居中，背景用 #outfit-veil 的 backdrop-filter 糊掉。
+       注意：模糊只能加在这一层自己身上 —— 给 #stage / #app 加 filter 会让
+       position:fixed 的 #bg-layer 换掉包含块，背景就不再贴着视口了（见 style.css）。 -->
+  <div id="outfit-screen">
+    <div id="outfit-veil"></div>
+    <div class="outfit-card">
+      <div class="outfit-heading">换装</div>
+      <div id="outfit-portrait">
+        <div id="outfit-grid-host"></div>
+        <div id="outfit-image"></div>
+      </div>
+      <div id="outfit-line"></div>
+      <div id="outfit-choices"></div>
     </div>
   </div>
 
 </div>
 
-<!-- 引擎（不依赖 DOM，Node 里也能跑） -->
-<script src="game.js"></script>
+<!-- 引擎：剧情规则与数值（纯逻辑，不依赖 DOM，Node 里也能跑） -->
+<script src="engine.js"></script>
 <!-- 渲染层（把引擎数据画成上面的 DOM） -->
 <script src="ui.js"></script>
 </body>

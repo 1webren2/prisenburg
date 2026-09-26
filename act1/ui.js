@@ -2,24 +2,29 @@
  * 第一幕 · 网页渲染层
  * =====================================================================
  * 这一层只做一件事：把 StoryEngine 的事件画成 DOM，不碰任何剧情逻辑。
- * 剧情规则全在 game.js 里（那份代码不依赖 DOM，Node 里跑得动、测得了），
+ * 剧情规则全在 engine.js 里（那份代码不依赖 DOM，Node 里跑得动、测得了），
  * 这里换成 Canvas、或者换成别的排版，都不用动引擎。
+ * 引擎在浏览器里挂在 window.Act1Story 上（见 engine.js 末尾的 UMD 包装）。
  *
- * 三层结构：
- *   .bg-layer      背景：像素块网格 + 真实图片层（图片在就盖住网格）
- *   .portrait-layer 立绘：同上
- *   .dialogue-box  底部半透明对话框
- *   .choices       选项按钮
- *   .stats-panel   隐藏数值面板（按 V 切换）
+ * 结构：
+ *   .bg-layer       背景：像素块网格 + 真实图片层（图片在就盖住网格）
+ *   .portrait-slot  立绘，左右两个槽位，每个都是同样的两层
+ *   .dialogue-box   底部半透明对话框（出选项 / 到结局时收起来）
+ *   .choices        选项按钮
+ *   .stats-panel    隐藏数值面板（按 V 切换）
  *
  * ---------------------------------------------------------------
- * 【将来替换真实图片】
- *   默认约定路径：act1/images/<素材key>.jpg
- *   例如 bg_hall  ->  act1/images/bg_hall.jpg
- *        chr_aubrey -> act1/images/chr_aubrey.jpg
- *   也可以直接在 story.json 里给该素材写 "src": "images/我的图.png" 覆盖。
+ * 【立绘怎么摆】
+ *   左槽 = 主视角角色此刻的样子   —— 节点的 art.portrait
+ *   右槽 = 正在说话的那一位       —— characters[speaker].portrait
+ *   主视角角色自己开口时右槽留空，左槽由压暗变亮。
+ *   换装不需要额外机制：给换衣服的那个节点写一个不同的 art.portrait 就行。
+ *
+ * 【替换真实图片】
+ *   素材在 story.json 的 art.assets 里写 "src": "images/我的图.png"。
+ *   没写 src 就按约定找 act1/images/<素材key>.png。
  *   图片放上去就自动生效，不需要改代码：图片层盖在像素块网格上面，
- *   404 的时候浏览器不画任何东西，底下的像素块就露出来了。
+ *   404 的时候浏览器不画任何东西，底下的像素块就露出来了（占位）。
  * ---------------------------------------------------------------
  */
 
@@ -42,7 +47,7 @@
   const CONFIG = {
     /** 真实图片放这里（相对 index.html），文件名 = 素材 key + 扩展名 */
     imageDir: 'images/',
-    imageExt: '.jpg',
+    imageExt: '.png',
     /** 打字机速度（毫秒/字）。系统设了「减少动画」会自动跳过 */
     typeSpeed: 24,
     /** 存档接口：同源时用相对路径，file:// 打开时回落到本地服务器 */
@@ -53,15 +58,13 @@
 
     /* ---------- 立绘 ---------- */
 
-    /** 剧本里的主角 key。只有这个角色说话时，立绘才是亮的（其余时候后缩 + 压暗） */
-    leadCharacter: '西比拉',
     /**
-     * 其他角色的立绘还没画好，先一律借用主角那一张。
-     * 等各角色的立绘到位之后，把这里改成 null，引擎就会去用
-     * story.json 里 characters[].portrait 指定的那张。
+     * 立绘一律用 story.json 里指定的那张（characters[].portrait /
+     * 节点的 art.portrait）。这里是 null —— 早先各角色的立绘还没画好时，
+     * 这里曾经写死成 'chr_sibylla' 让大家借西比拉的脸，现在都画好了。
      */
-    portraitOverride: 'chr_sibylla',
-    /** 没有指定立绘的节点（比如旁白）兜底用哪张 —— 保证立绘常驻，不会空场 */
+    portraitOverride: null,
+    /** 节点没写 art.portrait 时兜底用哪张 —— 保证左槽不空场 */
     fallbackPortrait: 'chr_sibylla',
 
     /* ---------- 开始界面 ---------- */
@@ -74,6 +77,32 @@
   function imageSrc(key, asset) {
     if (asset && asset.src) return asset.src;        // story.json 里显式指定的优先
     return CONFIG.imageDir + key + CONFIG.imageExt;
+  }
+
+  /**
+   * 把 rel 拼到 base（一个文件路径）所在目录后面，处理 . 和 ..。
+   * 用来顺着 meta.continues 找后面几幕的剧本。
+   *
+   * 返回的是**相对当前页面**的路径（fetch 会拿页面地址去解），不是绝对路径 ——
+   * 页面就和入口剧本在同一个目录里，所以两者等价。
+   *
+   * 注意开头的 .. 要留着：base 是 'story.json' 时它没有目录部分，
+   * 而 '../act2/story.json' 正是靠这个 .. 从 /act1/ 上到根再进 /act2/ 的。
+   * 这里如果把栈底的 .. 弹掉（早先就是这么写的），路径会悄悄变成
+   * 'act2/story.json'，浏览器就去 /act1/act2/ 找 —— 第二幕整个载入不了。
+   */
+  function resolvePath(rel, base) {
+    if (/^[a-z][a-z0-9+.-]*:|^\//i.test(rel)) return rel;    // 绝对地址 / 绝对路径，原样用
+    const dir = base.slice(0, base.lastIndexOf('/') + 1);    // '' 或 'a/b/'
+    const stack = [];
+    for (const p of (dir + rel).split('/')) {
+      if (p === '' || p === '.') continue;
+      if (p === '..') {
+        if (stack.length && stack[stack.length - 1] !== '..') stack.pop();
+        else stack.push('..');                              // 没得弹了就把 .. 留着
+      } else stack.push(p);
+    }
+    return stack.join('/');
   }
 
   /* ===================================================================
@@ -157,8 +186,8 @@
       this.reducedMotion = prefersReducedMotion(this.win);
       this.els = {};
       this._bgKey = null;
-      this._portraitKey = null;
-      this._speaking = null;
+      this._portraitKeys = { left: undefined, right: undefined };
+      this._speaking = { left: false, right: false };
       this._typing = null;          // 打字机定时器
       this._pending = null;         // 打字中还没播完的那一行
       this.view = null;
@@ -174,11 +203,15 @@
       const need = [
         'bg-layer', 'bg-grid-host', 'bg-image',
         'portrait-layer', 'portrait-grid-host', 'portrait-image',
+        'portrait-layer-r', 'portrait-grid-host-r', 'portrait-image-r',
         'pov-banner', 'title-bar', 'dialogue-box', 'speaker-plate',
         'dialogue-text', 'next-hint', 'choices', 'stats-panel', 'stats-body',
         'stats-toggle', 'save-btn', 'load-btn', 'restart-btn', 'server-dot',
-        'toast', 'end-screen', 'end-stats',
+        'toast', 'end-screen', 'end-stats', 'end-title', 'end-sub', 'end-continue',
         'title-screen', 'title-bg', 'title-start',
+        'end-roam',
+        'outfit-screen', 'outfit-veil', 'outfit-portrait', 'outfit-grid-host',
+        'outfit-image', 'outfit-line', 'outfit-choices',
       ];
       const missing = [];
       for (const id of need) {
@@ -238,26 +271,98 @@
       this.applyImageLayer(this.els['bg-image'], this.els['bg-grid-host'], key, asset);
     }
 
-    /** 立绘到底画哪一张：override（其他立绘还没画好时的临时统一）> 指定的 > 兜底 */
+    /** 立绘到底画哪一张：override（早先的临时统一）> 指定的 > 兜底 */
     resolvePortrait(key) {
       return CONFIG.portraitOverride || key || CONFIG.fallbackPortrait;
     }
 
-    setPortrait(key) {
-      key = this.resolvePortrait(key);
-      if (key === this._portraitKey) return;
-      this._portraitKey = key;
-      const asset = key ? this.engine.assets[key] : null;
-      setChildren(this.els['portrait-grid-host'], key ? buildPixelGrid(this.engine, key, this.doc) : null);
-      this.applyImageLayer(this.els['portrait-image'], this.els['portrait-grid-host'], key, asset);
+    /** 左槽 / 右槽的三个元素 */
+    slotEls(side) {
+      return side === 'right'
+        ? {
+          slot: this.els['portrait-layer-r'],
+          grid: this.els['portrait-grid-host-r'],
+          img: this.els['portrait-image-r'],
+        }
+        : {
+          slot: this.els['portrait-layer'],
+          grid: this.els['portrait-grid-host'],
+          img: this.els['portrait-image'],
+        };
     }
 
-    /** 立绘的「亮着 / 后缩压暗」两态，样式在 style.css 的 #portrait-layer 那条 */
-    setSpeaking(on) {
+    /**
+     * 给某个槽位换图。side = 'left'（默认，主视角角色）| 'right'（说话人）
+     *
+     * key 传 null 表示这个槽位这一格没人：**整个槽位要藏起来**。
+     * 不能只是不画图 —— applyImageLayer 在没有 key 的时候会把像素占位网格放出来，
+     * 右槽没人时就会多出一块马赛克方块，等于把「边界感」搬到了右边。
+     */
+    setPortrait(key, side) {
+      side = side === 'right' ? 'right' : 'left';
+      key = key ? this.resolvePortrait(key) : null;
+      const els = this.slotEls(side);
+
+      els.slot.classList.toggle('empty', !key);
+      if (key === this._portraitKeys[side]) return;
+      this._portraitKeys[side] = key;
+
+      els.grid.style.display = '';
+      setChildren(els.grid, key ? buildPixelGrid(this.engine, key, this.doc) : null);
+      this.applyImageLayer(els.img, els.grid, key, key ? this.engine.assets[key] : null);
+    }
+
+    /** 立绘的「亮着 / 后缩压暗」两态，样式在 style.css 的 .portrait-slot 那几条 */
+    setSpeaking(side, on) {
+      side = side === 'right' ? 'right' : 'left';
       on = !!on;
-      if (on === this._speaking) return;
-      this._speaking = on;
-      this.els['portrait-layer'].classList.toggle('speaking', on);
+      if (on === this._speaking[side]) return;
+      this._speaking[side] = on;
+      this.slotEls(side).slot.classList.toggle('speaking', on);
+    }
+
+    /**
+     * 两个槽位这一格各放谁 —— showLine / showChoices / 结局屏共用一份，
+     * 免得三处逻辑各写一遍、日子久了走样。
+     *
+     *   左槽：主视角角色此刻的样子（节点 art.portrait，换装就是换它）
+     *   右槽：正在说话的那一位；旁白不说话、主视角角色自己开口时右槽留空
+     *   左槽亮不亮：主视角角色在说话，或者正在出选项（＝玩家替 TA 做决定）
+     *
+     * 「两槽是同一个人就把右槽收掉」必须按**角色身份**判，不能按素材 key 判 ——
+     * 换装之后 chr_sibylla 和 chr_sibylla_teacher 是两个 key，
+     * 按 key 比会让西比拉穿着两套衣服同时站在左右两边。
+     */
+    resolveSlots(view) {
+      const e = this.engine;
+      const art = (view && view.context) || e.currentArt();
+      const left = art.portrait || null;
+
+      const speaker = (view && view.type === 'line' && !view.narration) ? view.speaker : null;
+      const povSpeaking = !!speaker && speaker === e.pov;
+      const right = (speaker && !povSpeaking) ? (view.portrait || null) : null;
+
+      if (view && view.type === 'choices') {
+        // 房间里是「你来做客」：左槽是奥布里（他不说话），右槽是房间里那个人
+        // 此刻的样子（＝她当前穿的那套），亮着。view.room 由引擎的状态机填。
+        const room = view.room;
+        if (room && room.portrait) {
+          return { left, right: room.portrait, leftLit: false, rightLit: true };
+        }
+        return { left, right: null, leftLit: true, rightLit: false };
+      }
+      return { left, right, leftLit: povSpeaking, rightLit: !!right };
+    }
+
+    /**
+     * 对话框的开/收。出选项、走到结局时收起来 —— 不再让上一句话以半透明状态
+     * 赖在屏幕底部。样式挂在 #dialogue-box.collapsed 上（用 transform 收，
+     * 不收 display，这样它仍然占着原来的高度，上面的选项不会往下跳）。
+     */
+    setDialogueOpen(on) {
+      on = !!on;
+      this.els['dialogue-box'].classList.toggle('collapsed', !on);
+      if (!on) this.stopTyping();       // 收起时别留着打字机自己跑
     }
 
     /* ---------------- 开始界面 ---------------- */
@@ -314,11 +419,11 @@
     showLine(view) {
       const e = this.engine;
       this.setBackground((view.context || e.currentArt()).bg);
-      const art = view.context || e.currentArt();
-      const portraitKey = (!view.narration && view.portrait) || art.portrait;
-      this.setPortrait(portraitKey);
-      // 只有西比拉自己在说话时立绘是亮的；旁白和别的人开口都后缩压暗
-      this.setSpeaking(!view.narration && view.speaker === CONFIG.leadCharacter);
+      const slots = this.resolveSlots(view);
+      this.setPortrait(slots.left, 'left');
+      this.setPortrait(slots.right, 'right');
+      this.setSpeaking('left', slots.leftLit);
+      this.setSpeaking('right', slots.rightLit);
 
       const plate = this.els['speaker-plate'];
       if (view.narration) {
@@ -330,7 +435,7 @@
         if (view.color) plate.style.color = view.color;
       }
 
-      this.els['dialogue-box'].classList.remove('choices-open');
+      this.setDialogueOpen(true);
       this.typeText(view.line.text, view);
     }
 
@@ -376,26 +481,22 @@
 
     /* ---------------- 选项 ---------------- */
 
-    showChoices(view) {
-      const e = this.engine;
-      this.setBackground((view.context || e.currentArt()).bg);
-      const art = view.context || e.currentArt();
-      this.setPortrait(art.portrait);
-      // 选项是「玩家替当前视角角色做决定」：序章替西比拉，主场替奥布里
-      this.setSpeaking(e.pov === CONFIG.leadCharacter);
-
-      const host = this.els.choices;
+    /**
+     * 把按钮填进某个容器。选项栏和换装浮层里的那排衣服共用这一份 ——
+     * 「点一下就没了」之外，两边长得也该一样。
+     */
+    fillChoiceButtons(host, choices) {
       while (host.firstChild) host.removeChild(host.firstChild);
-
-      for (const c of view.choices) {
+      for (const c of choices) {
         const btn = this.doc.createElement('button');
-        btn.className = 'choice-btn' + (c.enabled ? '' : ' locked');
+        btn.className = 'choice-btn' + (c.enabled ? '' : ' locked') + (c.worn ? ' worn' : '');
         btn.setAttribute('data-index', String(c.index));
         btn.disabled = !c.enabled;
 
         btn.appendChild(el(this.doc, 'span', 'choice-key', String(c.index + 1)));
         btn.appendChild(el(this.doc, 'span', 'choice-text', c.text));
         if (c.hint) btn.appendChild(el(this.doc, 'span', 'choice-hint', c.hint));
+        if (c.worn) btn.appendChild(el(this.doc, 'span', 'choice-worn', '✔ 现在穿着'));
         if (!c.enabled) btn.appendChild(el(this.doc, 'span', 'choice-lock', '🔒 ' + c.lockedHint));
 
         // click 会被下面的统一事件代理接管，这里只负责把焦点丢掉，
@@ -403,16 +504,113 @@
         btn.addEventListener('click', () => { btn.blur(); });
         host.appendChild(btn);
       }
-      this.els['dialogue-box'].classList.add('choices-open');
+    }
+
+    /**
+     * 把选项栏清空。点完任何一个选项都要立刻收掉 ——
+     * 否则按钮会一直挂在屏幕下半截，正好压在立绘的裙摆上。
+     * 只清子节点、不加类、不动布局，所以对话框的收放不会让选项跳动。
+     */
+    hideChoices() {
+      const host = this.els.choices;
+      if (host) while (host.firstChild) host.removeChild(host.firstChild);
+    }
+
+    showChoices(view) {
+      const e = this.engine;
+      this.setBackground((view.context || e.currentArt()).bg);
+      // 选项是「玩家替当前视角角色做决定」：左槽是 TA，亮着；右槽没人。
+      // 不过在自由活动的房间里，右槽要站着房间里那个人（见 resolveSlots）。
+      const slots = this.resolveSlots(view);
+      this.setPortrait(slots.left, 'left');
+      this.setPortrait(slots.right, 'right');
+      this.setSpeaking('left', slots.leftLit);
+      this.setSpeaking('right', slots.rightLit);
+
+      this.fillChoiceButtons(this.els.choices, view.choices);
+      this.setDialogueOpen(false);         // 上一句话让位，收起来
       this.els['next-hint'].textContent = '';
       this.notify();
     }
 
+    /* ---------------- 换装浮层 ---------------- */
+
+    get outfitOpen() {
+      const s = this.els['outfit-screen'];
+      return !!(s && s.classList.contains('on'));
+    }
+
+    hideOutfit() {
+      const s = this.els['outfit-screen'];
+      if (s) s.classList.remove('on');
+      return this;
+    }
+
+    /**
+     * 换装浮层：对话框收起、全身立绘居中、背景交给 #outfit-veil 糊掉。
+     * 全身图**不能**走 setPortrait —— 那套是左右两栏的槽位（有 .speaking 缩放和
+     * --portrait-lift 定位），居中是另一回事，所以这里自己一层。
+     */
+    showOutfit(view) {
+      const host = this.els['outfit-screen'];
+      if (!host) return this;
+
+      host.classList.add('on');
+      this.setDialogueOpen(false);       // 浮层里没有对话框，收起来最干净
+      this.stopTyping();                 // 免得打字机在收起的框里继续跑
+
+      const key = view.full || null;
+      const asset = key ? this.engine.assets[key] : null;
+      const grid = this.els['outfit-grid-host'];
+      grid.style.display = '';
+      setChildren(grid, key ? buildPixelGrid(this.engine, key, this.doc) : null);
+      this.applyImageLayer(this.els['outfit-image'], grid, key, asset);
+
+      const box = this.els['outfit-line'];
+      while (box.firstChild) box.removeChild(box.firstChild);
+      const line = view.line;
+      if (line) {
+        const who = this.engine.characters[line.speaker] || {};
+        if (!who.narration) box.appendChild(el(this.doc, 'span', 'outfit-speaker', who.displayName || line.speaker));
+        box.appendChild(el(this.doc, 'span', 'outfit-text', line.text || ''));
+      }
+
+      this.fillChoiceButtons(this.els['outfit-choices'], view.choices);
+      this.els['next-hint'].textContent = '';
+      this.notify();
+      return this;
+    }
+
     /* ---------------- 结局 ---------------- */
 
-    showEnd() {
+    showEnd(view) {
       const host = this.els['end-screen'];
       host.classList.add('on');
+
+      // 标题和副题跟着结局节点走 —— 第二幕之后就不再是「第一幕 · 完」了
+      const node = (view && view.node) || this.engine.node || {};
+      this.els['end-title'].textContent = node.title || '完';
+      this.els['end-sub'].textContent = node.endSub || '';
+
+      // 只有写了 continueTo、而且那一幕真的载入了的结局节点才有「继续下一幕」
+      // （单独打开第一幕的 story.json 时后面那一幕不在，按钮就不该点得动）
+      const next = (node.continueTo && this.engine.nodes[node.continueTo]) ? node.continueTo : null;
+      const cont = this.els['end-continue'];
+      cont.style.display = next ? '' : 'none';
+      cont.setAttribute('data-next', next || '');
+      cont.textContent = next
+        ? ('继续' + ((this.engine.nodes[next] || {}).title || '下一幕').split(' · ')[0] + ' ▶')
+        : '继续下一幕 ▶';
+
+      // 「自由活动 ▶」：这个结局之后有没有安排自由活动，由剧本里的
+      // freeRoam.hubs[].after 说了算（第二幕是最后一幕，它那个 hub 里就没有下一幕）
+      const anchor = this.engine.roamAnchorAfter ? this.engine.roamAnchorAfter(node.id) : null;
+      const roam = this.els['end-roam'];
+      if (roam) {
+        roam.style.display = anchor ? '' : 'none';
+        roam.setAttribute('data-anchor', anchor || '');
+      }
+
       const body = this.els['end-stats'];
       while (body.firstChild) body.removeChild(body.firstChild);
       for (const s of this.engine.statPanel()) {
@@ -426,6 +624,42 @@
 
     hideEnd() {
       this.els['end-screen'].classList.remove('on');
+    }
+
+    /**
+     * 从结局画面接着演下一幕：走进 continueTo 指的那个节点。
+     * 不需要新的引擎方法 —— enterNode() 内部本来就会把 ended 清掉；
+     * 而且它拿的是上一个节点的 pov，从奥布里跨到西比拉时会照常弹视角提示。
+     */
+    continueNextAct() {
+      const node = (this.view && this.view.node) || this.engine.node || {};
+      const next = node.continueTo;
+      if (!next || !this.engine.nodes[next]) return false;
+      this.stopTyping();
+      this.locked = false;
+      this.hideEnd();
+      this.engine.enterNode(next);
+      this.renderStats();
+      this.render(this.engine.advance());
+      return true;
+    }
+
+    /**
+     * 从结局卡片进「幕间自由活动」。落点是 showEnd() 写在 data-anchor 上的
+     * 那个 hub —— 走的是引擎的 enterRoam()，之后的菜单全由状态机生成。
+     */
+    enterRoamFromEnd() {
+      const btn = this.els['end-roam'];
+      const anchor = btn && btn.getAttribute('data-anchor');
+      if (!anchor) return false;
+      const res = this.engine.enterRoam(anchor);
+      if (!res.ok) { this.showToast('这里还进不去自由活动'); return false; }
+      this.stopTyping();
+      this.locked = false;
+      this.hideEnd();
+      this.renderStats();
+      this.render(this.engine.advance());
+      return true;
     }
 
     /* ---------------- 数值面板 ---------------- */
@@ -493,17 +727,31 @@
       this.view = view;
       if (!view) return this;
       this.hideEnd();
+      // 兜底：任何一次重画都不该留着上一轮的按钮
+      // （真正「点一下就消失」是在 choose() 里，那里更快）
+      this.hideChoices();
 
       if (view.type === 'line') {
+        this.hideOutfit();
         this.showTitle();
         this.showLine(view);
       } else if (view.type === 'choices') {
+        this.hideOutfit();
         this.showTitle();
         this.showChoices(view);
-      } else if (view.type === 'end') {
+      } else if (view.type === 'outfit') {
         this.showTitle();
-        this.els['dialogue-box'].classList.add('choices-open');
-        this.showEnd();
+        this.showOutfit(view);
+      } else if (view.type === 'end') {
+        this.hideOutfit();
+        this.showTitle();
+        // 结局屏上主视角角色留在左槽、压暗；右槽没人；对话框收起
+        this.setPortrait(((view.node && view.node.art) || {}).portrait, 'left');
+        this.setPortrait(null, 'right');
+        this.setSpeaking('left', false);
+        this.setSpeaking('right', false);
+        this.setDialogueOpen(false);
+        this.showEnd(view);
       }
       return this;
     }
@@ -546,6 +794,9 @@
         this.showToast(res.reason === 'locked' ? '还不能选：' + res.lockedHint : '选不了这个选项');
         return false;
       }
+      // 立刻收掉按钮：点下去到下一句画出来之间还有 toast / 数值面板两拍，
+      // 那两拍里按钮要是还挂着，就正好压在立绘上（这就是之前那个遮挡）
+      this.hideChoices();
       for (const note of res.notes || []) this.showToast(note);
       this.renderStats();          // 数值可能变了
       this.render(this.engine.advance());
@@ -570,14 +821,19 @@
       });
 
       // 选项用事件代理：将来动态加按钮也不用重新绑
-      this.els.choices.addEventListener('click', (ev) => {
+      const onChoiceClick = (ev) => {
         const btn = ev.target && ev.target.closest ? ev.target.closest('.choice-btn') : null;
         if (!btn || btn.disabled) return;
         const idx = Number(btn.getAttribute('data-index'));
         if (Number.isInteger(idx)) this.choose(idx);
-      });
+      };
+      this.els.choices.addEventListener('click', onChoiceClick);
+      // 换装浮层里那排衣服走同一个 choose()，只是按钮在另一层
+      this.els['outfit-choices'].addEventListener('click', onChoiceClick);
 
       this.els['title-start'].addEventListener('click', () => this.begin());
+      this.els['end-continue'].addEventListener('click', () => this.continueNextAct());
+      this.els['end-roam'].addEventListener('click', () => this.enterRoamFromEnd());
       this.els['stats-toggle'].addEventListener('click', () => this.toggleStats());
       this.els['restart-btn'].addEventListener('click', () => this.restart());
       this.els['save-btn'].addEventListener('click', () => this.save());
@@ -616,7 +872,9 @@
 
       if (key >= '1' && key <= '9') {
         const idx = Number(key) - 1;
-        if (this.view && this.view.type === 'choices' && idx < this.view.choices.length) this.choose(idx);
+        const v = this.view;
+        // 换装浮层里的那排衣服也认数字键（都是 view.choices）
+        if (v && (v.type === 'choices' || v.type === 'outfit') && idx < v.choices.length) this.choose(idx);
       }
     }
 
@@ -701,14 +959,44 @@
       if (win.console) console.error(msg, detail || '');
     }
 
+    /** 读一份剧本 */
+    function fetchStory(url) {
+      return win.fetch(url, { cache: 'no-cache' }).then((res) => {
+        if (!res.ok) throw new Error('HTTP ' + res.status + '：' + url);
+        return res.json();
+      });
+    }
+
+    /**
+     * 顺着 meta.continues 把后面几幕的剧本也读进来。
+     * 单一事实来源就是第一幕 meta 里那串路径 —— Node 那边（按幕合并自检）
+     * 和这里用的是同一个字段，不会两边各记一份。
+     */
+    function loadAllStories(entryUrl, entryStory) {
+      const stories = [entryStory];
+      const pending = [{ url: entryUrl, story: entryStory }];
+      const done = new Set([entryUrl]);
+
+      function drain() {
+        if (!pending.length) return Promise.resolve(stories);
+        const cur = pending.shift();
+        const rels = (cur.story.meta && cur.story.meta.continues) || [];
+        return rels.reduce((chain, rel) => chain.then(() => {
+          const url = resolvePath(rel, cur.url);
+          if (done.has(url)) return null;
+          done.add(url);
+          return fetchStory(url).then((s) => { stories.push(s); pending.push({ url, story: s }); });
+        }), Promise.resolve()).then(drain);
+      }
+      return drain();
+    }
+
     // 剧本用 fetch 读 story.json。用 file:// 直接双击打开的话 fetch 会被拦，
     // 那种情况下请起服务器：node server.js 然后访问 http://localhost:3000/act1
-    win.fetch('story.json', { cache: 'no-cache' })
-      .then((res) => {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return res.json();
-      })
-      .then((story) => {
+    fetchStory('story.json')
+      .then((first) => loadAllStories('story.json', first))
+      .then((stories) => {
+        const story = stories.length > 1 ? win.Act1Story.composeStories(stories) : stories[0];
         const engine = new win.Act1Story.StoryEngine(story);
         const report = engine.validate();
         if (!report.ok) throw new Error('剧本有错：' + report.errors.join(' / '));
@@ -727,7 +1015,7 @@
         if (doc.body) doc.body.classList.add('ready');
       })
       .catch((err) => {
-        fail('第一幕加载失败：' + err.message,
+        fail('剧本加载失败：' + err.message,
           '如果地址栏是 file:// 开头，请改用服务器打开：node server.js 然后访问 http://localhost:3000/act1');
       });
   }
@@ -737,6 +1025,7 @@
     CONFIG,
     imageSrc,
     buildPixelGrid,
+    resolvePath,
     boot,
   };
 });

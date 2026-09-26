@@ -9,7 +9,8 @@
  *    GET  /api/health   给前端探测服务器是否在线
  *
  * 第一幕的两套接口是分开的：它的存档单位是「剧情节点」，不是「场景 + 好感度」，
- * 而且会拿 nodeId 去 act1/story.json 里核对，存了一个剧本里不存在的节点会被打回。
+ * 而且会拿 nodeId 去剧本里核对（第一幕 + 后面各幕的节点都在同一张表里），
+ * 存了一个剧本里不存在的节点会被打回。
  *
  * 另外保留了 GET /api/save 和 POST /api/load 两个"别名"，
  * 方便按最初的写法调用（语义上是反的，正常请用上面那组）。
@@ -33,20 +34,44 @@ const SAVE_FILE = path.join(ROOT, 'save.json');
 const MAX_TEXT = 100;         // 字符串字段长度上限
 const MAX_NUMBER = 1e6;       // 数值字段绝对值上限
 
-/* ---------- 第一幕：启动时把剧本读进来，用来校验存档 ---------- */
+/* ---------- 剧本：启动时全读进来，用来校验存档 ---------- */
 
 const ACT1_DIR = path.join(ROOT, 'act1');
 const ACT1_SAVE_FILE = path.join(ACT1_DIR, 'save.json');
 
+/**
+ * 存档是跨幕共用的（同一个页面、同一份 save.json），所以在第二幕存档时
+ * nodeId 会是 b 开头的节点。只认第一幕的节点表的话，玩家一到第二幕就存不了档。
+ * 这里顺着 meta.continues 把后面几幕也读进来，节点 id 并进同一张表。
+ */
+function loadActs(entryPath) {
+  const nodeIds = new Set();
+  const statLabels = new Set();
+  const seen = new Set();
+  const queue = [path.resolve(entryPath)];
+  while (queue.length) {
+    const file = queue.shift();
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const story = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const node of story.nodes || []) nodeIds.add(node.id);
+    for (const key of Object.keys((story.config && story.config.statLabels) || {})) statLabels.add(key);
+    for (const rel of ((story.meta || {}).continues || [])) {
+      queue.push(path.resolve(path.dirname(file), rel));
+    }
+  }
+  return { nodeIds, statLabels };
+}
+
 const ACT1 = { loaded: false, nodeIds: new Set(), statLabels: new Set(), reason: '' };
 try {
-  const story = JSON.parse(fs.readFileSync(path.join(ACT1_DIR, 'story.json'), 'utf8'));
-  for (const node of story.nodes || []) ACT1.nodeIds.add(node.id);
-  for (const key of Object.keys((story.config && story.config.statLabels) || {})) ACT1.statLabels.add(key);
+  const loaded = loadActs(path.join(ACT1_DIR, 'story.json'));
+  ACT1.nodeIds = loaded.nodeIds;
+  ACT1.statLabels = loaded.statLabels;
   ACT1.loaded = true;
 } catch (err) {
   ACT1.reason = err.message;
-  console.warn('[act1] 读不到 act1/story.json，/api/act1/* 会返回 503：' + err.message);
+  console.warn('[act1] 读不到剧本，/api/act1/* 会返回 503：' + err.message);
 }
 
 const app = express();
@@ -67,9 +92,12 @@ const BLOCKED_PATHS = new Set([
   '/package-lock.json',
 ]);
 
+// 小说原文不是游戏资源，不该能被直接下载
+const BLOCKED_PREFIXES = ['/node_modules', '/.', '/act1/source', '/act2/source'];
+
 app.use((req, res, next) => {
   const p = req.path;
-  if (BLOCKED_PATHS.has(p) || p.startsWith('/node_modules') || p.startsWith('/.')) {
+  if (BLOCKED_PATHS.has(p) || BLOCKED_PREFIXES.some((pre) => p.startsWith(pre))) {
     return res.status(403).json({ ok: false, error: 'FORBIDDEN', message: '该路径不允许访问' });
   }
   next();

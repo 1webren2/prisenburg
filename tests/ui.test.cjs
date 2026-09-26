@@ -5,8 +5,11 @@
  *
  * 除了「能不能跑」，主要盯这几件看得见的事：
  *   - 开始界面：开场停住、空格不会把第一句跳过去、背景是马车图、点击/回车都能进正片
- *   - 立绘常驻 + 借图：任何节点都有立绘，而且（其他立绘没画好之前）统一借西比拉那张
- *   - 亮 / 暗两态：#portrait-layer 只在西比拉说话时带 speaking
+ *   - 双立绘：左槽 = 主视角角色此刻的样子、右槽 = 正在说话的那一位；
+ *     主视角角色自己开口时右槽收起来、左槽点亮
+ *   - 换装：换衣节点换一张 art.portrait，左槽的图跟着换
+ *   - 亮 / 暗两态：.portrait-slot 的 speaking 类分左右两个槽各管各的
+ *   - 对话框：出选项 / 到结局时整个收起来（不再半透明地挂在底部）
  *   - 像素占位网格：真图到位就收起来，图 404 就留着
  *   - 图片路径：story.json 里写了 src 的素材，用的就是那个 src
  */
@@ -17,9 +20,12 @@ const { loadDom } = require('./dom-stub.cjs');
 const { suite } = require('./harness.cjs');
 
 const ROOT = path.join(__dirname, '..');
-const api = require(path.join(ROOT, 'act1', 'game.js'));
+const api = require(path.join(ROOT, 'act1', 'engine.js'));
 const uiApi = require(path.join(ROOT, 'act1', 'ui.js'));
 const story = require(path.join(ROOT, 'act1', 'story.json'));
+const story2 = require(path.join(ROOT, 'act2', 'story.json'));
+// 和浏览器里 boot() 一样：第一幕 + 顺着 meta.continues 读到的第二幕
+const wholeStory = api.composeStories([story, story2]);
 
 const { StoryEngine } = api;
 const { Act1UI, CONFIG, imageSrc } = uiApi;
@@ -29,9 +35,9 @@ const HTML = fs.readFileSync(path.join(ROOT, 'act1', 'index.html'), 'utf8');
 const t = suite('渲染层');
 
 /** 起一个装好的界面，等价于浏览器里的 boot() */
-function bootUI() {
+function bootUI(source) {
   const dom = loadDom();
-  const engine = new StoryEngine(story);
+  const engine = new StoryEngine(source || story);
   const ui = new Act1UI(engine, { doc: dom.doc, win: dom.win });
   ui.mount();
   ui.start();
@@ -39,9 +45,56 @@ function bootUI() {
   return { ...dom, engine, ui };
 }
 
+/* ---------- 左右两槽的读法 ---------- */
+
+/** 某个素材该画成什么 background-image */
+const urlOf = (key, source) => {
+  const src = source || story;
+  return 'url("' + imageSrc(key, src.art.assets[key]) + '")';
+};
+const leftBG = (ui) => ui.els['portrait-image'].style.backgroundImage;
+const rightBG = (ui) => ui.els['portrait-image-r'].style.backgroundImage;
+const litLeft = (ui) => ui.els['portrait-layer'].classList.contains('speaking');
+const litRight = (ui) => ui.els['portrait-layer-r'].classList.contains('speaking');
+const leftSlotEmpty = (ui) => ui.els['portrait-layer'].classList.contains('empty');
+const rightSlotEmpty = (ui) => ui.els['portrait-layer-r'].classList.contains('empty');
+
+/** 这一格两个槽位各该放谁 —— 和 ui.js 的 resolveSlots() 是同一套规则的独立复述 */
+function wantSlots(engine, view) {
+  const art = (view && view.context) || engine.currentArt();
+  const left = art.portrait || CONFIG.fallbackPortrait;
+  const speaker = (view && view.type === 'line' && !view.narration) ? view.speaker : null;
+  const povSpeaking = !!speaker && speaker === engine.pov;
+  const right = (speaker && !povSpeaking) ? (view.portrait || null) : null;
+  if (view && view.type === 'choices') {
+    // 自由活动的房间里：左槽是来访的奥布里（压暗），右槽是房间里那个人此刻的样子
+    const room = view.room;
+    if (room && room.portrait) return { left, right: room.portrait, leftLit: false, rightLit: true };
+    return { left, right: null, leftLit: true, rightLit: false };
+  }
+  return { left, right, leftLit: povSpeaking, rightLit: !!right };
+}
+
+/**
+ * 往前推一格，替玩家把该点的都点了。
+ * 走到结局屏时：后面还有一幕就按「继续下一幕」，没有就返回 false 表示到头了。
+ *
+ * 注意它**不点「自由活动 ▶」**：主线是主线，自由活动是另一条入口（单独测）。
+ * 所以下面那段「走完整场戏核对两槽」的行为和加了自由活动之前一模一样。
+ */
+function autoStep(ui) {
+  const v = ui.view;
+  if (v.type === 'end') {
+    if (ui.els['end-continue'].style.display === 'none') return false;
+    ui.continueNextAct();
+    return true;
+  }
+  if (v.type === 'choices') ui.choose(0); else ui.step();
+  return true;
+}
+
 const portraitBG = (ui) => ui.els['portrait-image'].style.backgroundImage;
 const bgBG = (ui) => ui.els['bg-image'].style.backgroundImage;
-const isSpeaking = (ui) => ui.els['portrait-layer'].classList.contains('speaking');
 
 /* ===================================================================
  * 1. 挂载
@@ -49,12 +102,17 @@ const isSpeaking = (ui) => ui.els['portrait-layer'].classList.contains('speaking
 
 t.section('挂载');
 
-t.ok(CONFIG.portraitOverride === 'chr_sibylla', 'CONFIG 里临时统一借西比拉的立绘');
-t.eq(CONFIG.leadCharacter, '西比拉', '主角是西比拉');
+t.eq(CONFIG.portraitOverride, null, '不再统一借西比拉的脸（各自用自己的立绘，值必须是 null）');
+t.eq(CONFIG.fallbackPortrait, 'chr_sibylla', '节点没写 art.portrait 时兜底用西比拉那张，左槽不空场');
+t.eq(CONFIG.imageExt, '.png', '按 key 拼路径时的扩展名是 .png');
 t.eq(CONFIG.titleBackground, 'bg_carriage', '开始界面背景是马车图');
 
 const mounted = bootUI();
-t.eq(Object.keys(mounted.ui.els).length, 26, 'mount() 找到了 26 个元素');
+t.eq(
+  Object.keys(mounted.ui.els).length,
+  40,
+  'mount() 找到了 40 个元素（32 + 结局卡片上的「自由活动」+ 换装浮层的 7 个）'
+);
 
 // index.html 里不该有「没人管」的 id —— 要么进 ui.js 的清单，要么是纯装饰用的
 const ALLOWED_ORPHANS = ['boot-error', 'app', 'stage', 'bg-veil', 'hud', 'title-veil', 'end-restart'];
@@ -113,46 +171,138 @@ t.eq(clickThrough.ui.view, before, '开始界面开着时，点对话框不会�
 
 t.section('立绘');
 
-const portrait = bootUI();
-for (let i = 0; i < 4; i++) portrait.engine.advance();
+/* ---- 幕间路径：meta.continues 里的相对路径怎么解 ----
+   页面是 /act1/index.html，入口剧本是 'story.json'，第二幕写的是 '../act2/story.json'。
+   解出来的结果会原样交给 fetch（由页面地址去解），所以开头的 .. 必须留着 ——
+   丢掉它就会去 /act1/act2/ 找，第二幕整个载入不了（这个 bug 真发生过）。 */
+const rp = uiApi.resolvePath;
+t.eq(rp('../act2/story.json', 'story.json'), '../act2/story.json', '从 act1/ 上一级再进 act2/，开头的 .. 要留着');
+t.eq(rp('story.json', 'story.json'), 'story.json', '同目录的下一幕');
+t.eq(rp('./act3/story.json', 'story.json'), 'act3/story.json', './ 要消掉');
+t.eq(rp('act3/story.json', 'x/story.json'), 'x/act3/story.json', 'base 有目录时，接在它的目录后面');
+t.eq(rp('../act3/story.json', 'x/story.json'), 'act3/story.json', 'base 有目录时，.. 正常回退一级');
+t.eq(rp('../../act3/story.json', 'x/story.json'), '../act3/story.json', '回退到没有目录可退了，剩下的 .. 继续留着');
+t.eq(rp('/act2/story.json', 'story.json'), '/act2/story.json', '绝对路径原样用');
+t.eq(rp('https://example.com/a.json', 'story.json'), 'https://example.com/a.json', '绝对地址原样用');
+t.eq(rp('../../act2/story.json', 'story.json'), '../../act2/story.json', '连着退两级也不会把 .. 吃掉');
+
+// 真的把两幕拼起来之后，第二幕的节点确实在引擎里
+t.ok(wholeStory.nodes.length > story.nodes.length, 'composeStories 之后第二幕的节点真的进来了');
+t.ok(!!wholeStory.nodes.find((n) => n.id === 'b1_room'), '拼起来的剧本里有 b1_room');
+t.eq(
+  (wholeStory.characters['旁白'] || {}).narration, true,
+  '合并后角色的定义取自第一幕（第二幕不重复声明 characters）'
+);
 
 t.eq(uiApi.imageSrc('chr_sibylla', story.art.assets.chr_sibylla), 'images/chr_sibylla.png', '素材写了 src 就用 src');
-t.eq(uiApi.imageSrc('chr_brown', story.art.assets.chr_brown), 'images/chr_brown.jpg', '没写 src 就按 key 拼默认路径');
+t.eq(uiApi.imageSrc('chr_john', story.art.assets.chr_john), 'images/chr_john.png', '没写 src 就按 key 拼默认路径');
+t.eq(uiApi.imageSrc('chr_sibylla_teacher', story2.art.assets.chr_sibylla_teacher), '../act2/images/chr_sibylla_teacher.png', '第二幕的素材用相对 act1/ 的路径');
 
-// 走完整场戏，沿途每一步都核对立绘
+// 走完整场戏（第一幕 + 第二幕），沿途每一步都核对左右两槽
+const portrait = bootUI(wholeStory);
 let guard = 0;
 const noPortrait = [];
-const wrongPortrait = [];
+const wrongSlot = [];
 const speakingWrong = [];
-let sawSpeaking = 0;
-let sawDimmed = 0;
+const emptyWrong = [];
+const count = { views: 0, leftLit: 0, leftDim: 0, rightLit: 0, rightEmpty: 0, twoPeople: 0, povSpeaking: 0 };
 
 for (;;) {
   if (++guard > 5000) { t.ok(false, '剧情没有终点'); break; }
-  const v = portrait.ui.view;
-  const bg = portraitBG(portrait.ui);
+  const ui = portrait.ui;
+  const v = ui.view;
+  const want = wantSlots(portrait.engine, v);
+  const where = `${portrait.engine.node.id} 第${v.index}行`;
 
-  if (!bg || bg === 'none') noPortrait.push(`${portrait.engine.node.id} 没画立绘`);
-  else if (bg !== 'url("images/chr_sibylla.png")') wrongPortrait.push(`${portrait.engine.node.id} 用的是 ${bg}`);
+  const gotLeft = leftBG(ui);
+  const gotRight = rightBG(ui);
+  const gotRightEmpty = !gotRight || gotRight === 'none';
 
-  // 该亮的时候亮、该暗的时候暗
-  const shouldSpeak = v.type === 'choices'
-    ? portrait.engine.pov === CONFIG.leadCharacter
-    : (v.type === 'line' && !v.narration && v.speaker === CONFIG.leadCharacter);
-  if (isSpeaking(portrait.ui) !== shouldSpeak) {
-    speakingWrong.push(`${portrait.engine.node.id} 第${v.index}行 speaker=${v.speaker} 期望 speaking=${shouldSpeak} 实际=${isSpeaking(portrait.ui)}`);
+  if (!gotLeft || gotLeft === 'none') noPortrait.push(`${portrait.engine.node.id} 左槽没画立绘`);
+  else if (gotLeft !== urlOf(want.left, wholeStory)) {
+    wrongSlot.push(`${where} 左槽是 ${gotLeft}，该是 ${urlOf(want.left, wholeStory)}`);
   }
-  if (isSpeaking(portrait.ui)) sawSpeaking++; else sawDimmed++;
 
-  if (v.type === 'end') break;
-  if (v.type === 'choices') portrait.ui.choose(0); else portrait.ui.step();
+  if (want.right) {
+    if (gotRight !== urlOf(want.right, wholeStory)) {
+      wrongSlot.push(`${where} 右槽是 ${gotRight}，该是 ${urlOf(want.right, wholeStory)}`);
+    }
+    if (gotRight === gotLeft) wrongSlot.push(`${where} 左右两槽是同一张图，右槽应该收掉`);
+    if (want.left !== want.right) count.twoPeople++;
+  } else if (!gotRightEmpty) {
+    wrongSlot.push(`${where} 右槽本该空着，却是 ${gotRight}`);
+  }
+
+  // 该亮的时候亮、该暗的时候暗 —— 两槽各管各的
+  if (litLeft(ui) !== want.leftLit) {
+    speakingWrong.push(`${where} speaker=${v.speaker} 左槽期望 speaking=${want.leftLit} 实际=${litLeft(ui)}`);
+  }
+  if (litRight(ui) !== want.rightLit) {
+    speakingWrong.push(`${where} speaker=${v.speaker} 右槽期望 speaking=${want.rightLit} 实际=${litRight(ui)}`);
+  }
+
+  // 没人的那一槽要整个藏掉，不能只靠「不画图」（否则像素占位会露出来）
+  if (leftSlotEmpty(ui)) emptyWrong.push(`${where} 左槽被标成空的`);
+  if (rightSlotEmpty(ui) !== !want.right) {
+    emptyWrong.push(`${where} 右槽 empty=${rightSlotEmpty(ui)}，期望 ${!want.right}`);
+  }
+
+  count.views++;
+  if (want.leftLit) count.leftLit++; else count.leftDim++;
+  if (want.rightLit) count.rightLit++; else count.rightEmpty++;
+  if (v.type === 'line' && !v.narration && v.speaker === portrait.engine.pov) count.povSpeaking++;
+
+  if (!autoStep(ui)) break;
 }
 
-t.empty(noPortrait, '立绘常驻：任何节点都有立绘，不会空场');
-t.empty(wrongPortrait, '其他角色的立绘还没画好，统一借西比拉那张');
-t.empty(speakingWrong, '立绘的亮/暗跟「是不是西比拉在说话」对得上');
-t.ok(sawSpeaking > 0, `确实出现过「西比拉说话、立绘亮着」（${sawSpeaking} 次）`);
-t.ok(sawDimmed > 0, `确实出现过「别人说话/旁白、立绘压暗」（${sawDimmed} 次）`);
+t.empty(noPortrait, '立绘常驻：左槽每一步都有立绘，不会空场');
+t.empty(wrongSlot, '左槽 = 主视角角色此刻的样子，右槽 = 说话的那一位；同一个人时右槽收掉');
+t.empty(speakingWrong, '两槽的亮/暗各管各的，跟「谁在说话」对得上');
+t.empty(emptyWrong, '空着的那一槽整个藏掉（不露像素占位方块）');
+t.ok(count.leftLit > 0, `确实出现过「主视角角色说话、左槽亮着」（${count.leftLit} 次）`);
+t.ok(count.leftDim > 0, `确实出现过「别人说话/旁白、左槽压暗」（${count.leftDim} 次）`);
+t.ok(count.rightLit > 0, `确实出现过「配角说话、右槽亮着」（${count.rightLit} 次）`);
+t.ok(count.rightEmpty > 0, `确实出现过「主视角角色自己说话、右槽空着」（${count.rightEmpty} 次）`);
+t.ok(count.twoPeople > 0, `确实出现过「两个人同时站在场上」（${count.twoPeople} 次）`);
+t.ok(count.povSpeaking > 0, `确实出现过「主视角角色自己开口、右槽空着」（${count.povSpeaking} 次）`);
+t.eq(count.leftLit + count.leftDim, count.views, '每一步左槽的亮/暗都有个明确状态');
+t.eq(count.rightLit + count.rightEmpty, count.views, '每一步右槽要么亮着要么空着，没有第三种');
+
+/* ---- 换装：换衣的节点换一张 art.portrait，左槽的图跟着换 ---- */
+
+const outfit = bootUI(wholeStory);
+const seenOutfits = [];
+let outfitGuard = 0;
+for (;;) {
+  if (++outfitGuard > 5000) break;
+  const v = outfit.ui.view;
+  const bg = leftBG(outfit.ui);
+  if (seenOutfits[seenOutfits.length - 1] !== bg) seenOutfits.push(bg);
+  if (!autoStep(outfit.ui)) break;
+}
+t.ok(seenOutfits.includes('url("images/chr_sibylla.png")'), '第二幕前半段西比拉穿女仆装（chr_sibylla）');
+t.ok(seenOutfits.includes('url("../act2/images/chr_sibylla_teacher.png")'), '换上牧师服（＝教师服）后左槽换成那张');
+t.eq(seenOutfits.filter((s) => s === 'url("../act2/images/chr_sibylla_teacher.png")').length, 1, '牧师服只出现一段，中间没有来回闪');
+t.eq(
+  seenOutfits[seenOutfits.length - 1],
+  'url("images/chr_sibylla.png")',
+  '结局前换回女仆装，左槽跟着换回来'
+);
+
+// 直接站到两个换装节点上，看的是同一件事，但更直白
+const atOutfit = (id) => {
+  const dom = loadDom();
+  const engine = new StoryEngine(wholeStory);
+  const ui = new Act1UI(engine, { doc: dom.doc, win: dom.win });
+  ui.mount(); ui.start(); ui.begin();
+  engine.enterNode(id);
+  ui.render(engine.advance());
+  return leftBG(ui);
+};
+t.eq(atOutfit('b11_sleep'), 'url("images/chr_sibylla.png")', '第二幕第一夜：女仆装');
+t.eq(atOutfit('b12_morning'), 'url("../act2/images/chr_sibylla_teacher.png")', '段30 换上牧师服：左槽换了');
+t.eq(atOutfit('b23_corridor'), 'url("../act2/images/chr_sibylla_teacher.png")', '一天下来还穿着牧师服');
+t.eq(atOutfit('b24_change'), 'url("images/chr_sibylla.png")', '段76 换下牧师服：左槽又换回女仆装');
 
 /* ---- 像素占位网格什么时候该让位 ----
    立绘和背景都是「像素网格 + 真图」两层叠着的。真图是透明 PNG，
@@ -182,17 +332,16 @@ t.eq(gridDisplay(fallbackUI, 'bg-grid-host'), '', '背景图 404 时像素占位
 
 t.section('背景');
 
-const bg = bootUI();
+const bg = bootUI(wholeStory);
 bg.ui.begin();
 t.eq(bgBG(bg.ui), 'url("images/bg_carriage.png")', '开场（马车）用马车图');
 
 const seenBg = new Set();
+let bgGuard = 0;
 for (;;) {
-  if (++guard > 8000) break;
-  const v = bg.ui.view;
+  if (++bgGuard > 8000) break;
   seenBg.add(bgBG(bg.ui));
-  if (v.type === 'end') break;
-  if (v.type === 'choices') bg.ui.choose(0); else bg.ui.step();
+  if (!autoStep(bg.ui)) break;
 }
 t.empty(
   Array.from(seenBg).filter((s) => !s || s === 'none').map(() => '有过没画背景的瞬间'),
@@ -200,6 +349,8 @@ t.empty(
 );
 t.ok(seenBg.has('url("images/bg_hall.png")'), '走进大厅时换成了大厅图');
 t.ok(seenBg.has('url("images/bg_gate.png")'), '到城堡门口时用的是大门口那张图');
+t.ok(seenBg.has('url("../act2/images/bg_sibylla_room.png")'), '第二幕的新房间有自己的背景');
+t.ok(seenBg.has('url("../act2/images/bg_classroom.png")'), '第二幕的教室有自己的背景');
 
 /* ===================================================================
  * 5. 选项
@@ -216,11 +367,13 @@ t.eq(btns.length, 3, '第一个决定点有 3 个选项');
 t.eq(btns.map((b) => b.getAttribute('data-index')), ['0', '1', '2'], '按钮带着 data-index');
 t.ok(btns[0].children.some((c) => c.className.includes('choice-text')), '选项按钮里有正文');
 t.ok(btns[0].children.some((c) => c.className.includes('choice-hint')), '选项按钮里有 hint');
-t.ok(ch.ui.els['dialogue-box'].classList.contains('choices-open'), '出选项时对话框让位（避免和选项重叠）');
+t.ok(ch.ui.els['dialogue-box'].classList.contains('collapsed'), '出选项时对话框整个收起来（不再半透明地挂在底部）');
 
-// 序章的选项点：替西比拉做决定，立绘亮着
-t.ok(isSpeaking(ch.ui), '序章选项点是西比拉的视角，立绘亮着');
+// 序章的选项点：替西比拉做决定，左槽亮着、右槽空着
+t.ok(litLeft(ch.ui), '序章选项点是西比拉的视角，左槽亮着');
+t.ok(rightSlotEmpty(ch.ui), '出选项时没人说话，右槽收起来');
 t.eq(ch.engine.pov, '西比拉', '序章选项点确实是西比拉视角');
+t.eq(leftBG(ch.ui), 'url("images/chr_sibylla.png")', '选项点上左槽是主视角角色西比拉');
 
 // 用键盘 1/2/3 也能选
 const kb = bootUI();
@@ -238,7 +391,9 @@ while (!(main.ui.view.type === 'choices' && main.engine.pov === '奥布里')) {
   if (main.ui.view.type === 'choices') main.ui.choose(0); else main.ui.step();
 }
 t.eq(main.engine.pov, '奥布里', '走到了奥布里的选项点');
-t.eq(isSpeaking(main.ui), false, '奥布里的选项点：西比拉没在说话，立绘压暗');
+t.eq(leftBG(main.ui), 'url("images/chr_aubrey.png")', '主视角换成奥布里后，左槽站的是奥布里（不再借西比拉的脸）');
+t.ok(litLeft(main.ui), '选项点上是玩家替奥布里做决定，左槽亮着');
+t.ok(rightSlotEmpty(main.ui), '奥布里的选项点：右槽空着');
 
 /* ===================================================================
  * 6. 结局 / 重来
@@ -256,7 +411,16 @@ while (fin.ui.view.type !== 'end') {
 t.eq(fin.ui.view.type, 'end', '能走到结局');
 t.ok(fin.ui.els['end-screen'].classList.contains('on'), '结局界面打开了');
 t.ok(fin.ui.els['end-stats'].children.length > 0, '结局界面列出了数值');
-t.eq(isSpeaking(fin.ui), false, '结局是旁白，立绘压暗');
+t.eq(litLeft(fin.ui), false, '结局不是谁在说话，左槽压暗');
+t.eq(litRight(fin.ui), false, '结局右槽也压暗');
+t.ok(rightSlotEmpty(fin.ui), '结局屏上右槽收起来');
+t.ok(fin.ui.els['dialogue-box'].classList.contains('collapsed'), '走到结局时对话框也收起来');
+// 标题和副题跟着结局节点走，不再是写死的「第一幕 · 完」
+t.eq(fin.ui.els['end-title'].textContent, '第一幕 · 完', '结局标题取自节点 title');
+t.eq(fin.ui.els['end-sub'].textContent, '西比拉·德·克莱尔住进了伊莎贝尔的隔壁。', '副题取自节点的 endSub');
+// 只载入第一幕时后面那一幕不在，按钮不该出现（免得点了没反应）
+t.eq(fin.ui.els['end-continue'].style.display, 'none', '没有下一幕时「继续下一幕」按钮藏起来');
+t.eq(fin.ui.continueNextAct(), false, '没有下一幕时按「继续」不会出事');
 
 fin.ui.restart();
 t.ok(fin.ui.titleOpen, '「重新开始」退回开始界面');
@@ -272,6 +436,279 @@ kr.fireKey('r');
 t.ok(kr.ui.titleOpen, '按 R 退回开始界面');
 
 /* ===================================================================
+ * 6b. 幕间衔接：第一幕结局 -> 继续第二幕
+ * =================================================================== */
+
+t.section('幕间衔接');
+
+const bridge = bootUI(wholeStory);
+bridge.ui.begin();
+let g4 = 0;
+while (bridge.ui.view.type !== 'end') {
+  if (++g4 > 2000) break;
+  if (bridge.ui.view.type === 'choices') bridge.ui.choose(0); else bridge.ui.step();
+}
+t.eq(bridge.ui.view.type, 'end', '第一幕照常走到结局屏');
+t.eq(bridge.ui.view.node.id, 'a10_end', '停的是第一幕的结局节点');
+t.eq(bridge.ui.els['end-title'].textContent, '第一幕 · 完', '结局标题是第一幕的');
+t.eq(bridge.ui.els['end-continue'].style.display, '', '有下一幕时按钮显示出来');
+t.eq(bridge.ui.els['end-continue'].getAttribute('data-next'), 'b1_room', '按钮记着要去的节点');
+t.eq(bridge.ui.els['end-continue'].textContent, '继续第二幕 ▶', '按钮上写着下一幕的名字');
+
+bridge.fire(bridge.ui.els['end-continue'], 'click');
+t.eq(bridge.engine.node.id, 'b1_room', '点一下接着演第二幕');
+t.eq(bridge.ui.view.type, 'line', '接上之后直接就是第二幕的第一句话');
+t.eq(bridge.ui.els['end-screen'].classList.contains('on'), false, '结局屏收掉了');
+t.eq(bridge.ui.els['dialogue-box'].classList.contains('collapsed'), false, '对话框又打开了');
+t.eq(bridge.engine.pov, '西比拉', '第二幕是西比拉视角');
+t.eq(bridge.ui.els['title-bar'].getAttribute('data-pov'), '西比拉 · 德 · 克莱尔（观察者）', '右上角的视角标签跟着换');
+t.eq(leftBG(bridge.ui), 'url("images/chr_sibylla.png")', '左槽换成第二幕主视角的西比拉');
+
+// 从结局屏一路走下去，能走到第二幕的结局
+let g5 = 0;
+while (g5++ < 4000) {
+  if (bridge.ui.view.type === 'end' && bridge.ui.view.node.id === 'b25_end') break;
+  if (!autoStep(bridge.ui)) break;
+}
+t.eq(bridge.ui.view.type, 'end', '第二幕也能走到结局');
+t.eq(bridge.ui.view.node.id, 'b25_end', '停在第二幕的结局节点 b25_end');
+t.eq(bridge.ui.els['end-title'].textContent, '第二幕 · 完', '第二幕的结局标题跟着节点走');
+t.eq(bridge.ui.els['end-continue'].style.display, 'none', '第二幕后面没有了，按钮藏起来');
+t.eq(bridge.engine.stats['伊莎贝尔_好感'] + bridge.engine.stats['西比拉_警惕'], 3, '数值一路带过来，没有被第二幕改掉');
+
+/* ===================================================================
+ * 6c. 选项框：点下去就该立刻消失
+ * =================================================================== */
+
+t.section('选项框立刻消失');
+
+/** 一直 step 到某个视图类型为止（推不动就报错，免得死循环） */
+function stepTo(ui, type, limit) {
+  for (let i = 0; i < (limit || 400); i++) {
+    if (ui.view && ui.view.type === type) return ui.view;
+    ui.step();
+  }
+  throw new Error('推不到 ' + type);
+}
+
+/** step 到菜单（选项屏或换装浮层）为止；走到结局就是走错了 */
+function toMenu(ui, limit) {
+  for (let i = 0; i < (limit || 400); i++) {
+    const v = ui.view;
+    if (v && (v.type === 'choices' || v.type === 'outfit')) return v;
+    if (v && v.type === 'end') throw new Error('走到结局了，不该到这儿');
+    ui.step();
+  }
+  throw new Error('推不到菜单');
+}
+
+/** 从头一路点到底，停在某个结局节点上；中途按「继续下一幕」跨幕 */
+function playTo(ui, nodeId, limit) {
+  for (let i = 0; i < (limit || 8000); i++) {
+    const v = ui.view;
+    if (v && v.type === 'end') {
+      if (ui.engine.node.id === nodeId) return v;
+      if (!ui.continueNextAct()) return null;
+      continue;
+    }
+    if (v && v.type === 'choices') ui.choose(0); else ui.step();
+  }
+  throw new Error('走不到结局节点 ' + nodeId);
+}
+
+/** 在菜单里按文字找下标 */
+const findText = (list, text) => list.findIndex((c) => c.text === text);
+
+const gone = bootUI();
+gone.ui.begin();
+stepTo(gone.ui, 'choices');
+t.eq(gone.ui.els.choices.children.length, 3, '选项画出来了');
+t.eq(gone.ui.view.type, 'choices', '确实停在选项屏上');
+
+// 走真浏览器里的那条路：点按钮 -> 冒泡到 #choices 上的事件代理
+gone.fire(gone.ui.els.choices, 'click', { target: gone.ui.els.choices.children[0] });
+t.eq(gone.ui.view.type, 'line', '点完走到了下一句台词');
+t.eq(gone.ui.els.choices.children.length, 0, '点完选项框立刻空了（不再挂在屏幕上挡立绘）');
+
+// 数字键走的是同一个 choose()，同样立刻收掉
+stepTo(gone.ui, 'choices');
+t.ok(gone.ui.els.choices.children.length > 0, '又走到一个选项屏');
+gone.fireKey('1');
+t.eq(gone.ui.els.choices.children.length, 0, '数字键选完，选项框同样立刻消失');
+
+/* ===================================================================
+ * 6d. 幕间自由活动 + 换装
+ * =================================================================== */
+
+t.section('幕间自由活动');
+
+t.ok(HTML.includes('自由活动 ▶'), '结局卡片上摆着「自由活动 ▶」这个按钮');
+
+// 剧本里没写 freeRoam（比如只载入第一幕）时，按钮不该冒出来
+const solo = bootUI();
+solo.ui.begin();
+let gSolo = 0;
+while (solo.ui.view.type !== 'end' && gSolo++ < 4000) {
+  if (solo.ui.view.type === 'choices') solo.ui.choose(0); else solo.ui.step();
+}
+t.eq(solo.ui.view.type, 'end', '只载入第一幕也能走到结局');
+t.eq(solo.ui.els['end-roam'].style.display, 'none', '剧本里没写自由活动，结局卡片上就不出现这个按钮');
+
+const fr = bootUI(wholeStory);
+fr.ui.begin();
+playTo(fr.ui, 'a10_end');
+t.eq(fr.ui.view.type, 'end', '先走到第一幕的结局（出的是结局卡片，不是黑屏）');
+t.eq(fr.ui.els['end-continue'].style.display, '', '「继续下一幕」照旧在');
+t.eq(fr.ui.els['end-roam'].style.display, '', '结局卡片上多了「自由活动 ▶」');
+t.eq(fr.ui.els['end-roam'].getAttribute('data-anchor'), 'fr_hub', '按钮上记着要进哪个 hub');
+
+fr.fire(fr.ui.els['end-roam'], 'click');
+t.eq(fr.engine.node.id, 'fr_hub', '点一下进了自由活动');
+t.eq(fr.ui.view.type, 'line', '先播一句占位开场白');
+t.eq(fr.ui.els['end-screen'].classList.contains('on'), false, '结局卡片收掉了');
+t.ok(
+  (fr.ui.els['title-bar'].getAttribute('data-pov') || '').includes('奥布里'),
+  '视角标签换成奥布里（扮演）'
+);
+
+toMenu(fr.ui);
+t.eq(fr.ui.view.type, 'choices', '然后出菜单');
+t.eq(fr.ui.els.choices.children.length, 5, 'hub 菜单五项：两个去处 + 一个锁住的 + 下一幕 + 结束游戏');
+t.eq(
+  fr.ui.els.choices.children.map((b) => b.disabled),
+  [false, false, true, false, false],
+  '只有第三项（让布朗通知别人）点不动'
+);
+t.ok(fr.ui.els.choices.children[2].className.includes('locked'), '灰显用的是 .locked');
+t.ok(
+  fr.ui.els.choices.children[2].children.some((c) => c.className.includes('choice-lock')),
+  '锁住的那项写了原因'
+);
+t.ok(fr.ui.els['dialogue-box'].classList.contains('collapsed'), '出菜单时对话框收起来');
+
+// ---- 进西比拉的房间：两槽各站各的，右槽是她此刻的样子 ----
+fr.ui.choose(0);
+t.eq(fr.engine.node.id, 'fr_sib_maid', '进了西比拉的房间（她穿着女仆装）');
+toMenu(fr.ui);
+t.eq(leftBG(fr.ui), urlOf('chr_aubrey', wholeStory), '左槽是奥布里（主视角角色此刻的样子）');
+t.eq(rightBG(fr.ui), urlOf('chr_sibylla', wholeStory), '右槽是她此刻那套：女仆装的半身像');
+t.eq(litLeft(fr.ui), false, '说话的不是奥布里，左槽压暗');
+t.eq(litRight(fr.ui), true, '房间里那个人亮着');
+t.eq(leftSlotEmpty(fr.ui), false, '左槽不空');
+t.eq(rightSlotEmpty(fr.ui), false, '右槽不空');
+t.eq((fr.ui.view.room || {}).speaker, '西比拉', '视图告诉界面右槽站的是谁');
+t.eq(
+  fr.ui.view.choices.map((c) => c.text),
+  ['称赞', '普通对话', '触摸', '换装', '离开'],
+  '房间菜单：称赞 / 普通对话 / 触摸 / 换装 / 离开'
+);
+
+// ---- 好感低：触摸 -> 警惕上升，并且只给「感觉」不给数字 ----
+t.eq(fr.engine.getStat('西比拉_好感'), 0, '刚进来好感是 0');
+// 主线走下来警惕已经有底数了（主线的「好感 + 警惕 恒等于 3」），所以后面都按「涨了多少」来断言
+const baseWatch = fr.engine.getStat('西比拉_警惕');
+fr.fire(fr.ui.els.choices, 'click', {
+  target: fr.ui.els.choices.children[findText(fr.ui.view.choices, '触摸')],
+});
+t.eq(fr.engine.getStat('西比拉_警惕'), baseWatch + 1, '好感低时触摸：警惕上升');
+t.eq(fr.engine.getStat('西比拉_好感'), 0, '好感低时触摸：好感没有被刷上去');
+t.ok(fr.ui.els.toast.children.length > 0, '数值变动弹了提示');
+t.empty(
+  fr.ui.els.toast.children.filter((n) => /\d/.test(n._text || '')).map((n) => n._text),
+  '提示里不带数字（真实数值要自己按 V 看）'
+);
+
+// ---- 好感高：同一次触摸走另一支 ----
+fr.engine.setStat('西比拉_好感', 2);
+toMenu(fr.ui);
+fr.ui.choose(findText(fr.ui.view.choices, '触摸'));
+t.eq(fr.engine.getStat('西比拉_好感'), 3, '好感高时同一次触摸：好感上升');
+t.eq(fr.engine.getStat('西比拉_警惕'), baseWatch + 1, '好感高时触摸：警惕不再涨');
+
+// ---- 换装浮层 ----
+toMenu(fr.ui);
+fr.ui.choose(findText(fr.ui.view.choices, '换装'));
+t.eq(fr.ui.view.type, 'outfit', '开的是换装浮层（独立视图，不是普通选项屏）');
+t.eq(fr.ui.els['outfit-screen'].classList.contains('on'), true, '浮层打开了');
+t.eq(
+  fr.ui.els['dialogue-box'].classList.contains('collapsed'),
+  true,
+  '浮层里对话框是收起的（用户要的「缩小或隐藏」）'
+);
+t.eq(
+  fr.ui.els['outfit-image'].style.backgroundImage,
+  urlOf('full_sibylla_maid', wholeStory),
+  '居中的全身立绘是当前那套'
+);
+t.eq(fr.ui.els['outfit-choices'].children.length, 7, '四套衣服 + 退出换装 + 进入下一幕 + 结束游戏');
+t.eq(fr.ui.els.choices.children.length, 0, '浮层开着时下面那个选项栏是空的（不叠两层按钮）');
+t.eq(
+  fr.ui.view.choices.filter((c) => c.worn).map((c) => c.text),
+  ['女仆装'],
+  '现在穿着的那套被标了出来'
+);
+t.ok(
+  fr.ui.els['outfit-choices'].children[0].children.some((c) => c.className.includes('choice-worn')),
+  '标记旁边有说明文字'
+);
+t.ok(fr.ui.els['outfit-line'].children.length > 0, '浮层上挂着占位台词');
+
+// 点一件衣服（走 DOM 事件，和玩家真点一样）
+const beforeWear = fr.engine.getStat('西比拉_好感');
+fr.fire(fr.ui.els['outfit-choices'], 'click', {
+  target: fr.ui.els['outfit-choices'].children[findText(fr.ui.view.choices, '骑装')],
+});
+t.eq(fr.engine.node.id, 'fr_sib_riding', '换装 = 换锚点（位置就是装束，存档天然记住她穿什么）');
+t.eq(fr.engine.getStat('西比拉_好感'), beforeWear + 2, '换装影响好感');
+t.eq(
+  fr.ui.els['outfit-image'].style.backgroundImage,
+  urlOf('full_sibylla_riding', wholeStory),
+  '全身立绘跟着换'
+);
+t.eq(fr.ui.view.choices.filter((c) => c.worn).map((c) => c.text), ['骑装'], '「现在穿着」挪到骑装上');
+t.eq(fr.ui.els.choices.children.length, 0, '在浮层里点完，底下那个选项栏也还是空的');
+
+// 数字键在浮层里也认
+fr.fireKey('4');
+t.eq(fr.engine.node.id, 'fr_sib_black', '数字键在换装浮层里也能选（4 = 黑礼服）');
+t.eq(fr.engine.getStat('西比拉_警惕'), baseWatch + 2, '黑礼服让警惕上升（数据里就是这么写的）');
+
+// ---- 退出浮层 -> 回到房间菜单，她还是穿着刚换的那套 ----
+fr.fireKey('5');
+t.eq(fr.ui.view.type, 'choices', '「5 = 退出换装」回到房间菜单');
+t.eq(fr.ui.els['outfit-screen'].classList.contains('on'), false, '浮层收掉了');
+t.eq(rightBG(fr.ui), urlOf('chr_sibylla_black', wholeStory), '房间里的她换成了黑礼服的半身像');
+
+// ---- 离开房间 -> 回 hub；伊莎贝尔的房间没有「换装」 ----
+fr.ui.choose(findText(fr.ui.view.choices, '离开'));
+t.eq(fr.engine.node.id, 'fr_hub', '离开房间回到进来的那个 hub');
+toMenu(fr.ui);
+fr.ui.choose(findText(fr.ui.view.choices, '去伊莎贝尔的房间'));
+t.eq(fr.engine.node.id, 'fr_isa', '进得了伊莎贝尔的房间');
+toMenu(fr.ui);
+t.eq(fr.ui.view.choices.map((c) => c.text), ['称赞', '普通对话', '触摸', '离开'], '伊莎贝尔的房间没有「换装」');
+t.eq(rightBG(fr.ui), urlOf('chr_isabelle', wholeStory), '右槽是伊莎贝尔');
+
+// ---- 第二幕之后的自由活动：没有「进入下一幕」，但有「结束游戏」 ----
+const fr2 = bootUI(wholeStory);
+fr2.ui.begin();
+playTo(fr2.ui, 'b25_end');
+t.eq(fr2.ui.els['end-roam'].style.display, '', '第二幕结局卡片上也有「自由活动 ▶」');
+t.eq(fr2.ui.els['end-roam'].getAttribute('data-anchor'), 'fr_end_hub', '进的是第二个 hub');
+fr2.fire(fr2.ui.els['end-roam'], 'click');
+t.eq(fr2.engine.node.id, 'fr_end_hub', '进了第二幕之后的自由活动');
+toMenu(fr2.ui);
+t.eq(findText(fr2.ui.view.choices, '进入下一幕'), -1, '已经是最后一幕，不显示「进入下一幕」');
+t.ok(findText(fr2.ui.view.choices, '结束游戏') >= 0, '只留「结束游戏」');
+
+fr2.ui.choose(findText(fr2.ui.view.choices, '结束游戏'));
+t.eq(fr2.engine.node.id, 'fr_the_end', '结束游戏落在 fr_the_end');
+t.eq(fr2.ui.view.type, 'end', 'fr_the_end 走的是结局屏，不是菜单');
+t.eq(fr2.ui.els['end-title'].textContent, '全剧终', '结局屏标题取自节点 title');
+t.eq(fr2.ui.els['end-roam'].style.display, 'none', '全剧终之后不再有「自由活动」（否则能一直绕圈）');
+t.eq(fr2.ui.els['end-screen'].classList.contains('on'), true, '结局屏打开了');
+
+/* ===================================================================
  * 7. 数值面板
  * =================================================================== */
 
@@ -284,7 +721,7 @@ t.ok(stat.ui.els['stats-body'].children[0].className.includes('stat-hidden'), '�
 
 stat.fireKey('v');
 t.eq(stat.engine.showStats, true, '按 V 打开真实数值');
-t.eq(stat.ui.els['stats-body'].children.length, 2, '打开后有 2 行（两个隐藏数值）');
+t.eq(stat.ui.els['stats-body'].children.length, 3, '打开后有 3 行（三个隐藏数值）');
 t.eq(stat.ui.els['stats-toggle'].getAttribute('data-on'), '1', '按钮状态跟着变');
 t.eq(stat.ui.els['stats-panel'].classList.contains('revealed'), true, '面板展开');
 
@@ -400,7 +837,12 @@ saveLoad().then(() => {
      透明背景的 PNG 会被衬出一个方框，也就是用户说的「边界感」。
      这条按用户的原话机械化地钉死：#portrait-layer 及其两个子层里
      不许出现非 0 的 border、非透明的 background(-color)、非 none 的 box-shadow。 */
-  const BOXY = ['#portrait-layer', '#portrait-grid-host', '#portrait-image'];
+  const BOXY = [
+    '.portrait-slot', '#portrait-layer-r',
+    '#portrait-grid-host', '#portrait-image',
+    '#portrait-grid-host-r', '#portrait-image-r',
+    '#outfit-image',
+  ];
   const boxy = [];
   for (const sel of BOXY) {
     const d = declsFor(sel);
@@ -411,12 +853,23 @@ saveLoad().then(() => {
       if (!harmless) boxy.push(`${sel} { ${k}: ${v} }`);
     }
   }
-  t.empty(boxy, '立绘容器里没有边框 / 底色 / 阴影（透明背景才能融进场景）');
+  t.empty(boxy, '左右两个立绘槽里都没有边框 / 底色 / 阴影（透明背景才能融进场景）');
 
   // 立绘不再是「贴在左下角贴着底边」：抬起来了，而且往右让开了 HUD
-  const layer = declsFor('#portrait-layer');
+  const layer = declsFor('.portrait-slot');
   t.ok(/var\(--portrait-lift\)/.test(layer.bottom || ''), '立绘抬离底边，不会被铺满底部的对话框压住');
   t.ok(/vw$/.test(layer.left || ''), '立绘往右让开了一截，不贴着窗口左边');
+
+  // 右槽镜像到右边，两个槽不会叠在一起
+  const layerR = declsFor('#portrait-layer-r');
+  t.eq(layerR.left, 'auto', '右槽把 left 松开');
+  t.ok(/vw$/.test(layerR.right || ''), '右槽从窗口右边往内让开一截');
+  t.ok(/bottom right/.test(layerR['transform-origin'] || ''), '右槽的缩放锚点在右下角（镜像）');
+
+  // 没人的那一槽要整个藏掉，不然像素占位方块会露出来
+  const empty = declsFor('.portrait-slot.empty');
+  t.ok(/hidden/.test(empty.visibility || ''), '空槽位 visibility: hidden');
+  t.eq(empty.opacity, '0', '空槽位透明度 0');
 
   // 对话框横向铺满底部：左栏撑满 + 半透明（不能是纯色板子）
   const box = declsFor('#dialogue-box');
@@ -427,13 +880,35 @@ saveLoad().then(() => {
   t.ok(/var\(--dialogue-gutter\)/.test(box.padding || ''), '对话框正文仍然收在中间那一栏');
   t.ok(/--dialogue-gutter:\s*max\(\d+px/.test(CSS), '窄屏时留白有固定下限（--dialogue-gutter 用 max() 兜底），文字不会贴着窗口边');
 
-  t.ok(/#portrait-layer:not\(\.speaking\)/.test(CSS), '有「不是西比拉说话时」的立绘规则');
+  t.ok(/#portrait-layer:not\(\.speaking\)/.test(CSS), '有「左槽没在说话时」的立绘规则');
+  t.ok(/#portrait-layer-r:not\(\.speaking\)/.test(CSS), '有「右槽没在说话时」的立绘规则');
   t.ok(/brightness\(/.test(CSS), '压暗用的是 brightness 滤镜');
   t.ok(/scale\(0\.\d+\)/.test(CSS), '后缩用的是 scale');
+  // 两个槽的后缩方向相反，才是镜像而不是一起往左飘
+  t.ok(/translateX\(-/.test(declsFor('#portrait-layer:not(.speaking)').transform || ''), '左槽往后缩是往左');
+  t.ok(/translateX\(/.test(declsFor('#portrait-layer-r:not(.speaking)').transform || ''), '右槽往后缩是往右');
   // drop-shadow 会在透明 PNG 的人物轮廓外描一圈黑边，等于又把边界感加回来了
-  const portraitImage = declsFor('#portrait-image');
-  t.ok(!/drop-shadow/.test(portraitImage.filter || ''), '立绘图不加投影（投影会沿人物轮廓描边）');
-  t.eq(portraitImage['background-color'], 'transparent', '立绘那一层的底色是透明的');
+  for (const sel of ['#portrait-image', '#portrait-image-r']) {
+    const d = declsFor(sel);
+    t.ok(!/drop-shadow/.test(d.filter || ''), `${sel} 不加投影（投影会沿人物轮廓描边）`);
+    t.eq(d['background-color'], 'transparent', `${sel} 那一层的底色是透明的`);
+    t.eq(d['background-size'], 'contain', `${sel} 用 contain，立绘不会变形`);
+  }
+  t.eq(declsFor('#portrait-image-r')['background-position'], 'bottom right', '右槽的图贴右下角');
+
+  // 「继续下一幕」那个按钮：金色，和「重新开始」区分得开
+  const cont = declsFor('.end-continue-btn');
+  t.ok(/var\(--gold\)/.test(cont.color || ''), '「继续下一幕」按钮是金色的');
+  t.ok(/var\(--gold\)/.test(cont['border-color'] || ''), '「继续下一幕」按钮的边框也是金色的');
+
+  /* 对话框收起：出选项 / 到结局时不再让上一句话半透明地赖在底部。
+     用 transform 往下推、不用 display: none —— transform 不脱离文档流，
+     对话框仍然占着原来的高度，上面的选项不会忽然往下跳。 */
+  const collapsed = declsFor('#dialogue-box.collapsed');
+  t.eq(collapsed.opacity, '0', '对话框收起时透明度 0');
+  t.ok(/translateY\(100%\)/.test(collapsed.transform || ''), '对话框是往下推出屏幕的');
+  t.eq(collapsed['pointer-events'], 'none', '收起之后不挡点击');
+  t.ok(/transform/.test(declsFor('#dialogue-box').transition || ''), '收起/打开是有过渡的（transform 一起过渡）');
   t.ok(/#title-screen\b/.test(CSS), '有开始界面的样式');
   t.ok(/\.title-name\b/.test(CSS), '有游戏名的样式');
   t.ok(/#title-screen:not\(\.on\)/.test(CSS), '开始界面能整体淡出');
@@ -449,6 +924,46 @@ saveLoad().then(() => {
   const zBoot = zOf('#boot-error');
   t.ok(zTitle !== null && zHud !== null && zTitle > zHud, `开始界面在控制条之上（${zTitle} > ${zHud}）`);
   if (zBoot !== null) t.ok(zBoot > zTitle, `加载失败提示还在开始界面之上（${zBoot} > ${zTitle}）`);
+
+  /* ---------------- 换装浮层 ---------------- */
+
+  const zEnd = zOf('#end-screen');
+  const zOutfit = zOf('#outfit-screen');
+  t.eq(zOutfit, 10, '换装浮层的 z-index 是 10');
+  if (zEnd !== null) t.ok(zOutfit > zEnd, `浮层压在结局卡片之上（${zOutfit} > ${zEnd}）`);
+  t.ok(zOutfit < zTitle, `浮层还在开始界面之下（重开时不会露在标题上面：${zOutfit} < ${zTitle}）`);
+
+  // 背景模糊只能加在浮层自己那一层上
+  const veil = declsFor('#outfit-veil');
+  t.ok(/blur\(/.test(veil['backdrop-filter'] || ''), '浮层背后那层负责把背景糊掉');
+  t.ok(/blur\(/.test(veil['-webkit-backdrop-filter'] || ''), '-webkit- 前缀也写了');
+  t.eq(declsFor('#stage').filter, undefined, '#stage 上没有 filter（否则 fixed 的背景层会换掉包含块）');
+  t.eq(declsFor('#app').filter, undefined, '#app 上没有 filter（同上）');
+
+  // 全身立绘居中
+  const op = declsFor('#outfit-portrait');
+  t.ok(/1448\s*\/\s*2896/.test(op['aspect-ratio'] || ''), '全身立绘用 1:2（四张全身图都是 1448×2896）');
+  t.ok(/auto/.test(op.margin || ''), '全身立绘左右自动居中');
+  const off = declsFor('#outfit-screen');
+  t.ok(/fixed/.test(off.position || ''), '浮层是全屏铺满的');
+  t.ok(
+    /center/.test(off['align-items'] || '') && /center/.test(off['justify-content'] || ''),
+    '浮层内容整体居中'
+  );
+  t.ok(/#outfit-screen:not\(\.on\)/.test(CSS), '浮层能整体淡出');
+  const offNot = declsFor('#outfit-screen:not(.on)');
+  t.eq(offNot['pointer-events'], 'none', '浮层收起来之后不挡点击');
+  t.eq(offNot.opacity, '0', '浮层收起来之后是透明的');
+
+  // 全身图那一层也要守红线：drop-shadow 会沿人物轮廓描一圈黑边
+  const od = declsFor('#outfit-image');
+  t.ok(!/drop-shadow/.test(od.filter || ''), '#outfit-image 不加投影（投影会沿人物轮廓描边）');
+  t.eq(od['background-size'], 'contain', '#outfit-image 用 contain，立绘不会变形');
+  t.eq(od['background-position'], 'center bottom', '#outfit-image 贴着底边居中');
+
+  // 「现在穿着」那个标记
+  t.ok(/\.choice-btn\.worn\b/.test(CSS), '有「现在穿着」那套衣服的样式');
+  t.ok(/\.choice-worn\b/.test(CSS), '标记旁边那行说明文字也有样式');
 
   t.done();
 }).catch((err) => {
