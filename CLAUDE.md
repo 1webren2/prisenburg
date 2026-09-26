@@ -41,10 +41,12 @@
 - 节点没有 `next`、没有 `choices`、也没有 `ending` = 卡死，自检报错。
 - `effects` / `if` 里出现的数值，必须先在 `config.statLabels` 里定义过。
 - 位置用「锚点节点 id」表示：`snapshot()` / `restore()` 只认 `nodeId + stats + lineIndex`，所以自由活动里「她此刻穿着什么」天然被存档记住，不用加字段。
+- **报仇场景 `fr_revenge` 的 `dialogues` 必须是空的** —— 它那几句占位台词走 `freeRoam.revenge.lines`，写进 `dialogues` 就会被原文核对当成自编台词拦下。
 
 ## 几处「一改就红」的数字（都在测试里）
 
-- 节点 **69** 个（act1 34 + act2 35，其中 8 个是自由活动锚点）、结局 **3** 个、可达 69
+- 节点 **75** 个（act1 34 + act2 41，其中 13 个是自由活动锚点，另有 1 个报仇结局 `fr_revenge` 不在 `anchors` 里）、结局 **4** 个、可达 75
+- 数值区间写在 `config.statRanges`，没写的按 `[0, 100]`；两个「好感」是 `[-100, 100]`
 - 枚举路径 `ALL_PATHS.length === 1728`，且每条路径的「伊莎贝尔_好感 + 西比拉_警惕 **恒等于 3**」
 - 视角切换 2 次；`a10_end.continueTo === 'b1_room'`；`b25_end.continueTo` 不存在
 - `tests/dom-stub.cjs` 的元素是**按 `index.html` 里的 `id="..."` 正则扫出来**的：加了带 id 的新元素，要同步 `ui.js` 的 `mount()` 列表和 `ui.test.cjs` 里的计数

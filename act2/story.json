@@ -1186,6 +1186,61 @@
       "dialogues": []
     },
     {
+      "id": "fr_visit_sib_maid",
+      "pov": "奥布里",
+      "freeRoam": true,
+      "title": "自由活动 · 奥布里的房间",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": []
+    },
+    {
+      "id": "fr_visit_sib_teacher",
+      "pov": "奥布里",
+      "freeRoam": true,
+      "title": "自由活动 · 奥布里的房间",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": []
+    },
+    {
+      "id": "fr_visit_sib_riding",
+      "pov": "奥布里",
+      "freeRoam": true,
+      "title": "自由活动 · 奥布里的房间",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": []
+    },
+    {
+      "id": "fr_visit_sib_black",
+      "pov": "奥布里",
+      "freeRoam": true,
+      "title": "自由活动 · 奥布里的房间",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": []
+    },
+    {
+      "id": "fr_visit_isa",
+      "pov": "奥布里",
+      "freeRoam": true,
+      "title": "自由活动 · 奥布里的房间",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": []
+    },
+    {
       "id": "fr_the_end",
       "pov": "奥布里",
       "freeRoam": true,
@@ -1197,6 +1252,19 @@
       "dialogues": [],
       "ending": true,
       "endSub": "沃伯爵的一天结束了。"
+    },
+    {
+      "id": "fr_revenge",
+      "pov": "奥布里",
+      "freeRoam": true,
+      "title": "自由活动 · 到此为止",
+      "art": {
+        "bg": "bg_sibylla_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [],
+      "ending": true,
+      "endSub": "[她没有喊人，只是把门关上了。]"
     }
   ],
   "freeRoam": {
@@ -1204,7 +1272,56 @@
     "pov": "奥布里",
     "affinity": {
       "stat": "西比拉_好感",
-      "threshold": 2
+      "tiers": [80, 40, 0, -49],
+      "revengeBelow": -50,
+      "comboPeak": 90
+    },
+    "touchCombo": {
+      "every": 5,
+      "peakStat": 90,
+      "stat": "西比拉_好感",
+      "penalty": {
+        "stat": "西比拉_好感",
+        "value": -2,
+        "note": "……她把手收了回去，不再看你。"
+      },
+      "reward": {
+        "stat": "西比拉_亲密",
+        "value": 1,
+        "note": "她靠得更近了一点。"
+      }
+    },
+    "revenge": {
+      "note": "好感掉到 threshold 以下之后，每次进驻这些房间掷一次骰子（chance 是概率）。骰子的种子只取存档里存着的东西 —— 节点、它出现在 history 里的次数、当时的数值 —— 所以同一份存档读两次结果一样，离开再进来才会换个数。台词是占位文本，走 freeRoam 块而不是节点 dialogues，正是为了不被 fidelity.cjs 当成自编台词。",
+      "stat": "西比拉_好感",
+      "threshold": -50,
+      "chance": 0.4,
+      "rooms": [
+        "西比拉"
+      ],
+      "node": "fr_revenge",
+      "lines": [
+        {
+          "speaker": "旁白",
+          "text": "[她没有喊人。]"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "[……我一直在想，会不会有这一天。]"
+        },
+        {
+          "speaker": "旁白",
+          "text": "[她退到门边，把门关上，手一直没有离开门把。]"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "[请您待在这里。等伯爵回来。]"
+        },
+        {
+          "speaker": "旁白",
+          "text": "[灯芯爆了一下。她始终没有看你。]"
+        }
+      ]
     },
     "anchors": [
       "fr_hub",
@@ -1214,6 +1331,11 @@
       "fr_sib_riding",
       "fr_sib_black",
       "fr_isa",
+      "fr_visit_sib_maid",
+      "fr_visit_sib_teacher",
+      "fr_visit_sib_riding",
+      "fr_visit_sib_black",
+      "fr_visit_isa",
       "fr_the_end"
     ],
     "hubs": {
@@ -1250,6 +1372,64 @@
             "text": "[她在灯下抬起头。]"
           }
         ],
+        "special": {
+          "note": "好感过了 80 才会在房间菜单里多出来的一项。占位文本，等作者替换。",
+          "when": {
+            "stat": "西比拉_好感",
+            "op": ">",
+            "value": 80
+          },
+          "label": "[说点别的]",
+          "hint": "[她今天有点不一样]",
+          "lines": [
+            {
+              "speaker": "旁白",
+              "text": "[她没有像平时那样站在门边。]"
+            },
+            {
+              "speaker": "西比拉",
+              "text": "[……您今天不太一样。]"
+            },
+            {
+              "speaker": "奥布里",
+              "text": "[哪里不一样。]"
+            },
+            {
+              "speaker": "西比拉",
+              "text": "[说不上来。您以前进门，眼睛是先看桌子的。]"
+            },
+            {
+              "speaker": "旁白",
+              "text": "[她把灯芯剪短了一点，屋子里暗下去，也暖了一点。]"
+            },
+            {
+              "speaker": "西比拉",
+              "text": "[我小时候，我母亲也这样。她从来不问我在想什么。]"
+            },
+            {
+              "speaker": "旁白",
+              "text": "[话说到一半，她自己停住了。]"
+            },
+            {
+              "speaker": "西比拉",
+              "text": "[……对不起。我说多了。]"
+            },
+            {
+              "speaker": "旁白",
+              "text": "[她转过身去收拾桌上那些根本不用收拾的东西。]"
+            },
+            {
+              "speaker": "西比拉",
+              "text": "[您要是没事，就早点回去睡吧。]"
+            }
+          ],
+          "effects": [
+            {
+              "stat": "西比拉_亲密",
+              "value": 2
+            }
+          ]
+        },
         "outfits": {
           "maid": {
             "label": "女仆装",
@@ -1264,6 +1444,35 @@
               {
                 "stat": "西比拉_好感",
                 "value": 1
+              }
+            ],
+            "branches": [
+              {
+                "if": {
+                  "stat": "西比拉_好感",
+                  "op": ">=",
+                  "value": 80
+                },
+                "line": {
+                  "speaker": "西比拉",
+                  "text": "[……这一身，只有您看过。]"
+                },
+                "effects": [
+                  {
+                    "stat": "西比拉_好感",
+                    "value": 1
+                  },
+                  {
+                    "stat": "西比拉_亲密",
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "line": {
+                  "speaker": "西比拉",
+                  "text": "[这一身……您还没看够吗？]"
+                }
               }
             ]
           },
@@ -1281,6 +1490,35 @@
                 "stat": "西比拉_好感",
                 "value": 1
               }
+            ],
+            "branches": [
+              {
+                "if": {
+                  "stat": "西比拉_好感",
+                  "op": ">=",
+                  "value": 80
+                },
+                "line": {
+                  "speaker": "西比拉",
+                  "text": "[……穿成这样站在您面前，我有点不习惯。]"
+                },
+                "effects": [
+                  {
+                    "stat": "西比拉_好感",
+                    "value": 1
+                  },
+                  {
+                    "stat": "西比拉_亲密",
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "line": {
+                  "speaker": "西比拉",
+                  "text": "[牧师服。您觉得合适吗？]"
+                }
+              }
             ]
           },
           "riding": {
@@ -1297,6 +1535,35 @@
                 "stat": "西比拉_好感",
                 "value": 2
               }
+            ],
+            "branches": [
+              {
+                "if": {
+                  "stat": "西比拉_好感",
+                  "op": ">=",
+                  "value": 80
+                },
+                "line": {
+                  "speaker": "西比拉",
+                  "text": "[……这一身，只给您看。]"
+                },
+                "effects": [
+                  {
+                    "stat": "西比拉_好感",
+                    "value": 1
+                  },
+                  {
+                    "stat": "西比拉_亲密",
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "line": {
+                  "speaker": "西比拉",
+                  "text": "[骑装。您想带我去骑马吗？]"
+                }
+              }
             ]
           },
           "black": {
@@ -1312,6 +1579,35 @@
               {
                 "stat": "西比拉_警惕",
                 "value": 1
+              }
+            ],
+            "branches": [
+              {
+                "if": {
+                  "stat": "西比拉_好感",
+                  "op": ">=",
+                  "value": 80
+                },
+                "line": {
+                  "speaker": "西比拉",
+                  "text": "[……您想让我穿这个？那就穿给您看。]"
+                },
+                "effects": [
+                  {
+                    "stat": "西比拉_好感",
+                    "value": 1
+                  },
+                  {
+                    "stat": "西比拉_亲密",
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "line": {
+                  "speaker": "西比拉",
+                  "text": "[……这种衣服，我不太习惯。]"
+                }
               }
             ]
           }
@@ -1368,16 +1664,16 @@
                 "if": {
                   "stat": "西比拉_好感",
                   "op": ">=",
-                  "value": 2
+                  "value": 80
                 },
                 "lines": [
                   {
                     "speaker": "旁白",
-                    "text": "[她没有躲。]"
+                    "text": "[她没有躲开，只是把手轻轻收了回去。]"
                   },
                   {
                     "speaker": "西比拉",
-                    "text": "[……您的手好凉。]"
+                    "text": "[……请您别这样。今天不行。]"
                   }
                 ],
                 "effects": [
@@ -1388,14 +1684,60 @@
                 ]
               },
               {
+                "if": {
+                  "stat": "西比拉_好感",
+                  "op": ">=",
+                  "value": 40
+                },
                 "lines": [
                   {
                     "speaker": "旁白",
-                    "text": "[她往后退了半步。]"
+                    "text": "[她按住你的手，过了片刻才放开。]"
                   },
                   {
                     "speaker": "西比拉",
-                    "text": "[请您自重，大人。]"
+                    "text": "[大人，这样不合适。]"
+                  }
+                ],
+                "effects": [
+                  {
+                    "stat": "西比拉_好感",
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "stat": "西比拉_好感",
+                  "op": ">=",
+                  "value": 0
+                },
+                "lines": [
+                  {
+                    "speaker": "旁白",
+                    "text": "[她往旁边让了半步。]"
+                  },
+                  {
+                    "speaker": "西比拉",
+                    "text": "[请您别这样。]"
+                  }
+                ],
+                "effects": []
+              },
+              {
+                "if": {
+                  "stat": "西比拉_好感",
+                  "op": ">=",
+                  "value": -49
+                },
+                "lines": [
+                  {
+                    "speaker": "旁白",
+                    "text": "[她把手抽了回去，指尖是凉的。]"
+                  },
+                  {
+                    "speaker": "西比拉",
+                    "text": "[……请您自重，大人。]"
                   }
                 ],
                 "effects": [
@@ -1406,6 +1748,28 @@
                   {
                     "stat": "西比拉_好感",
                     "value": -1
+                  }
+                ]
+              },
+              {
+                "lines": [
+                  {
+                    "speaker": "旁白",
+                    "text": "[她一路退到门边，眼睛始终盯着你。]"
+                  },
+                  {
+                    "speaker": "西比拉",
+                    "text": "[大人，请您出去。]"
+                  }
+                ],
+                "effects": [
+                  {
+                    "stat": "西比拉_警惕",
+                    "value": 2
+                  },
+                  {
+                    "stat": "西比拉_好感",
+                    "value": -2
                   }
                 ]
               }
@@ -1504,12 +1868,70 @@
             ]
           }
         ]
+      },
+      "来访·西比拉": {
+        "note": "让布朗去请她过来。人在奥布里的房间，所以背景用 bg_aubrey_room；动作表借她自己房间那份（actionsFrom），省掉一百多行重复 JSON。装束只写 node + half：请来的西比拉穿的就是她最后换上的那一身（half 让右槽还是她此刻的样子），而她不该在别人屋里换衣服，所以 canChangeOutfit 是 false，full 也就不需要了。hidden 让它不出现在 hub 的「去X的房间」列表里。",
+        "speaker": "西比拉",
+        "hidden": true,
+        "canChangeOutfit": false,
+        "actionsFrom": "西比拉",
+        "defaultOutfit": "maid",
+        "lines": [
+          {
+            "speaker": "旁白",
+            "text": "[布朗把她领了进来，自己退了出去。]"
+          }
+        ],
+        "outfits": {
+          "maid": {
+            "label": "女仆装",
+            "node": "fr_visit_sib_maid",
+            "half": "chr_sibylla"
+          },
+          "teacher": {
+            "label": "牧师服",
+            "node": "fr_visit_sib_teacher",
+            "half": "chr_sibylla_teacher"
+          },
+          "riding": {
+            "label": "骑装",
+            "node": "fr_visit_sib_riding",
+            "half": "chr_sibylla_riding"
+          },
+          "black": {
+            "label": "黑礼服",
+            "node": "fr_visit_sib_black",
+            "half": "chr_sibylla_black"
+          }
+        }
+      },
+      "来访·伊莎贝尔": {
+        "speaker": "伊莎贝尔",
+        "hidden": true,
+        "canChangeOutfit": false,
+        "actionsFrom": "伊莎贝尔",
+        "anchor": "fr_visit_isa",
+        "portrait": "chr_isabelle",
+        "lines": [
+          {
+            "speaker": "旁白",
+            "text": "[她站在门口，不太敢往里走。]"
+          }
+        ]
       }
     },
-    "locked": [
+    "invites": [
       {
-        "label": "让布朗通知别人过来",
-        "hint": "[还没有想好要见谁。]"
+        "label": "让布朗去请西比拉过来",
+        "hint": "[她也许会来。]",
+        "target": "西比拉",
+        "room": "来访·西比拉"
+      },
+      {
+        "label": "让布朗去请伊莎贝尔过来",
+        "hint": "[……]",
+        "target": "伊莎贝尔",
+        "room": "来访·伊莎贝尔"
       }
     ],
     "labels": {

@@ -110,8 +110,8 @@ t.eq(CONFIG.titleBackground, 'bg_carriage', '开始界面背景是马车图');
 const mounted = bootUI();
 t.eq(
   Object.keys(mounted.ui.els).length,
-  40,
-  'mount() 找到了 40 个元素（32 + 结局卡片上的「自由活动」+ 换装浮层的 7 个）'
+  41,
+  'mount() 找到了 41 个元素（32 + 结局卡片上的「自由活动」+ 换装浮层的 7 个 + 暂停按钮）'
 );
 
 // index.html 里不该有「没人管」的 id —— 要么进 ui.js 的清单，要么是纯装饰用的
@@ -573,17 +573,35 @@ t.ok(
 
 toMenu(fr.ui);
 t.eq(fr.ui.view.type, 'choices', '然后出菜单');
-t.eq(fr.ui.els.choices.children.length, 5, 'hub 菜单五项：两个去处 + 一个锁住的 + 下一幕 + 结束游戏');
+t.eq(fr.ui.els.choices.children.length, 6,
+  'hub 菜单六项：两个去处 + 两个「请人过来」+ 下一幕 + 结束游戏');
 t.eq(
   fr.ui.els.choices.children.map((b) => b.disabled),
-  [false, false, true, false, false],
-  '只有第三项（让布朗通知别人）点不动'
+  [false, false, false, false, false, false],
+  'hub 上已经没有点不动的项了'
 );
-t.ok(fr.ui.els.choices.children[2].className.includes('locked'), '灰显用的是 .locked');
+t.eq(
+  fr.ui.els.choices.children.map((b) => b.getAttribute('data-index')),
+  ['0', '1', '2', '3', '4', '5'],
+  '每项还带着自己的序号（数字键和点击都靠它）'
+);
+
+// 自由活动里已经没有锁着的项了，但「灰显 + 说明为什么」这条路还得留着能用：
+// 直接喂一个合成的视图给渲染层，把 .locked / .choice-lock 那两行走一遍
+fr.ui.render({
+  type: 'choices',
+  choices: [
+    { index: 0, text: '能点的', hint: '', enabled: true, lockedHint: '', effects: [] },
+    { index: 1, text: '点不动的', hint: '', enabled: false, lockedHint: '条件不足', effects: [] },
+  ],
+});
+t.ok(fr.ui.els.choices.children[1].className.includes('locked'), '灰显用的是 .locked');
 t.ok(
-  fr.ui.els.choices.children[2].children.some((c) => c.className.includes('choice-lock')),
+  fr.ui.els.choices.children[1].children.some((c) => c.className.includes('choice-lock')),
   '锁住的那项写了原因'
 );
+t.eq(fr.ui.els.choices.children[0].className.includes('locked'), false, '能点的那项没有 .locked');
+toMenu(fr.ui);
 t.ok(fr.ui.els['dialogue-box'].classList.contains('collapsed'), '出菜单时对话框收起来');
 
 // ---- 进西比拉的房间：两槽各站各的，右槽是她此刻的样子 ----
@@ -605,13 +623,14 @@ t.eq(
 
 // ---- 好感低：触摸 -> 警惕上升，并且只给「感觉」不给数字 ----
 t.eq(fr.engine.getStat('西比拉_好感'), 0, '刚进来好感是 0');
+fr.engine.setStat('西比拉_好感', -10); // 落到「≥-49」那一档（0 那一档台词照说，但不动数值）
 // 主线走下来警惕已经有底数了（主线的「好感 + 警惕 恒等于 3」），所以后面都按「涨了多少」来断言
 const baseWatch = fr.engine.getStat('西比拉_警惕');
 fr.fire(fr.ui.els.choices, 'click', {
   target: fr.ui.els.choices.children[findText(fr.ui.view.choices, '触摸')],
 });
 t.eq(fr.engine.getStat('西比拉_警惕'), baseWatch + 1, '好感低时触摸：警惕上升');
-t.eq(fr.engine.getStat('西比拉_好感'), 0, '好感低时触摸：好感没有被刷上去');
+t.eq(fr.engine.getStat('西比拉_好感'), -11, '好感低时触摸：好感被扣掉 1（区间是 -100~100，扣得动）');
 t.ok(fr.ui.els.toast.children.length > 0, '数值变动弹了提示');
 t.empty(
   fr.ui.els.toast.children.filter((n) => /\d/.test(n._text || '')).map((n) => n._text),
@@ -619,10 +638,10 @@ t.empty(
 );
 
 // ---- 好感高：同一次触摸走另一支 ----
-fr.engine.setStat('西比拉_好感', 2);
+fr.engine.setStat('西比拉_好感', 45); // 「≥40」那档
 toMenu(fr.ui);
 fr.ui.choose(findText(fr.ui.view.choices, '触摸'));
-t.eq(fr.engine.getStat('西比拉_好感'), 3, '好感高时同一次触摸：好感上升');
+t.eq(fr.engine.getStat('西比拉_好感'), 46, '好感高时同一次触摸：好感上升');
 t.eq(fr.engine.getStat('西比拉_警惕'), baseWatch + 1, '好感高时触摸：警惕不再涨');
 
 // ---- 换装浮层 ----
@@ -689,6 +708,73 @@ toMenu(fr.ui);
 t.eq(fr.ui.view.choices.map((c) => c.text), ['称赞', '普通对话', '触摸', '离开'], '伊莎贝尔的房间没有「换装」');
 t.eq(rightBG(fr.ui), urlOf('chr_isabelle', wholeStory), '右槽是伊莎贝尔');
 
+// ---- 让布朗去请人过来：人站在奥布里的房间里 ----
+fr.ui.choose(findText(fr.ui.view.choices, '离开'));
+toMenu(fr.ui);
+fr.ui.choose(findText(fr.ui.view.choices, '让布朗去请西比拉过来'));
+t.eq(fr.engine.node.id, 'fr_visit_sib_black', '请来的西比拉穿着她最近一次穿的那套（上面刚换成黑礼服）');
+toMenu(fr.ui);
+t.eq(bgBG(fr.ui), urlOf('bg_aubrey_room', wholeStory), '背景还是奥布里的房间');
+t.eq(rightBG(fr.ui), urlOf('chr_sibylla_black', wholeStory), '右槽站着被请来的她，还是那套黑礼服');
+t.eq((fr.ui.view.room || {}).speaker, '西比拉', '视图说右槽是她');
+t.eq(fr.ui.view.choices.map((c) => c.text), ['称赞', '普通对话', '触摸', '离开'],
+  '来访的她借的是自己的动作表，但在这屋里不给换装');
+
+// 黑礼服 → 女仆装：请来的那套跟着「最近一次」走，不是「去过哪几件」
+fr.ui.choose(findText(fr.ui.view.choices, '离开'));
+toMenu(fr.ui);
+fr.ui.choose(findText(fr.ui.view.choices, '去西比拉的房间'));
+t.eq(fr.engine.node.id, 'fr_sib_black', '回她屋里，她还穿着黑礼服（换装=换锚点，位置记住了）');
+toMenu(fr.ui);
+fr.ui.choose(findText(fr.ui.view.choices, '换装'));
+fr.fireKey(String(findText(fr.ui.view.choices, '女仆装') + 1));
+t.eq(fr.engine.node.id, 'fr_sib_maid', '在浮层里换回女仆装');
+fr.fireKey('5');
+toMenu(fr.ui);
+fr.ui.choose(findText(fr.ui.view.choices, '离开'));
+toMenu(fr.ui);
+fr.ui.choose(findText(fr.ui.view.choices, '让布朗去请西比拉过来'));
+t.eq(fr.engine.node.id, 'fr_visit_sib_maid',
+  '黑礼服穿过、女仆装又穿回来 —— 请来的是女仆装（钉死「不能用 visited 的 Set」）');
+toMenu(fr.ui);
+fr.ui.choose(findText(fr.ui.view.choices, '离开'));
+toMenu(fr.ui);
+fr.ui.choose(findText(fr.ui.view.choices, '让布朗去请伊莎贝尔过来'));
+t.eq(fr.engine.node.id, 'fr_visit_isa', '请得来伊莎贝尔');
+toMenu(fr.ui);
+t.eq(rightBG(fr.ui), urlOf('chr_isabelle', wholeStory), '右槽是伊莎贝尔');
+t.eq(fr.ui.view.choices.map((c) => c.text), ['称赞', '普通对话', '触摸', '离开'], '伊莎贝尔来访也没有换装');
+
+// ---- 高好感的特殊剧情：菜单里多出来的一项 ----
+fr.ui.choose(findText(fr.ui.view.choices, '离开'));
+fr.engine.setStat('西比拉_好感', 85);
+toMenu(fr.ui);
+fr.ui.choose(findText(fr.ui.view.choices, '去西比拉的房间'));
+toMenu(fr.ui);
+const specialText = wholeStory.freeRoam.rooms['西比拉'].special.label;
+t.eq(fr.ui.view.choices.map((c) => c.text),
+  ['称赞', '普通对话', '触摸', specialText, '换装', '离开'],
+  '好感 85：菜单里多出来一项，摆在触摸和换装之间');
+fr.engine.setStat('西比拉_好感', 45);
+fr.ui.step(); // 站在菜单里再推一下 = 照当前数值重画这张菜单
+t.eq(fr.ui.view.type, 'choices', '还在菜单里（re-roam 不会把人赶走）');
+t.eq(findText(fr.ui.view.choices, specialText), -1, '好感掉回 45：那一项又没了');
+fr.engine.setStat('西比拉_好感', 85);
+fr.ui.step();
+fr.ui.choose(findText(fr.ui.view.choices, specialText));
+t.eq(fr.ui.view.type, 'line', '点开先播台词');
+t.eq(
+  (fr.ui.view.line || {}).text,
+  wholeStory.freeRoam.rooms['西比拉'].special.lines[0].text,
+  '播的是数据结构里排第一的那句'
+);
+t.eq(rightBG(fr.ui), urlOf('chr_sibylla', wholeStory), '旁白那句也没把她从右槽抹掉（她还是女仆装那张）');
+t.eq(litRight(fr.ui), true, '还是她那一侧亮着');
+const specialEnd = toMenu(fr.ui);
+t.eq(specialEnd.type, 'choices', '播完留在原地，还是房间菜单');
+t.ok(findText(fr.ui.view.choices, '换装') >= 0, '换装照旧在');
+t.eq(fr.engine.getStat('西比拉_亲密'), 2, '特殊剧情加的是亲密值');
+
 // ---- 第二幕之后的自由活动：没有「进入下一幕」，但有「结束游戏」 ----
 const fr2 = bootUI(wholeStory);
 fr2.ui.begin();
@@ -709,6 +795,75 @@ t.eq(fr2.ui.els['end-roam'].style.display, 'none', '全剧终之后不再有「�
 t.eq(fr2.ui.els['end-screen'].classList.contains('on'), true, '结局屏打开了');
 
 /* ===================================================================
+ * 6.5 中途暂停：剧情 → 自由活动 → 回到原来那一句
+ * =================================================================== */
+
+t.section('中途暂停');
+
+const pz = bootUI(wholeStory);
+t.eq(pz.ui.els['pause-btn'].style.display, 'none', '开始界面（还没有剧情）不显示暂停按钮');
+t.eq(pz.ui.els['pause-btn'].textContent, '暂停 (P)', '按钮上是「暂停」');
+
+pz.ui.begin();
+t.eq(pz.ui.els['pause-btn'].style.display, '', '剧情一开始就出现「暂停 (P)」');
+
+// 往前播两句，这样才测得出「回到原来那一句」
+pz.ui.step();
+pz.ui.step();
+const pzNode = pz.engine.node.id;
+const pzLine = pz.engine.lineIndex;
+const pzNextText = pz.engine.visibleLines()[pzLine].text;   // 没暂停的话，下一句就该是它
+t.ok(pzLine > 0, '确实播了一句以上');
+
+pz.fire(pz.ui.els['pause-btn'], 'click');
+t.eq(pz.engine.paused, true, '点一下就暂停（进自由活动）');
+t.eq(pz.engine.node.id, 'fr_hub', '落在自由活动的 hub 上');
+t.eq(pz.ui.view.type, 'line', '先播自由活动的开场白');
+t.eq(pz.ui.els['pause-btn'].textContent, '回到剧情 (P)', '按钮改口叫「回到剧情」');
+t.eq(pz.ui.els['pause-btn'].style.display, '', '暂停中按钮照旧显示');
+
+toMenu(pz.ui);
+t.eq(pz.ui.view.type, 'choices', '暂停之后自由活动的菜单照常出');
+t.empty(pz.ui.view.choices.map((c) => c.text).filter((s) => /下一幕|结束游戏/.test(s)),
+  '暂停中不列「进入下一幕 / 结束游戏」');
+t.eq(pz.ui.els['pause-btn'].style.display, '', '在 hub 菜单上按钮也还在');
+
+// 暂停期间进她的房间转一圈，涨的好感要留住
+pz.ui.choose(findText(pz.ui.view.choices, '去西比拉的房间'));
+toMenu(pz.ui);
+const pzGain = pz.engine.getStat('西比拉_好感');
+pz.ui.choose(findText(pz.ui.view.choices, '称赞'));
+toMenu(pz.ui);
+t.eq(pz.engine.getStat('西比拉_好感'), pzGain + 1, '暂停里自由活动照常涨好感');
+
+pz.fireKey('p');
+t.eq(pz.engine.paused, false, '再按 P 回到剧情');
+t.eq(pz.engine.node.id, pzNode, '回到暂停时那个节点');
+t.eq(pz.engine.lineIndex, pzLine + 1, '进度停在原文的同一处（刚把那一句重新摆出来）');
+t.eq(pz.ui.view.line.text, pzNextText, '屏幕上就是「没暂停的话该看到的那一句」');
+t.eq(pz.engine.getStat('西比拉_好感'), pzGain + 1, '自由活动里涨的好感一分不丢');
+t.eq(pz.ui.els['pause-btn'].textContent, '暂停 (P)', '按钮改回「暂停」');
+t.eq(pz.ui.els['end-screen'].classList.contains('on'), false, '没有误弹结局屏');
+
+// 结局屏上按不动
+const pzEnd = bootUI(wholeStory);
+pzEnd.ui.begin();
+playTo(pzEnd.ui, 'b25_end');
+t.eq(pzEnd.ui.els['pause-btn'].style.display, 'none', '结局屏上没有暂停按钮');
+
+// 从结局卡片进的自由活动也没有可回的地方
+const pzRoam = bootUI(wholeStory);
+pzRoam.ui.begin();
+playTo(pzRoam.ui, 'a10_end');
+pzRoam.fire(pzRoam.ui.els['end-roam'], 'click');
+t.eq(pzRoam.engine.node.id, 'fr_hub', '从结局卡片进了自由活动');
+t.eq(pzRoam.ui.els['pause-btn'].style.display, 'none', '这里没有「原来的剧情」，按钮不显示');
+const toastBefore = pzRoam.ui.els.toast.children.length;
+pzRoam.fireKey('p');
+t.eq(pzRoam.engine.paused, false, '误按 P 什么也不会发生（不弹提示、不报错）');
+t.eq(pzRoam.ui.els.toast.children.length, toastBefore, '误按 P 连提示都不弹');
+
+/* ===================================================================
  * 7. 数值面板
  * =================================================================== */
 
@@ -721,7 +876,7 @@ t.ok(stat.ui.els['stats-body'].children[0].className.includes('stat-hidden'), '�
 
 stat.fireKey('v');
 t.eq(stat.engine.showStats, true, '按 V 打开真实数值');
-t.eq(stat.ui.els['stats-body'].children.length, 3, '打开后有 3 行（三个隐藏数值）');
+t.eq(stat.ui.els['stats-body'].children.length, 4, '打开后有 4 行（四个隐藏数值，多了「亲密」）');
 t.eq(stat.ui.els['stats-toggle'].getAttribute('data-on'), '1', '按钮状态跟着变');
 t.eq(stat.ui.els['stats-panel'].classList.contains('revealed'), true, '面板展开');
 

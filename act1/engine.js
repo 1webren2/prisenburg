@@ -386,6 +386,8 @@
       this.statLabels = this.config.statLabels || {};
       this.statOrder = this.config.statOrder || Object.keys(this.statLabels);
       this.statNotes = this.config.statNotes || {};
+      // 数值的合法区间。没写的走默认 0~100；「好感」之类要能掉到负数的写在 config.statRanges 里。
+      this.statRanges = this.config.statRanges || {};
 
       this._listeners = {};
       this._cache = new Map();  // 像素图缓存
@@ -424,6 +426,8 @@
       this._prevPov = null;
       this.povSwitchInfo = null;
       this.roam = null;          // 幕间自由活动的运行时状态，见 roamAdvance()
+      this.paused = false;       // 「剧情中途暂停」的状态，见 pauseToStory()
+      this._pauseReturn = null;  // 暂停时记下的回程票（节点 + 播到第几句）
     }
 
     getStat(name) {
@@ -431,9 +435,20 @@
       return v === undefined ? 0 : v;
     }
 
-    /** 仅供调试/读档：直接设置数值（会夹在 0~100） */
+    /** 某个数值的合法区间 [min, max]；没在 config.statRanges 里写就是 0~100 */
+    statRange(name) {
+      const r = this.statRanges[name];
+      if (!Array.isArray(r) || r.length !== 2) return [0, 100];
+      const min = Number(r[0]);
+      const max = Number(r[1]);
+      if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return [0, 100];
+      return [min, max];
+    }
+
+    /** 仅供调试/读档：直接设置数值（按该数值自己的区间夹） */
     setStat(name, value) {
-      this.stats[name] = clamp(Math.round(Number(value) || 0), 0, 100);
+      const [min, max] = this.statRange(name);
+      this.stats[name] = clamp(Math.round(Number(value) || 0), min, max);
       this.emit('stats', { stats: this.stats, reason: 'set' });
       return this.stats[name];
     }
@@ -444,16 +459,25 @@
       return this.showStats;
     }
 
-    /** 数值面板：showStats 为真给真实数字，否则只给一句感觉 */
+    /**
+     * 数值面板：showStats 为真给真实数字，否则只给一句感觉。
+     * 条按各自的区间缩放（下限不一定是 0 —— 好感是 -100~100，所以 0 在正中间），
+     * ratio 一并给界面，省得它自己做算术。
+     */
     statPanel() {
       return this.statOrder.map((name) => {
         const value = this.getStat(name);
+        const [min, max] = this.statRange(name);
+        const ratio = (value - min) / (max - min);
         return {
           name,
           label: this.statLabels[name] || name,
           value,
+          min,
+          max,
+          ratio,
           display: this.showStats ? String(value) : '?',
-          bar: this.showStats ? '#'.repeat(clamp(Math.round(value / 2), 0, 50)) : '',
+          bar: this.showStats ? '#'.repeat(clamp(Math.round(ratio * 50), 0, 50)) : '',
         };
       });
     }
@@ -477,7 +501,8 @@
       const results = [];
       for (const eff of effects) {
         const before = this.getStat(eff.stat);
-        const after = clamp(before + Number(eff.value || 0), 0, 100);
+        const [min, max] = this.statRange(eff.stat);
+        const after = clamp(before + Number(eff.value || 0), min, max);
         this.stats[eff.stat] = after;
         const delta = after - before;
         const result = {
@@ -680,8 +705,19 @@
      */
     _roamHasMenu() {
       if (!this.isFreeRoamNode(this.node)) return false;
+      // 报仇场景不是菜单：台词播完就收场，交给 advance() 走结局那一套
+      if (this._roamIsScene()) {
+        return !(this.roam && this.roam.entryNode === this.node.id
+                 && this.roam.queueIndex >= this.roam.queue.length);
+      }
       if (this._roamRoomName()) return true;
       return !!(this.roamData.hubs || {})[this.node.id];
+    }
+
+    /** 现在是不是正踩在报仇那个结局节点上 */
+    _roamIsScene() {
+      const cfg = (this.roamData || {}).revenge;
+      return !!(cfg && cfg.node && this.node && this.node.id === cfg.node);
     }
 
     /** 自由活动当前在「菜单」还是「换装浮层」 */
@@ -714,6 +750,30 @@
       return r.defaultOutfit || Object.keys(r.outfits)[0] || null;
     }
 
+    /**
+     * 某人此刻穿着哪一套 —— 从 history 从后往前找她房间最近落过的那个装束锚点。
+     * 不能用 visited：那是 Set，不记重复，`maid→riding→maid` 之后它会以为你还穿着 riding。
+     */
+    _roamOutfitByHistory(personName) {
+      const r = ((this.roamData || {}).rooms || {})[personName];
+      if (!r || !r.outfits) return null;
+      const byNode = {};
+      for (const oid of Object.keys(r.outfits)) byNode[r.outfits[oid].node] = oid;
+      for (let i = this.history.length - 1; i >= 0; i--) {
+        const oid = byNode[this.history[i]];
+        if (oid) return oid;
+      }
+      return r.defaultOutfit || Object.keys(r.outfits)[0] || null;
+    }
+
+    /** 某人此刻该画哪张半身像（报仇场景不在任何房间里，得靠 history 反查） */
+    _roamPersonPortrait(personName) {
+      const r = ((this.roamData || {}).rooms || {})[personName];
+      if (!r) return null;
+      if (!r.outfits) return r.portrait || null;
+      return (r.outfits[this._roamOutfitByHistory(personName)] || {}).half || null;
+    }
+
     /** 这个房间此刻该在右槽显示哪张半身像（＝她当前的状态） */
     _roamRoomPortrait(roomName) {
       const r = ((this.roamData || {}).rooms || {})[roomName];
@@ -741,10 +801,20 @@
       return keys[0];
     }
 
-    /** 「去某人的房间」该落到哪个锚点：没有 outfits 的房间直接用 anchor */
+    /**
+     * 「去某人的房间」该落到哪个锚点。
+     * 有 outfits 的房间落到**她此刻穿着的那套**（＝history 里最近一次），
+     * 这样「请她过来」和「去她屋里」看到的是同一个人、同一身衣服；
+     * 否则每次回 hub 再进房间都会把她悄悄换回默认装，请人那套逻辑就成了摆设。
+     */
     _roamRoomEntry(roomName) {
       const r = ((this.roamData || {}).rooms || {})[roomName];
       if (!r) return null;
+      if (r.outfits) {
+        const oid = this._roamOutfitByHistory(roomName);
+        const node = ((r.outfits || {})[oid] || {}).node;
+        if (node) return node;
+      }
       if (r.anchor) return r.anchor;
       const outfits = r.outfits || {};
       const id = r.defaultOutfit || Object.keys(outfits)[0];
@@ -767,11 +837,13 @@
       const st = this._roamState();
       if (!this.roam) {
         this.roam = { hub: st.hub, room: st.room, entryNode: null, queue: [], queueIndex: 0,
-                      mode: 'menu', outfit: null, outfitLine: null };
+                      mode: 'menu', outfit: null, outfitLine: null, touchStreak: 0 };
       }
       if (this.roam.entryNode === this.node.id) return;
       const d = this.roamData;
-      const src = (st.room ? (d.rooms || {})[st.room] : (d.hubs || {})[this.node.id]) || {};
+      const src = (st.room ? (d.rooms || {})[st.room] : (d.hubs || {})[this.node.id])
+                  || (this._roamIsScene() ? d.revenge : {})   // 报仇场景不在房间也不在 hub 上
+                  || {};
       this.roam.hub = st.hub;
       this.roam.room = st.room;
       this.roam.entryNode = this.node.id;
@@ -780,6 +852,38 @@
       this.roam.mode = 'menu';
       this.roam.outfit = null;
       this.roam.outfitLine = null;
+      this.roam.touchStreak = 0;      // 换了个锚点就是新的一趟，摸了几下的账重新记
+      // 每次进驻（就是这一行往下唯一会走到的地方）掷一次骰子，见 _roamShouldRevenge()
+      this.roam.revenge = this._roamShouldRevenge(st.room);
+    }
+
+    /** 这个锚点在 history 里出现过几次 —— 被存档持久化、读档后逐位还原的唯一计数器 */
+    _roamVisitIndex(nodeId) {
+      let n = 0;
+      for (const id of this.history) if (id === nodeId) n += 1;
+      return n;
+    }
+
+    /**
+     * 掷一次骰子。种子只取「存档里存着的东西」：当前节点、它出现过几次、当时的数值。
+     * 所以同一份存档读两次结果一样；离开再进来（history 多一条）才会换个数。
+     */
+    _roamRoll(salt, statName, statValue) {
+      const seed = ['roam-roll', salt, this.node.id, this._roamVisitIndex(this.node.id),
+                    statName, statValue].join('|');
+      return mulberry32(hashString(seed))();
+    }
+
+    /** 这次进驻该不该出事：房间对、数值低到线下、骰子又掷中了 */
+    _roamShouldRevenge(roomName) {
+      const cfg = (this.roamData || {}).revenge;
+      if (!cfg || !cfg.node || !this.nodes[cfg.node]) return false;
+      if (!roomName || (cfg.rooms || []).indexOf(roomName) < 0) return false;
+      const value = this.getStat(cfg.stat);
+      if (value >= Number(cfg.threshold)) return false;
+      const chance = Number(cfg.chance);
+      if (!(chance > 0)) return false;
+      return this._roamRoll('revenge', cfg.stat, value) < chance;
     }
 
     /** 这个结局之后该进哪个 hub（hubs 里写了 after = 这个节点 id 的那个）。没有就返回 null。 */
@@ -803,10 +907,46 @@
       this.roam = {
         hub: hubs[anchorId] ? anchorId : this._roamGuessHub(),
         room: null, entryNode: null, queue: [], queueIndex: 0,
-        mode: 'menu', outfit: null, outfitLine: null,
+        mode: 'menu', outfit: null, outfitLine: null, touchStreak: 0,
       };
       this.enterNode(anchorId);
       return { ok: true, node: this.node, roam: this.roam };
+    }
+
+    /**
+     * 剧情中途暂停：跳进自由活动，位置先记下来。
+     *
+     * 记 `lineIndex` 是关键 —— enterNode() 会把它清零，不存下来就回不到原来那句。
+     * 数值一个字都不动，所以自由活动里涨的好感、跑过的剧情进度都不会丢。
+     */
+    pauseToStory() {
+      if (this.paused) return { ok: false, reason: 'already-paused' };
+      if (this.ended || !this.node) return { ok: false, reason: 'no-story' };
+      if (this.isFreeRoamNode(this.node)) return { ok: false, reason: 'in-free-roam' };
+      if (!this.roamData) return { ok: false, reason: 'no-free-roam' };
+      const hub = this._roamGuessHub();
+      if (!hub || !this.nodes[hub]) return { ok: false, reason: 'no-hub' };
+
+      this._pauseReturn = { nodeId: this.node.id, lineIndex: this.lineIndex, pov: this.pov };
+      this.paused = true;
+      this.enterRoam(hub);
+      this._prevPov = this.node.pov;   // 这一跳不是视角切换，界面不该弹横幅
+      return { ok: true, node: this.node, roam: this.roam };
+    }
+
+    /** 「回到剧情」：回到暂停时那个节点的原来那一句，数值一个字都不动 */
+    resumeFromStory() {
+      const back = this._pauseReturn;
+      if (!this.paused || !back) return { ok: false, reason: 'not-paused' };
+      if (!this.nodes[back.nodeId]) return { ok: false, reason: 'no-such-node' };
+
+      this.paused = false;
+      this._pauseReturn = null;
+      this.roam = null;
+      this.enterNode(back.nodeId);
+      this.lineIndex = clamp(Number(back.lineIndex) || 0, 0, this.visibleLines().length);
+      this._prevPov = this.node.pov;   // 同上：折叠两次，不算换视角
+      return { ok: true, node: this.node, lineIndex: this.lineIndex };
     }
 
     /** 自由活动里的一行台词：形状和 advance() 里那条完全一致，界面照旧能用 */
@@ -817,6 +957,9 @@
       const room = (this.roamData.rooms || {})[this.roam && this.roam.room];
       if (room && line.speaker === room.speaker) {
         portrait = this._roamRoomPortrait(this.roam.room) || portrait;
+      } else if (this._roamIsScene()) {
+        // 报仇场景哪间屋子都不算，但说话的人还是她 —— 别退回默认那张脸
+        portrait = this._roamPersonPortrait(line.speaker) || portrait;
       }
       return {
         type: 'line',
@@ -851,6 +994,17 @@
      */
     roamAdvance() {
       this._roamSync();
+
+      // 报仇掷中了：当场掉头去结局，这一趟自由活动到此为止。
+      // 挂在这里而不是 enterNode() —— 后者被读档/换装到处调用，落在房间里会当场触发。
+      if (this.roam.revenge) {
+        this.roam.revenge = false;
+        const cfg = (this.roamData || {}).revenge || {};
+        if (cfg.node && this.nodes[cfg.node]) {
+          this.enterNode(cfg.node);
+          return this.advance();
+        }
+      }
 
       if (this.roam.mode === 'outfit') {
         const payload = this._outfitView();
@@ -895,12 +1049,15 @@
       if (!st.room) {
         for (const name of Object.keys(d.rooms || {})) {
           const r = d.rooms[name] || {};
+          if (r.hidden) continue;    // 来访房间是「请人过来」的落点，不摆在「去X的房间」里
           this._roamItem(items, `去${name}的房间`, r.hint || '', { kind: 'goto', room: name });
         }
-        for (const l of d.locked || []) {
-          this._roamItem(items, l.label, '', { kind: 'locked' }, { enabled: false, lockedHint: l.hint || '还没做' });
+        for (const iv of d.invites || []) {
+          this._roamItem(items, iv.label, iv.hint || '', { kind: 'invite', target: iv.target, room: iv.room });
         }
         const hub = (d.hubs || {})[this.node.id] || {};
+        // 暂停进来的：不列「进入下一幕 / 结束游戏」——离开自由模式的正规出口是「回到剧情」
+        if (this.paused) return items;
         if (hub.nextAct && this.nodes[hub.nextAct]) {
           this._roamItem(items, (d.labels || {}).nextAct || '进入下一幕', '', { kind: 'goto', node: hub.nextAct });
         }
@@ -911,8 +1068,12 @@
       }
 
       const room = (d.rooms || {})[st.room] || {};
-      for (const a of room.actions || []) {
+      for (const a of this._roamActionsOf(st.room)) {
         this._roamItem(items, a.label, a.hint || '', { kind: 'action', action: a.id });
+      }
+      // 好感过了线才多出来的一项（西比拉的特殊剧情），摆在动作和换装之间
+      if (room.special && this.checkCondition(room.special.when)) {
+        this._roamItem(items, room.special.label, room.special.hint || '', { kind: 'special' });
       }
       if (room.canChangeOutfit && room.outfits) {
         this._roamItem(items, (d.labels || {}).changeOutfit || '换装', '', { kind: 'outfitOpen' });
@@ -940,6 +1101,7 @@
       this._roamItem(items, labels.outfitExit || '退出换装', '', { kind: 'outfitClose' });
 
       const hub = (d.hubs || {})[st.hub] || {};
+      if (this.paused) return items;   // 中途暂停进来的：同上，跳幕的口子先关掉
       if (hub.nextAct && this.nodes[hub.nextAct]) {
         this._roamItem(items, labels.nextAct || '进入下一幕', '', { kind: 'goto', node: hub.nextAct });
       }
@@ -988,13 +1150,22 @@
         this.enterNode(target);
         return { ok: true, choice: item, effects: [], node: this.node, notes: [] };
       }
+      if (r.kind === 'invite') {
+        // 「让布朗去请X过来」：人还是在奥布里的房间，只是站着的那位换成了被请来的人
+        const target = this._roamInvite(r.target, r.room);
+        if (!target || !this.nodes[target]) return { ok: false, reason: 'no-such-room', room: r.room };
+        this.enterNode(target);
+        return { ok: true, choice: item, effects: [], node: this.node, notes: [] };
+      }
       if (r.kind === 'action') return this._roamDoAction(r.action, item);
+      if (r.kind === 'special') return this._roamDoSpecial(item);
       if (r.kind === 'outfitOpen') {
         this.roam.mode = 'outfit';
         this.roam.outfit = this._roamOutfitId(this.roam.room);
         this.roam.outfitLine = this.roamData.outfitOpening || null;
         this.roam.queue = [];
         this.roam.queueIndex = 0;
+        this.roam.touchStreak = 0;      // 挑衣服也算走开一趟
         return { ok: true, choice: item, effects: [], node: this.node, notes: [] };
       }
       if (r.kind === 'outfitClose') {
@@ -1010,22 +1181,77 @@
     }
 
     /**
-     * 称赞 / 普通对话 / 触摸。触摸那类写了 branches 的，第一条条件命中的就用它，
-     * 最后一条通常不写 if，是兜底 —— 这就是「好感低就警惕上升」的判定。
+     * 这个房间的动作表。写了 actionsFrom 的房间（「请人过来」那一类来访房间）
+     * 直接把那个人自己房间的动作借过来，省得抄一遍 JSON。
+     */
+    _roamActionsOf(roomName) {
+      const rooms = (this.roamData && this.roamData.rooms) || {};
+      const room = rooms[roomName] || {};
+      if (room.actions) return room.actions;
+      const from = rooms[room.actionsFrom];
+      return (from && from.actions) || [];
+    }
+
+    /**
+     * 从一份「带 branches 的动作 / 装束」里挑出这次生效的那一条：
+     * 第一条条件命中的就用它，最后一条通常不写 if，是兜底。
+     * 触摸的五档、换装之后的话，都走这一套。
+     */
+    _roamPickBranch(spec) {
+      for (const br of (spec && spec.branches) || []) {
+        if (!br.if || this.checkCondition(br.if)) return br;
+      }
+      return spec || {};
+    }
+
+    /**
+     * 「让布朗去请谁过来」该落到哪个锚点。
+     * 来访房间里的人穿着她最后换上的那一身（按 history 反查），没换过就是默认那套。
+     */
+    _roamInvite(target, roomName) {
+      const r = ((this.roamData || {}).rooms || {})[roomName];
+      if (!r) return null;
+      const outfits = r.outfits || {};
+      if (r.outfits) {
+        const oid = this._roamOutfitByHistory(target);
+        const o = outfits[oid] || outfits[r.defaultOutfit] || outfits[Object.keys(outfits)[0]];
+        if (o && o.node) return o.node;
+      }
+      return r.anchor || null;
+    }
+
+    /** 高好感才有的那一段（房间里多出来的菜单项）：留在本房间，台词播完自然回到房间菜单 */
+    _roamDoSpecial(item) {
+      const st = this._roamState();
+      const room = ((this.roamData || {}).rooms || {})[st.room] || {};
+      const picked = this._roamPickBranch(room.special || {});
+      const effects = this.applyEffects(picked.effects);
+
+      this.roam.touchStreak = 0;      // 换个动作，摸了几下的账就断了
+      this.roam.queue = (picked.lines || []).slice();
+      this.roam.queueIndex = 0;
+      return {
+        ok: true, choice: item, effects, node: this.node,
+        notes: effects.map((e) => e.note).filter(Boolean),
+        roam: { kind: 'special' },
+      };
+    }
+
+    /**
+     * 称赞 / 普通对话 / 触摸。触摸那类写了 branches 的，按档位挑一条 ——
+     * 这就是「好感低就警惕上升」「每档反应不同」的判定。
      */
     _roamDoAction(actionId, item) {
       const st = this._roamState();
-      const room = ((this.roamData.rooms || {})[st.room]) || {};
-      const action = (room.actions || []).filter((a) => a.id === actionId)[0];
+      const action = this._roamActionsOf(st.room).filter((a) => a.id === actionId)[0];
       if (!action) return { ok: false, reason: 'no-such-action', action: actionId };
 
-      let picked = null;
-      for (const br of action.branches || []) {
-        if (!br.if || this.checkCondition(br.if)) { picked = br; break; }
-      }
-      if (!picked) picked = action;      // 没有 branches，或者 branches 全都没命中
-
+      const picked = this._roamPickBranch(action);
       const effects = this.applyEffects(picked.effects);
+      // 连击那一笔接在动作本身之后：玩家先看到「她没有躲」，再看到「她把手抽了回去」
+      const combo = this._roamTouchCombo(actionId);
+      if (combo) effects.push(combo);
+
       this.roam.queue = (picked.lines || []).slice();
       this.roam.queueIndex = 0;
       return {
@@ -1038,7 +1264,28 @@
       };
     }
 
-    /** 换一身。反复穿同一套不重复加好感（否则来回切就能刷）。 */
+    /**
+     * 摸了又摸的记账。返回的形状和 applyEffects() 的单项一模一样，界面那套照旧能用。
+     * 没轮到的次数返回 null。
+     *
+     * 计数绑在 this.roam 上 —— 它的生命周期正好是「这一趟自由活动」，
+     * 换动作、换房间、进浮层、暂停、读档都会清零（见各处调用）。
+     */
+    _roamTouchCombo(actionId) {
+      const cfg = (this.roamData || {}).touchCombo;
+      if (!cfg || !this.roam) return null;
+      if (actionId !== 'touch') { this.roam.touchStreak = 0; return null; }   // 换个动作就断了
+      this.roam.touchStreak = (this.roam.touchStreak || 0) + 1;
+      const every = Number(cfg.every) || 5;
+      if (this.roam.touchStreak % every !== 0) return null;
+
+      const v = this.getStat(cfg.stat);
+      const pick = v >= (Number(cfg.peakStat) || 90) ? cfg.reward : cfg.penalty;
+      if (!pick || !pick.stat) return null;
+      return this.applyEffects([pick])[0] || null;
+    }
+
+    /** 换一身。反复穿同一套不重复加好感（否则来回切就能刷）；换完说的话也按好感分档。 */
     _roamWear(outfitId, item) {
       const st = this._roamState();
       const room = ((this.roamData.rooms || {})[st.room]) || {};
@@ -1047,14 +1294,16 @@
 
       const wasWearing = this._roamOutfitId(st.room);
       const changed = wasWearing !== outfitId;
-      const effects = changed ? this.applyEffects(outfit.effects) : [];
+      const picked = this._roamPickBranch(outfit);
+      // 分支没说效果就沿用这套衣服自己的效果
+      const effects = changed ? this.applyEffects(picked.effects || outfit.effects) : [];
 
       this.enterNode(outfit.node);            // 装束＝位置，存档天然记住她此刻穿什么
       this.roam.room = st.room;
       this.roam.entryNode = outfit.node;      // 别让 _roamSync 把浮层状态冲掉
       this.roam.mode = 'outfit';
       this.roam.outfit = outfitId;
-      this.roam.outfitLine = outfit.line || null;
+      this.roam.outfitLine = picked.line || outfit.line || null;
       this.roam.queue = [];
       this.roam.queueIndex = 0;
 
@@ -1109,13 +1358,26 @@
     restore(snap) {
       if (!snap || !snap.nodeId) throw new Error('存档里没有 nodeId');
       this.showStats = snap.showStats !== undefined ? !!snap.showStats : this.showStats;
-      this.stats = Object.assign(deepClone(this.initialStats), snap.stats || {});
+      // 读档是唯一不可信的数据入口（旧版本的存档、手改过的、服务器上还没更新的那份），
+      // 所以每一项都要按它自己的区间夹一遍。initialStats 反过来不夹 —— 那是作者写的，写错了该报错。
+      const merged = Object.assign(deepClone(this.initialStats), snap.stats || {});
+      for (const name of Object.keys(merged)) {
+        const [min, max] = this.statRange(name);
+        merged[name] = clamp(Math.round(Number(merged[name]) || 0), min, max);
+      }
+      this.stats = merged;
       this.visited = new Set(snap.visited || []);
       this._prevPov = null;                 // 读档时不算「切换视角」，避免开场就弹提示
       // 存档的 history 末尾就是当前节点，而 enterNode() 还会再压一次，
       // 所以先把那条摘掉，否则每读一次档来路就多一节（「第 N 步」会越读越大）。
       this.history = (snap.history || []).slice();
       if (this.history[this.history.length - 1] === snap.nodeId) this.history.pop();
+      // 自由活动的运行时状态（台词队列、摸了几下的连击账）不进存档，读档就重新开始。
+      // 不置空的话，读档正好落在同一个锚点上时 _roamSync() 会以为「没换锚点」而不重建。
+      // 暂停状态同样不进存档（服务器那份白名单重建的 save 里没有它）。
+      this.roam = null;
+      this.paused = false;
+      this._pauseReturn = null;
       this.enterNode(snap.nodeId);
       this.lineIndex = clamp(Number(snap.lineIndex) || 0, 0, this.visibleLines().length);
       this.emit('stats', { stats: this.stats, reason: 'restore' });
@@ -1143,6 +1405,20 @@
         }
       };
 
+      // 区间写坏了要让作者知道，不能静默退回 0~100（那样数值会莫名其妙不对）
+      for (const [name, r] of Object.entries(this.statRanges)) {
+        if (!knownStats.has(name)) errors.push(`config.statRanges 里有未定义的数值：${name}`);
+        if (!Array.isArray(r) || r.length !== 2 || !(Number(r[0]) < Number(r[1]))) {
+          errors.push(`config.statRanges.${name} 不是 [min, max]：${JSON.stringify(r)}`);
+        }
+      }
+      for (const [name, value] of Object.entries(this.initialStats)) {
+        const [min, max] = this.statRange(name);
+        if (!(value >= min && value <= max)) {
+          errors.push(`initialStats.${name} = ${value} 不在它的区间 [${min}, ${max}] 里`);
+        }
+      }
+
       // 自由活动锚点是从结局卡片进去的，没有节点指向它们也算走得到。
       // 顺带把 hubs 里的 nextAct/endNode 也算成「有人指向」。
       const roamRefs = new Set();
@@ -1159,6 +1435,8 @@
           if (r.anchor) roamRefs.add(r.anchor);
           for (const oid of Object.keys(r.outfits || {})) roamRefs.add(r.outfits[oid].node);
         }
+        // 报仇是引擎当场跳过去的，没有节点指向它
+        if (d.revenge && d.revenge.node) roamRefs.add(d.revenge.node);
       }
 
       for (const id of this.nodeOrder) {
@@ -1277,11 +1555,35 @@
         if (!knownStats.has(d.affinity.stat)) {
           errors.push(`freeRoam.affinity 用了未定义的数值：${d.affinity.stat}`);
         }
-        if (typeof d.affinity.threshold !== 'number') {
-          errors.push(`freeRoam.affinity.threshold 不是数字：${d.affinity.threshold}`);
+        const tiers = d.affinity.tiers;
+        if (!Array.isArray(tiers) || !tiers.length || tiers.some((v) => typeof v !== 'number')) {
+          errors.push(`freeRoam.affinity.tiers 不是一组数字：${JSON.stringify(tiers)}`);
+        } else if (tiers.some((v, i) => i > 0 && v >= tiers[i - 1])) {
+          errors.push(`freeRoam.affinity.tiers 要从高到低排：${JSON.stringify(tiers)}`);
         }
       } else {
         warnings.push('freeRoam 没写 affinity，分支条件里的好感阈值只能靠节点自己写');
+      }
+
+      if (d.revenge) {
+        const rv = d.revenge;
+        if (!knownStats.has(rv.stat)) errors.push(`freeRoam.revenge 用了未定义的数值：${rv.stat}`);
+        if (typeof rv.threshold !== 'number') {
+          errors.push(`freeRoam.revenge.threshold 不是数字：${rv.threshold}`);
+        }
+        if (typeof rv.chance !== 'number' || rv.chance < 0 || rv.chance > 1) {
+          errors.push(`freeRoam.revenge.chance 要写 0~1 之间的小数：${rv.chance}`);
+        }
+        if (!rv.node) errors.push('freeRoam.revenge 没写 node');
+        else if (!this.nodes[rv.node]) errors.push(`freeRoam.revenge.node 指向不存在的节点：${rv.node}`);
+        else if (!this.nodes[rv.node].ending) {
+          errors.push(`freeRoam.revenge.node 的 ${rv.node} 不是结局节点（报仇要当场收场）`);
+        }
+        if (!(rv.rooms || []).length) warnings.push('freeRoam.revenge 没写 rooms，哪间屋子都不会出事');
+        for (const name of rv.rooms || []) {
+          if (!(d.rooms || {})[name]) errors.push(`freeRoam.revenge.rooms 里的「${name}」不是房间`);
+        }
+        checkLines(rv.lines, 'freeRoam.revenge');
       }
 
       const hubs = d.hubs || {};
@@ -1318,8 +1620,9 @@
           else if (!this.nodes[o.node].freeRoam) errors.push(`${at}.outfits.${oid}.node 的 ${o.node} 没有写 "freeRoam": true`);
           if (!o.half) errors.push(`${at}.outfits.${oid} 没写 half（房间里右槽要用的半身像）`);
           else if (!this.assets[o.half]) errors.push(`${at}.outfits.${oid}.half 指向不存在的素材：${o.half}`);
-          if (!o.full) errors.push(`${at}.outfits.${oid} 没写 full（换装浮层要用的全身像）`);
-          else if (!this.assets[o.full]) errors.push(`${at}.outfits.${oid}.full 指向不存在的素材：${o.full}`);
+          // full 只有换装浮层要用；不能换装的房间（来访那两间）不必写
+          if (r.canChangeOutfit && !o.full) errors.push(`${at}.outfits.${oid} 没写 full（换装浮层要用的全身像）`);
+          else if (o.full && !this.assets[o.full]) errors.push(`${at}.outfits.${oid}.full 指向不存在的素材：${o.full}`);
           if (o.line) checkLines([o.line], `${at}.outfits.${oid}.line`);
           checkEffects(o.effects, `${at}.outfits.${oid}`);
         }
@@ -1327,8 +1630,25 @@
         if (r.outfits && r.defaultOutfit && !r.outfits[r.defaultOutfit]) {
           errors.push(`${at}.defaultOutfit 指向不存在的装束：${r.defaultOutfit}`);
         }
+        if (r.actionsFrom && !rooms[r.actionsFrom]) {
+          errors.push(`${at}.actionsFrom 指向不存在的房间：${r.actionsFrom}`);
+        }
+        if (r.hidden && !r.anchor && !r.outfits) {
+          errors.push(`${at} 打了 hidden 标记但既没有 anchor 也没有 outfits，请不来`);
+        }
 
-        const acts = r.actions || [];
+        if (r.special) {
+          if (!r.special.label) errors.push(`${at}.special 没写 label`);
+          const when = r.special.when;
+          if (!when) warnings.push(`${at}.special 没写 when，这一项会一直出现`);
+          else if (!knownStats.has(when.stat)) {
+            errors.push(`${at}.special.when 用了未定义的数值：${when.stat}`);
+          }
+          checkLines(r.special.lines, `${at}.special`);
+          checkEffects(r.special.effects, `${at}.special`);
+        }
+
+        const acts = this._roamActionsOf(name);   // 借来的动作表也算数
         if (!acts.length) warnings.push(`${at} 一个可做的事都没有`);
         for (const a of acts) {
           if (!a.id) errors.push(`${at} 有个动作没写 id`);
@@ -1351,6 +1671,13 @@
 
       for (const l of d.locked || []) {
         if (!l.label) errors.push('freeRoam.locked 里有一项没写 label');
+      }
+      for (const iv of d.invites || []) {
+        if (!iv.label) errors.push('freeRoam.invites 里有一项没写 label');
+        if (!iv.room || !rooms[iv.room]) errors.push(`freeRoam.invites 的 room 指向不存在的房间：${iv.room}`);
+        if (!iv.target || !this.characters[iv.target]) {
+          errors.push(`freeRoam.invites 的 target 不是登场人物：${iv.target}`);
+        }
       }
 
       const labels = d.labels || {};

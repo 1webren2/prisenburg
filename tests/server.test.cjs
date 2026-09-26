@@ -95,11 +95,11 @@ async function main() {
     t.eq(health.status, 200, '/api/health 返回 200');
     t.eq(hb.ok, true, '/api/health 里 ok=true');
     t.ok(hb.act1 && hb.act1.loaded !== false, '服务器启动时载入了 act1/story.json');
-    t.eq(hb.act1.nodes, 69, '两幕的节点并进了同一张表（34 + 35，第二幕里有 8 个是自由活动的锚点）');
+    t.eq(hb.act1.nodes, 75, '两幕的节点并进了同一张表（34 + 41，第二幕里有 13 个自由活动锚点和 1 个报仇结局）');
     t.eq(
       hb.act1.stats,
-      ['伊莎贝尔_好感', '西比拉_好感', '西比拉_警惕'],
-      '数值表还是第一幕定义的那三个'
+      ['伊莎贝尔_好感', '西比拉_好感', '西比拉_警惕', '西比拉_亲密'],
+      '数值表跟着第一幕走（多了自由活动里长出来的「亲密」）'
     );
 
     /* ---------- 静态页面 ---------- */
@@ -122,7 +122,8 @@ async function main() {
     const story2Res = await get('/act2/story.json');
     const story2Body = await story2Res.json();
     t.eq(story2Res.status, 200, 'GET /act2/story.json 返回 200');
-    t.eq(story2Body.nodes.length, 35, '第二幕的剧本是 35 个节点（27 段剧情 + 8 个自由活动锚点）');
+    t.eq(story2Body.nodes.length, 41,
+      '第二幕的剧本是 41 个节点（27 段剧情 + 13 个自由活动锚点 + 报仇结局）');
     t.eq(story2Body.nodes[0].id, 'b1_room', '第二幕从 b1_room 开始');
     // 自由活动的锚点是追加在后面的，所以「最后一个节点」不再是 b25_end；
     // 该守的规矩是「b25_end 还是最后一段真正的剧情」
@@ -229,7 +230,9 @@ async function main() {
       ['stats 是空的', validSave({ stats: {} })],
       ['stats 不是对象', validSave({ stats: [] })],
       ['数值越界', validSave({ stats: { 伊莎贝尔_好感: 999 } })],
-      ['数值是负数', validSave({ stats: { 伊莎贝尔_好感: -1 } })],
+      ['数值低于下限', validSave({ stats: { 西比拉_警惕: -1 } })],
+      ['好感低于下限', validSave({ stats: { 西比拉_好感: -101 } })],
+      ['好感高于上限', validSave({ stats: { 伊莎贝尔_好感: 101 } })],
       ['行号越界', validSave({ lineIndex: 99999 })],
       ['请求体不是对象', [1, 2, 3]],
     ];
@@ -242,6 +245,13 @@ async function main() {
 
     const bodyTooBig = await postJSON('/api/act1/save', { nodeId: 'p1_carriage', stats: { 伊莎贝尔_好感: 1 }, blob: 'x'.repeat(20000) });
     t.eq(bodyTooBig.status, 413, '请求体过大返回 413');
+
+    // 好感的区间放宽成了 -100~100（报仇线会把好感打到负的），负数要能存能读
+    const negSave = await postJSON('/api/act1/save', validSave({ stats: { 西比拉_好感: -73, 西比拉_警惕: 2 } }));
+    t.eq(negSave.status, 200, '好感 -73 存得下（它的区间是 -100~100）');
+    const negBack = await (await get('/api/act1/load')).json();
+    const negGot = negBack.save.snapshot || negBack.save;
+    t.eq(negGot.stats['西比拉_好感'], -73, '负的好感原样读回来（服务器不会把它夹成 0）');
 
     const badJSON = await fetch(`${BASE}/api/act1/save`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{坏掉的 json',

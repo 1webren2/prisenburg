@@ -47,6 +47,7 @@ const ACT1_SAVE_FILE = path.join(ACT1_DIR, 'save.json');
 function loadActs(entryPath) {
   const nodeIds = new Set();
   const statLabels = new Set();
+  const statRanges = {};
   const seen = new Set();
   const queue = [path.resolve(entryPath)];
   while (queue.length) {
@@ -56,18 +57,22 @@ function loadActs(entryPath) {
     const story = JSON.parse(fs.readFileSync(file, 'utf8'));
     for (const node of story.nodes || []) nodeIds.add(node.id);
     for (const key of Object.keys((story.config && story.config.statLabels) || {})) statLabels.add(key);
+    // 数值区间多幕都收、后面的覆盖前面的：引擎那边 config 只取第一幕，
+    // 但服务器不该知道那条规则 —— 它只需要「别把一个合法数值误拒掉」。
+    Object.assign(statRanges, (story.config && story.config.statRanges) || {});
     for (const rel of ((story.meta || {}).continues || [])) {
       queue.push(path.resolve(path.dirname(file), rel));
     }
   }
-  return { nodeIds, statLabels };
+  return { nodeIds, statLabels, statRanges };
 }
 
-const ACT1 = { loaded: false, nodeIds: new Set(), statLabels: new Set(), reason: '' };
+const ACT1 = { loaded: false, nodeIds: new Set(), statLabels: new Set(), statRanges: {}, reason: '' };
 try {
   const loaded = loadActs(path.join(ACT1_DIR, 'story.json'));
   ACT1.nodeIds = loaded.nodeIds;
   ACT1.statLabels = loaded.statLabels;
+  ACT1.statRanges = loaded.statRanges;
   ACT1.loaded = true;
 } catch (err) {
   ACT1.reason = err.message;
@@ -294,8 +299,10 @@ function normalizeAct1Save(payload) {
       return { error: `剧本里没有这个数值：${key}` };
     }
     const n = toInt(value);
-    if (n === null || n < 0 || n > 100) {
-      return { error: `数值 ${key} 必须是 0~100 的整数` };
+    const range = Array.isArray(ACT1.statRanges[key]) && ACT1.statRanges[key].length === 2
+      ? ACT1.statRanges[key] : [0, 100];
+    if (n === null || n < range[0] || n > range[1]) {
+      return { error: `数值 ${key} 必须是 ${range[0]}~${range[1]} 的整数` };
     }
     stats[key] = n;
   }

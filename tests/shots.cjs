@@ -59,6 +59,10 @@ const TARGETS = [
   { name: '13-自由活动-西比拉房间', mode: 'roam', roam: 'fr_sib_riding' },
   { name: '14-换装-全身居中', mode: 'roam', roam: 'fr_sib_riding', openOutfit: true },
   { name: '15-结局卡片-两个按钮', node: 'a10_end', mode: 'end' },
+  // 这一轮新长出来的三屏：请人过来 / 报仇结局 / 剧情中途的暂停按钮
+  { name: '16-自由活动-请西比拉过来', mode: 'roam', roam: 'fr_hub', pick: '让布朗去请西比拉过来' },
+  { name: '17-报仇结局', node: 'fr_revenge', mode: 'end' },
+  { name: '18-暂停按钮-剧情中途', node: 'b1_room', mode: 'first' },
 ];
 
 /* ===================================================================
@@ -160,6 +164,12 @@ function jumpExpr(target) {
     lines.push('let v = e.advance();');
     lines.push('for (let i = 0; i < 80 && v.type !== "choices"; i++) v = e.advance();');
     lines.push('ui.renderStats(); ui.render(v);');   // 先把房间那一屏画出来，两槽站好
+    if (target.pick) {
+      // 在 hub 菜单上按文字点一项（比如「让布朗去请西比拉过来」），再推到下一屏菜单
+      lines.push(`const pi = v.choices.findIndex((c) => c.text === ${JSON.stringify(target.pick)});`);
+      lines.push('if (pi >= 0) { e.choose(pi); v = e.advance(); }');
+      lines.push('for (let i = 0; i < 80 && v.type !== "choices"; i++) v = e.advance();');
+    }
     if (target.openOutfit) {
       lines.push('const idx = v.choices.findIndex((c) => c.text === "换装");');
       lines.push('if (idx >= 0) { e.choose(idx); v = e.advance(); }');
@@ -441,7 +451,7 @@ async function endToEnd(cdp) {
   const loaded = await cdp.eval('(() => ({ nodes: window.act1.story.nodes.length, hasAct2: !!window.act1.engine.nodes.b1_room }))()');
   log(`  · boot() 自己读进来的剧本：${loaded.nodes} 个节点，第二幕${loaded.hasAct2 ? '在' : '不在'}`);
   if (!loaded.hasAct2) bad.push('boot() 没把第二幕读进来（meta.continues 的路径解错了）');
-  if (loaded.nodes !== 69) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 69`);
+  if (loaded.nodes !== 75) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 75`);
 
   await cdp.eval(PLAY_JS);
 

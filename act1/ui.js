@@ -206,7 +206,7 @@
         'portrait-layer-r', 'portrait-grid-host-r', 'portrait-image-r',
         'pov-banner', 'title-bar', 'dialogue-box', 'speaker-plate',
         'dialogue-text', 'next-hint', 'choices', 'stats-panel', 'stats-body',
-        'stats-toggle', 'save-btn', 'load-btn', 'restart-btn', 'server-dot',
+        'stats-toggle', 'save-btn', 'load-btn', 'restart-btn', 'server-dot', 'pause-btn',
         'toast', 'end-screen', 'end-stats', 'end-title', 'end-sub', 'end-continue',
         'title-screen', 'title-bg', 'title-start',
         'end-roam',
@@ -351,6 +351,17 @@
         }
         return { left, right: null, leftLit: true, rightLit: false };
       }
+
+      // 自由活动里站在房间里的时候，旁白不该把她从画面里抹掉 ——
+      // 台词一句一句播，人一直站在那儿（不亮，但不下场）
+      if (view && view.type === 'line' && view.roam) {
+        const room = e._roamRoomView ? e._roamRoomView() : null;
+        if (room && room.portrait && !povSpeaking) {
+          const r = right || room.portrait;
+          return { left, right: r, leftLit: false, rightLit: !!r };
+        }
+      }
+
       return { left, right, leftLit: povSpeaking, rightLit: !!right };
     }
 
@@ -385,12 +396,14 @@
           : 'none';
       }
       s.classList.add('on');
+      this.syncPauseBtn(this.view);   // 开始界面开着时没有「暂停」这一说
       return this;
     }
 
     hideTitleScreen() {
       const s = this.els['title-screen'];
       if (s) s.classList.remove('on');
+      this.syncPauseBtn(this.view);
       return this;
     }
 
@@ -616,7 +629,7 @@
       for (const s of this.engine.statPanel()) {
         const row = el(this.doc, 'div', 'end-stat-row');
         row.appendChild(el(this.doc, 'span', 'end-stat-label', s.label));
-        row.appendChild(el(this.doc, 'span', 'end-stat-value', s.value + ' / 100'));
+        row.appendChild(el(this.doc, 'span', 'end-stat-value', s.value + ' / ' + s.max));
         body.appendChild(row);
       }
       this.notify();
@@ -676,7 +689,7 @@
           row.appendChild(el(this.doc, 'span', 'stat-value', s.display));
           const track = el(this.doc, 'div', 'stat-track');
           const fill = el(this.doc, 'div', 'stat-fill');
-          fill.style.width = Math.min(100, s.value) + '%';
+          fill.style.width = Math.round(s.ratio * 100) + '%';   // 按区间缩放，负数才画得出来
           track.appendChild(fill);
           row.appendChild(track);
           body.appendChild(row);
@@ -753,7 +766,53 @@
         this.setDialogueOpen(false);
         this.showEnd(view);
       }
+      this.syncPauseBtn(view);
       return this;
+    }
+
+    /**
+     * 「暂停 (P)」/「回到剧情 (P)」按钮的显隐与字面。
+     *
+     * 标题屏 / 结局屏 / 从结局卡片进的自由活动都不显示 —— 那几种情况下没有
+     * 「原来的剧情」可回，按了也没意义。放在 render() 末尾而不是 renderStats()
+     * 里，是因为 render() 各分支并不都调 renderStats()。
+     */
+    syncPauseBtn(view) {
+      const btn = this.els['pause-btn'];
+      if (!btn) return;
+      const e = this.engine;
+      const inRoam = e.isFreeRoamNode(e.node);
+      const storyView = !!view && (view.type === 'line' || view.type === 'choices');
+      const canPause = e.paused || (storyView && !inRoam && !e.ended && !this.titleOpen);
+      btn.style.display = canPause ? '' : 'none';
+      btn.textContent = e.paused ? '回到剧情 (P)' : '暂停 (P)';
+    }
+
+    /** 暂停 / 回来：两个薄封装，和 continueNextAct() 同构 */
+    togglePause() {
+      return this.engine.paused ? this.resumeFromStory() : this.pauseToStory();
+    }
+
+    pauseToStory() {
+      const res = this.engine.pauseToStory();
+      if (!res.ok) return false;   // 不可用就静默忽略，玩家可能只是误按
+      this.stopTyping();
+      this.locked = false;
+      this.hideEnd();
+      this.renderStats();
+      this.render(this.engine.advance());
+      return true;
+    }
+
+    resumeFromStory() {
+      const res = this.engine.resumeFromStory();
+      if (!res.ok) return false;
+      this.stopTyping();
+      this.locked = false;
+      this.hideEnd();
+      this.renderStats();
+      this.render(this.engine.advance());
+      return true;
     }
 
     /** 推进一格。打字没完成时，先把当前这行补全 */
@@ -835,6 +894,7 @@
       this.els['end-continue'].addEventListener('click', () => this.continueNextAct());
       this.els['end-roam'].addEventListener('click', () => this.enterRoamFromEnd());
       this.els['stats-toggle'].addEventListener('click', () => this.toggleStats());
+      this.els['pause-btn'].addEventListener('click', () => this.togglePause());
       this.els['restart-btn'].addEventListener('click', () => this.restart());
       this.els['save-btn'].addEventListener('click', () => this.save());
       this.els['load-btn'].addEventListener('click', () => this.load());
@@ -863,6 +923,7 @@
 
       if (key === 'v' || key === 'V') { this.toggleStats(); return; }
       if (key === 'r' || key === 'R') { this.restart(); return; }
+      if (key === 'p' || key === 'P') { this.togglePause(); return; }   // 用不上时它自己会拒绝
 
       if (key === ' ' || key === 'Enter') {
         ev.preventDefault();               // 免得滚页 / 二次触发按钮
@@ -907,7 +968,8 @@
       }).then((r) => {
         if (!r.ok || !r.body.ok) throw new Error((r.body && r.body.message) || '保存失败');
         this.setServerState(true);
-        this.showToast('已保存到 ' + CONFIG.saveLabel + '（第 ' + (this.engine.history.length) + ' 步）');
+        // 用去过的节点数而不是 history.length：中途暂停会额外压两条进去，那样步数会虚高
+        this.showToast('已保存到 ' + CONFIG.saveLabel + '（第 ' + (this.engine.visited.size) + ' 步）');
         return r.body;
       }).catch((err) => {
         if (err.offline) this.setServerState(false);

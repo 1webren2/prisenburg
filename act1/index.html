@@ -66,11 +66,13 @@
   <!-- ============ 控制条 ============ -->
   <div id="hud">
     <button id="stats-toggle" class="hud-btn" data-on="0">查看数值 (V)</button>
+    <!-- 剧情中途暂停：点了就进自由活动，退出时接着原来那一句。显隐由 ui.js 的 syncPauseBtn() 管 -->
+    <button id="pause-btn" class="hud-btn" style="display:none">暂停 (P)</button>
     <button id="save-btn" class="hud-btn">保存进度</button>
     <button id="load-btn" class="hud-btn">读取进度</button>
     <button id="restart-btn" class="hud-btn">重新开始</button>
     <span id="server-dot" class="server-dot">正在连接存档服务器…</span>
-    <span class="hud-keys">空格/回车 继续 · 1-9 选择 · V 数值 · Ctrl+S 保存 · Ctrl+L 读取 · R 重来</span>
+    <span class="hud-keys">空格/回车 继续 · 1-9 选择 · V 数值 · P 暂停 · Ctrl+S 保存 · Ctrl+L 读取 · R 重来</span>
   </div>
 
   <!-- ============ 浮字提示 ============ -->

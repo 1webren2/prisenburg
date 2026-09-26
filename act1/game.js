@@ -344,6 +344,16 @@ function main(argv) {
       return;
     }
 
+    if (lower === 'p') {
+      // 剧情中途暂停 ↔ 回到剧情（和网页版的 P 键同一条链路）
+      const res = engine.paused ? engine.resumeFromStory() : engine.pauseToStory();
+      if (!res.ok) { renderer.last = '这会儿按不了暂停'; renderer.render(view); return; }
+      notes = [];
+      view = engine.advance();
+      renderer.render(view);
+      return;
+    }
+
     if (lower === 'r') {
       engine.start();
       notes = [];
