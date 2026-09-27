@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-把 act1/images、act2/images 里的插画缩到「屏幕上真正用得到的分辨率」，就地覆盖。
+把 images/ 里的插画缩到「屏幕上真正用得到的分辨率」，就地覆盖。
+
+所有幕的图片**统一放在仓库根目录的 images/ 下**（不再按 act1/act2 分目录），
+跨幕复用同一张图时只存一份，剧本里一律写 "../images/xxx.webp"。
 
 为什么还要缩：WebP 压的是**体积**，没动**像素**。1600x2500 的立绘在页面上最多
 显示到 700px 宽，剩下那一千多像素既拖慢解码、又拖慢首屏 —— 线上实测就是这里卡。
@@ -22,7 +25,7 @@ except ImportError:
     sys.exit('没装 Pillow，先跑：python -m pip install Pillow')
 
 ROOT = Path(__file__).resolve().parent
-DIRS = [ROOT / 'act1' / 'images', ROOT / 'act2' / 'images']
+DIRS = [ROOT / 'images']
 
 # 每一类图允许的最大宽度（高度按比例走，绝不拉伸）。
 #   chr_   左右两个立绘槽，最宽也就 30vw 上下 —— 800 够到 4K
@@ -49,6 +52,10 @@ def source_for(webp):
 
     这批 .webp 是从 PNG 压出来的，从它再压一遍是二次损失；PNG 还在的时候
     直接拿原图缩，画质更好。等哪天把 PNG 删了，自动退回用 WebP 当源，脚本照跑。
+
+    注意：images/ 里保留下来的原图大多是**中文名**（"洗衣房.png" 这种），
+    和 ASCII 名对不上，所以那几张仍然会退回用 WebP 当源。想让脚本吃到原图，
+    把原图另存一份 ASCII 名的 .png 放进来（例如 bg_laundry.png）即可。
     """
     png = webp.with_suffix('.png')
     return png if png.exists() else webp

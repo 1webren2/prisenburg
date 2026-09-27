@@ -21,8 +21,8 @@
  *   换装不需要额外机制：给换衣服的那个节点写一个不同的 art.portrait 就行。
  *
  * 【替换真实图片】
- *   素材在 story.json 的 art.assets 里写 "src": "images/我的图.webp"。
- *   没写 src 就按约定找 act1/images/<素材key>.webp（见 CONFIG.imageExt）。
+ *   素材在 story.json 的 art.assets 里写 "src": "../images/我的图.webp"。
+ *   没写 src 就按约定找 images/<素材key>.webp（见 CONFIG.imageDir / imageExt）。
  *   图片放上去就自动生效，不需要改代码：图片层盖在像素块网格上面，
  *   404 的时候浏览器不画任何东西，底下的像素块就露出来了（占位）。
  * ---------------------------------------------------------------
@@ -45,8 +45,11 @@
    * =================================================================== */
 
   const CONFIG = {
-    /** 真实图片放这里（相对 index.html），文件名 = 素材 key + 扩展名 */
-    imageDir: 'images/',
+    /**
+     * 没写 src 的素材按约定来这里找图：根目录的 images/<素材key>.webp。
+     * 页面在 /act1/ 下，所以要 `..` 上一级才到仓库根目录。
+     */
+    imageDir: '../images/',
     /** 素材没写 src 时的兜底扩展名 —— 插画都转成 WebP 了，新素材也照这个来 */
     imageExt: '.webp',
     /** 打字机速度（毫秒/字）。系统设了「减少动画」会自动跳过 */

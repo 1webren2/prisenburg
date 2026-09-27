@@ -5,7 +5,8 @@
  *
  * 主要盯三件事：
  *   1. 剧本自身站得住 —— 没有悬空跳转、没有走不到的节点、数值都在 statLabels 里定义过
- *   2. 所有分支都能走通，而且「好感 + 警惕」恒等于 3（每走一个决定点必加一点）
+ *   2. 所有分支都能走通，而且跨进第三幕那一刻「好感 + 警惕」恒等于 3
+ *      （第一幕每走一个决定点必加一点；第二幕不加；第三幕自己会各 ±1）
  *   3. 存档 / 读档 / 像素图这些机制确实按预期工作
  */
 
@@ -15,9 +16,10 @@ const { suite, norm } = require('./harness.cjs');
 const api = require(path.join(__dirname, '..', 'act1', 'engine.js'));
 const act1 = require(path.join(__dirname, '..', 'act1', 'story.json'));
 const act2 = require(path.join(__dirname, '..', 'act2', 'story.json'));
+const act3 = require(path.join(__dirname, '..', 'act3', 'story.json'));
 
 // 一幕一个 story.json，引擎只认一个 —— 和浏览器里 boot() 一样先拼起来
-const story = api.composeStories([act1, act2]);
+const story = api.composeStories([act1, act2, act3]);
 
 const { StoryEngine } = api;
 const t = suite('引擎');
@@ -63,6 +65,9 @@ function replay(picks) {
     const node = engine.node;
     if (seen.nodes[seen.nodes.length - 1] !== node.id) {
       seen.nodes.push(node.id);
+      // 「第一幕 + 第二幕」跑完的那一刻：跨进第三幕时数值还没被第三幕动过，
+      // 所以第一幕那套不变量（好感 + 警惕 恒等于 3）在这一刀上切
+      if (!seen.act1EndStats && node.id[0] === 'c') seen.act1EndStats = Object.assign({}, engine.stats);
       const art = engine.currentArt();
       seen.bgs.push({ node: node.id, bg: art.bg });
       seen.portraits.push({ node: node.id, portrait: art.portrait });
@@ -102,17 +107,19 @@ const report = new StoryEngine(story).validate();
 t.empty(report.errors, '自检没有 error');
 t.empty(report.warnings, '自检也没有 warning');
 t.eq(act1.nodes.length, 34, '第一幕 34 个节点');
-t.eq(act2.nodes.length, 41, '第二幕 41 个节点（27 段剧情 + 8 个锚点 + 5 个来访锚点 + 报仇结局）');
-t.eq(report.stats.nodes, 75, '拼起来是 75 个节点');
+t.eq(act2.nodes.length, 42, '第二幕 42 个节点（27 段剧情 + 9 个锚点 + 5 个来访锚点 + 报仇结局）');
+t.eq(act3.nodes.length, 33, '第三幕 33 个节点（27 段主线 + 3 个决定点各岔出的 2 条支线）');
+t.eq(report.stats.nodes, 109, '拼起来是 109 个节点');
 t.eq(
   report.stats.endings,
-  ['a10_end', 'b25_end', 'fr_the_end', 'fr_revenge'],
-  '四个结局：两幕各自的结局 + 自由活动的「结束游戏」 + 报仇'
+  ['a10_end', 'b25_end', 'fr_the_end', 'fr_revenge', 'c27_end'],
+  '五个结局：三幕各自的结局 + 自由活动的「结束游戏」 + 报仇'
 );
 t.eq(Object.keys(story.povs), ['西比拉', '奥布里'], '两个视角：西比拉 / 奥布里');
 t.eq(story.meta.start, 'p1_carriage', '起点是 p1_carriage');
 t.eq(act1.meta.continues, ['../act2/story.json'], '第一幕的 meta.continues 指向第二幕剧本');
-t.eq(act2.meta.continues, undefined, '第二幕后面没有了，不写 continues');
+t.eq(act2.meta.continues, ['../act3/story.json'], '第二幕的 meta.continues 指向第三幕剧本');
+t.eq(act3.meta.continues, undefined, '第三幕后面没有了，不写 continues');
 
 t.section('走得到的节点');
 
@@ -180,7 +187,7 @@ t.empty(
   story.nodes.map((n) => n.id).filter((id) => !reachable.has(id)),
   '所有节点都能走到'
 );
-t.eq(reachable.size, 75, '可达节点数 = 节点总数');
+t.eq(reachable.size, 109, '可达节点数 = 节点总数');
 t.eq(
   story.nodes.filter((n) => n.id[0] === 'b' && !reachable.has(n.id)).map((n) => n.id),
   [],
@@ -237,22 +244,35 @@ t.empty(
 t.section('分支');
 
 const choicePoints = story.nodes.filter((n) => n.choices && n.choices.length);
-t.eq(choicePoints.length, 9, '决定点 9 个（第一幕 6 + 第二幕 3）');
+t.eq(choicePoints.length, 12, '决定点 12 个（第一幕 6 + 第二幕 3 + 第三幕 3）');
 t.eq(
   choicePoints.map((n) => n.id),
   ['p1_carriage', 'p5_bridge', 'p6_courtyard', 'a1_returned', 'a4_hair', 'a5_teach',
-    'b2_haier_knock', 'b4_enter', 'b8_farewell'],
-  '决定点就是这 9 个'
+    'b2_haier_knock', 'b4_enter', 'b8_farewell',
+    'c5_lesson', 'c6_first', 'c26_invite'],
+  '决定点就是这 12 个'
 );
-t.eq(ALL_PATHS.length, 1728, '分支组合共 1728 条（第一幕 216 × 第二幕 2×2×2）');
+t.eq(ALL_PATHS.length, 13824, '分支组合共 13824 条（第一幕 216 × 第二幕 2×2×2 × 第三幕 2×2×2）');
 
-// 西比拉视角（序章 + 第二幕）：选项只决定「先看/先做原文里的哪一个动作」，不加减数值
+// 序章 + 第二幕：选项只决定「先看/先做原文里的哪一个动作」，不加减数值
 t.empty(
-  choicePoints.filter((n) => n.pov === '西比拉')
+  choicePoints.filter((n) => n.pov === '西比拉' && n.id[0] !== 'c')
     .flatMap((n) => n.choices.filter((c) => c.effects && c.effects.length)
       .map((c) => `${n.id} 的「${c.text}」不该有效果`)),
-  '西比拉视角的选项都不改数值（序章 + 第二幕）'
+  '序章 + 第二幕的选项都不改数值'
 );
+
+// 第三幕是西比拉当老师的那一段：选项各带 ±1，只动「伊莎贝尔_好感 / 西比拉_警惕」这两项
+const badAct3 = [];
+for (const n of choicePoints.filter((n) => n.id[0] === 'c')) {
+  for (const c of n.choices) {
+    const eff = c.effects || [];
+    if (eff.length !== 1) badAct3.push(`${n.id}「${c.text}」效果有 ${eff.length} 条，应为 1`);
+    else if (Math.abs(eff[0].value) !== 1) badAct3.push(`${n.id}「${c.text}」改的是 ${eff[0].value}，应为 ±1`);
+    else if (['伊莎贝尔_好感', '西比拉_警惕'].indexOf(eff[0].stat) < 0) badAct3.push(`${n.id}「${c.text}」动的是 ${eff[0].stat}`);
+  }
+}
+t.empty(badAct3, '第三幕的每个选项都恰好 ±1 一项数值（伊莎贝尔_好感 / 西比拉_警惕）');
 
 // 主场（奥布里视角）：每个选项恰好改一项、+1
 const badMain = [];
@@ -274,10 +294,10 @@ t.empty(
  * 3. 把 216 条路全跑一遍
  * =================================================================== */
 
-t.section('跑通全部 1728 条路径');
+t.section(`跑通全部 ${ALL_PATHS.length} 条路径`);
 
 const ran = [];
-const problems = { end: [], stats: [], bg: [], error: [], start: [], intoAct2: [] };
+const problems = { end: [], stats: [], bg: [], error: [], start: [], intoAct2: [], intoAct3: [] };
 
 for (const p of ALL_PATHS) {
   let r;
@@ -288,29 +308,44 @@ for (const p of ALL_PATHS) {
     continue;
   }
   ran.push(r);
-  if (r.end !== 'b25_end') problems.end.push(`路径 [${p.picks}] 停在 ${r.end}`);
-  const sum = r.stats['伊莎贝尔_好感'] + r.stats['西比拉_警惕'];
+  if (r.end !== 'c27_end') problems.end.push(`路径 [${p.picks}] 停在 ${r.end}`);
+  // 「好感 + 警惕 恒等于 3」是第一幕那条设计：第三幕会各自 ±1，所以在跨进第三幕那一刀上切
+  const at = r.act1EndStats || {};
+  const sum = at['伊莎贝尔_好感'] + at['西比拉_警惕'];
   if (sum !== 3) {
-    problems.stats.push(`路径 [${p.picks}] 好感+警惕=${sum}（好感 ${r.stats['伊莎贝尔_好感']} / 警惕 ${r.stats['西比拉_警惕']}）`);
+    problems.stats.push(`路径 [${p.picks}] 进第三幕时好感+警惕=${sum}（好感 ${at['伊莎贝尔_好感']} / 警惕 ${at['西比拉_警惕']}）`);
   }
   for (const b of r.bgs) if (!b.bg) problems.bg.push(`路径 [${p.picks}] 节点 ${b.node} 没有背景`);
   if (r.nodes[0] !== 'p1_carriage') problems.start.push(`路径 [${p.picks}] 起点是 ${r.nodes[0]}`);
   if (!r.nodes.includes('b1_room')) problems.intoAct2.push(`路径 [${p.picks}] 没走进第二幕`);
+  if (!r.nodes.includes('c1_door')) problems.intoAct3.push(`路径 [${p.picks}] 没走进第三幕`);
 }
 
-t.eq(ran.length, 1728, '1728 条路径全部跑完，没有一条崩');
+t.eq(ran.length, ALL_PATHS.length, `${ALL_PATHS.length} 条路径全部跑完，没有一条崩`);
 t.empty(problems.error, '没有路径抛错');
-t.empty(problems.end, '每条路径都从第一幕一路走到第二幕的 b25_end');
-t.empty(problems.stats, '每条路径的「好感 + 警惕」都恒等于 3（第二幕一个 effects 都没写）');
+t.empty(problems.end, '每条路径都从第一幕一路走到第三幕的 c27_end');
+t.empty(problems.stats, '每条路径进第三幕时「好感 + 警惕」都恒等于 3（第二幕一个 effects 都没写）');
 t.empty(problems.bg, '沿途每个节点都有背景（背景会一直沿用，不会空场）');
 t.empty(problems.start, '每条路径都从 p1_carriage 开始');
 t.empty(problems.intoAct2, '每条路径都真的进过第二幕（免得 continueTo 断了却假性通过）');
+t.empty(problems.intoAct3, '每条路径都真的进过第三幕（第二幕那颗「继续」按钮断了要拦下来）');
 
-// 数值范围：警惕最多 3、好感最多 3
-const maxGood = Math.max(...ran.map((r) => r.stats['伊莎贝尔_好感']));
-const maxWary = Math.max(...ran.map((r) => r.stats['西比拉_警惕']));
-t.eq([maxGood, maxWary], [3, 3], '好感 / 警惕 的上限都是 3');
-t.ok(ran.every((r) => r.stats['伊莎贝尔_好感'] >= 0 && r.stats['西比拉_警惕'] >= 0), '数值不会变成负的');
+// 第一幕跑完那一刻的上下限：好感 / 警惕 都在 0~3
+const boundAt = (key) => {
+  const v = ran.map((r) => (r.act1EndStats || {})[key]);
+  return [Math.min(...v), Math.max(...v)];
+};
+t.eq([...boundAt('伊莎贝尔_好感'), ...boundAt('西比拉_警惕')], [0, 3, 0, 3], '进第三幕时 好感 / 警惕 都在 0~3');
+// 再叠上第三幕那三处 ±1：好感最多 3+1+1、最少 0-1；警惕最多 3+1+1、最少 0-1
+const finalBound = (key) => {
+  const v = ran.map((r) => r.stats[key]);
+  return [Math.min(...v), Math.max(...v)];
+};
+// 警惕的区间是没写进 statRanges 的默认 [0, 100]，所以第三幕那个 -1 最低只能压到 0
+t.eq([...finalBound('伊莎贝尔_好感'), ...finalBound('西比拉_警惕')], [-1, 5, 0, 5],
+  '第三幕的 ±1 之后，好感落在 -1~5、警惕落在 0~5');
+t.ok(ran.every((r) => Object.values(r.stats).every((v) => v >= -100 && v <= 100)),
+  '数值都没跑出 config.statRanges 的区间');
 
 /* ===================================================================
  * 4. 视角切换
@@ -333,10 +368,10 @@ t.empty(
   '不管走哪条分支，切视角的位置都一样'
 );
 
-// 前缀就说明了视角：p（序章）/ b（第二幕）是西比拉，a（第一幕主场）/ f（自由活动）是奥布里
+// 前缀就说明了视角：p（序章）/ b（第二幕）/ c（第三幕）是西比拉，a（第一幕主场）/ f（自由活动）是奥布里
 t.empty(
-  story.nodes.filter((n) => (n.id[0] === 'p' || n.id[0] === 'b') && n.pov !== '西比拉').map((n) => `${n.id} 的 pov 是 ${n.pov}`),
-  'p 开头的序章节点和 b 开头的第二幕节点都是西比拉视角'
+  story.nodes.filter((n) => (n.id[0] === 'p' || n.id[0] === 'b' || n.id[0] === 'c') && n.pov !== '西比拉').map((n) => `${n.id} 的 pov 是 ${n.pov}`),
+  'p / b / c 开头的节点（序章、第二幕、第三幕）都是西比拉视角'
 );
 t.empty(
   story.nodes.filter((n) => (n.id[0] === 'a' || n.id[0] === 'f') && n.pov !== '奥布里').map((n) => `${n.id} 的 pov 是 ${n.pov}`),
@@ -388,7 +423,8 @@ for (let i = 0; endView.type !== 'end' && i < 50; i++) endView = bridge.advance(
 t.eq(endView.type, 'end', 'a10_end 仍然弹结局屏（不是直接溜进第二幕）');
 t.eq(endView.node.id, 'a10_end', '结局视图里带着节点，界面才能读到 continueTo');
 t.eq(endView.node.continueTo, 'b1_room', 'a10_end 的 continueTo 指向第二幕的开头');
-t.eq(nodeById.get('b25_end').continueTo, undefined, '第二幕的结局后面没有了，不写 continueTo');
+t.eq(nodeById.get('b25_end').continueTo, 'c1_door', '第二幕的 continueTo 指向第三幕的开头');
+t.eq(nodeById.get('c27_end').continueTo, undefined, '第三幕是最后一幕，结局后面不写 continueTo');
 
 const intoAct2 = bridge.enterNode(endView.node.continueTo);
 t.eq(intoAct2.id, 'b1_room', '从结局节点能直接走进第二幕');
@@ -736,7 +772,8 @@ t.eq(roam2.ended, true, '引擎也认为演完了');
 // 「f 开头的节点」里除了声明过的锚点，还有引擎自己跳过去的报仇结局，所以分开数
 const anchors = story.freeRoam.anchors.map((id) => nodeById.get(id));
 const roamNodes = story.nodes.filter((n) => n.id[0] === 'f');
-t.eq(anchors.length, 13, '十三个自由活动锚点（8 个 + 5 个「请人过来」的落点）');
+t.eq(anchors.length, 14,
+  '十四个自由活动锚点（3 个 hub + 4 个装束锚点 + 1 个房间锚点 + 5 个「请人过来」的落点 + 结束游戏的 fr_the_end）');
 t.ok(anchors.every(Boolean), 'anchors 里写 id 全都在节点表里');
 t.eq(roamNodes.length, anchors.length + 1, '锚点之外只有一个 f 开头的节点：报仇的落点');
 t.empty(anchors.filter((n) => n.next || n.choices).map((n) => n.id),
@@ -753,7 +790,7 @@ t.empty(
   story.nodes.filter((n) => n.id[0] !== 'f').flatMap((n) => (n.choices || [])
     .filter((c) => (c.effects || []).some((e) => e.stat === '西比拉_好感'))
     .map((c) => `${n.id} 的「${c.text}」动了西比拉_好感`)),
-  '「西比拉_好感」只在自由活动里变动，主线那 1728 条路径一条都不碰它'
+  `主线那 ${ALL_PATHS.length} 条路径一条都不碰「西比拉_好感」`
 );
 
 // 没有 freeRoam 的剧本照旧跑（第一幕单独打开时就是这个情形）

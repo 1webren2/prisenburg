@@ -5,14 +5,17 @@
     "version": "2.0.0",
     "start": "b1_room",
     "description": "第二幕全程为西比拉·德·克莱尔视角。数据独立成幕，但共用第一幕的引擎与存档，第一幕结局画面按「继续第二幕」无缝接上。",
-    "textSource": "全部台词与旁白均取自小说第二章原文，没有自编内容。三个选项点只决定「这次先看原文里的哪一个动作」，不改变任何数值。"
+    "textSource": "全部台词与旁白均取自小说第二章原文，没有自编内容。三个选项点只决定「这次先看原文里的哪一个动作」，不改变任何数值。",
+    "continues": [
+      "../act3/story.json"
+    ]
   },
   "art": {
     "assets": {
       "chr_sibylla_teacher": {
         "kind": "portrait",
         "label": "西比拉 · 牧师服（半身）",
-        "src": "../act2/images/chr_sibylla_teacher.webp",
+        "src": "../images/chr_sibylla_teacher.webp",
         "cols": 15,
         "rows": 20,
         "palette": [
@@ -25,7 +28,7 @@
       "bg_sibylla_room": {
         "kind": "background",
         "label": "西比拉的新房间（三楼）",
-        "src": "../act2/images/bg_sibylla_room.webp",
+        "src": "../images/bg_sibylla_room.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -38,7 +41,7 @@
       "bg_corridor": {
         "kind": "background",
         "label": "普里森堡 · 三楼过道",
-        "src": "../act2/images/bg_corridor.webp",
+        "src": "../images/bg_corridor.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -51,7 +54,7 @@
       "bg_classroom": {
         "kind": "background",
         "label": "普里森堡 · 三楼教室",
-        "src": "../act2/images/bg_classroom.webp",
+        "src": "../images/bg_classroom.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -64,7 +67,7 @@
       "bg_isabelle_room": {
         "kind": "background",
         "label": "普里森堡 · 伊莎贝尔的卧室",
-        "src": "../act2/images/bg_isabelle_room.webp",
+        "src": "../images/bg_isabelle_room.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -77,7 +80,7 @@
       "bg_aubrey_room": {
         "kind": "background",
         "label": "普里森堡 · 奥布里的房间",
-        "src": "../act2/images/bg_aubrey_room.webp",
+        "src": "../images/bg_aubrey_room.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -90,7 +93,7 @@
       "chr_sibylla_riding": {
         "kind": "portrait",
         "label": "西比拉 · 骑装（半身）",
-        "src": "../act2/images/chr_sibylla_riding.webp",
+        "src": "../images/chr_sibylla_riding.webp",
         "cols": 15,
         "rows": 20,
         "palette": [
@@ -103,7 +106,7 @@
       "chr_sibylla_black": {
         "kind": "portrait",
         "label": "西比拉 · 黑礼服（半身）",
-        "src": "../act2/images/chr_sibylla_black.webp",
+        "src": "../images/chr_sibylla_black.webp",
         "cols": 15,
         "rows": 20,
         "palette": [
@@ -116,7 +119,7 @@
       "full_sibylla_maid": {
         "kind": "portrait",
         "label": "西比拉 · 女仆装（全身）",
-        "src": "../act2/images/full_sibylla_maid.webp",
+        "src": "../images/full_sibylla_maid.webp",
         "cols": 12,
         "rows": 24,
         "palette": [
@@ -129,7 +132,7 @@
       "full_sibylla_teacher": {
         "kind": "portrait",
         "label": "西比拉 · 牧师服（全身）",
-        "src": "../act2/images/full_sibylla_teacher.webp",
+        "src": "../images/full_sibylla_teacher.webp",
         "cols": 12,
         "rows": 24,
         "palette": [
@@ -142,7 +145,7 @@
       "full_sibylla_riding": {
         "kind": "portrait",
         "label": "西比拉 · 骑装（全身）",
-        "src": "../act2/images/full_sibylla_riding.webp",
+        "src": "../images/full_sibylla_riding.webp",
         "cols": 12,
         "rows": 24,
         "palette": [
@@ -155,7 +158,7 @@
       "full_sibylla_black": {
         "kind": "portrait",
         "label": "西比拉 · 黑礼服（全身）",
-        "src": "../act2/images/full_sibylla_black.webp",
+        "src": "../images/full_sibylla_black.webp",
         "cols": 12,
         "rows": 24,
         "palette": [
@@ -1106,6 +1109,7 @@
       },
       "dialogues": [],
       "ending": true,
+      "continueTo": "c1_door",
       "endSub": "牧师服换下了，她重新穿上了那身黑白相间的女仆装。"
     },
     {
@@ -1121,6 +1125,17 @@
     },
     {
       "id": "fr_end_hub",
+      "pov": "奥布里",
+      "freeRoam": true,
+      "title": "自由活动 · 奥布里的房间",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": []
+    },
+    {
+      "id": "fr_act3_hub",
       "pov": "奥布里",
       "freeRoam": true,
       "title": "自由活动 · 奥布里的房间",
@@ -1326,6 +1341,7 @@
     "anchors": [
       "fr_hub",
       "fr_end_hub",
+      "fr_act3_hub",
       "fr_sib_maid",
       "fr_sib_teacher",
       "fr_sib_riding",
@@ -1356,6 +1372,16 @@
           {
             "speaker": "旁白",
             "text": "[一切都说完了。]"
+          }
+        ],
+        "endNode": "fr_the_end"
+      },
+      "fr_act3_hub": {
+        "after": "c27_end",
+        "lines": [
+          {
+            "speaker": "旁白",
+            "text": "[骑装已经送到她房里了。]"
           }
         ],
         "endNode": "fr_the_end"

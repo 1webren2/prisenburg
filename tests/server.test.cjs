@@ -95,7 +95,7 @@ async function main() {
     t.eq(health.status, 200, '/api/health 返回 200');
     t.eq(hb.ok, true, '/api/health 里 ok=true');
     t.ok(hb.act1 && hb.act1.loaded !== false, '服务器启动时载入了 act1/story.json');
-    t.eq(hb.act1.nodes, 75, '两幕的节点并进了同一张表（34 + 41，第二幕里有 13 个自由活动锚点和 1 个报仇结局）');
+    t.eq(hb.act1.nodes, 109, '三幕的节点并进了同一张表（34 + 42 + 33，自由活动锚点和报仇结局都在第二幕那张表里）');
     t.eq(
       hb.act1.stats,
       ['伊莎贝尔_好感', '西比拉_好感', '西比拉_警惕', '西比拉_亲密'],
@@ -122,8 +122,8 @@ async function main() {
     const story2Res = await get('/act2/story.json');
     const story2Body = await story2Res.json();
     t.eq(story2Res.status, 200, 'GET /act2/story.json 返回 200');
-    t.eq(story2Body.nodes.length, 41,
-      '第二幕的剧本是 41 个节点（27 段剧情 + 13 个自由活动锚点 + 报仇结局）');
+    t.eq(story2Body.nodes.length, 42,
+      '第二幕的剧本是 42 个节点（27 段剧情 + 14 个自由活动锚点 + 报仇结局）');
     t.eq(story2Body.nodes[0].id, 'b1_room', '第二幕从 b1_room 开始');
     // 自由活动的锚点是追加在后面的，所以「最后一个节点」不再是 b25_end；
     // 该守的规矩是「b25_end 还是最后一段真正的剧情」
@@ -152,26 +152,32 @@ async function main() {
     // 立绘和背景图必须真的能下载到（否则页面上就只剩像素占位了）
     t.section('图片');
 
+    // 所有幕的图统一放在仓库根目录的 images/ 下，页面在 /act1/，所以剧本里写 ../images/
     const files = [
-      ['/act1/images/chr_sibylla.png', 'images/chr_sibylla.png'],
-      ['/act1/images/chr_brown.png', 'images/chr_brown.png'],
-      ['/act1/images/bg_carriage.png', 'images/bg_carriage.png'],
-      ['/act1/images/bg_gate.png', 'images/bg_gate.png'],
-      ['/act1/images/bg_hall.png', 'images/bg_hall.png'],
-      ['/act2/images/chr_sibylla_teacher.png', '第二幕的牧师服立绘'],
-      ['/act2/images/bg_sibylla_room.png', '第二幕的新房间背景'],
-      ['/act2/images/bg_corridor.png', '第二幕的三楼过道背景'],
-      ['/act2/images/bg_classroom.png', '第二幕的教室背景'],
-      ['/act2/images/bg_isabelle_room.png', '伊莎贝尔房间的背景'],
-      ['/act2/images/bg_aubrey_room.png', '奥布里房间的背景（自由活动的 hub）'],
-      ['/act2/images/chr_sibylla_riding.png', '西比拉的骑装半身像'],
-      ['/act2/images/chr_sibylla_black.png', '西比拉的黑礼服半身像'],
-      ['/act1/images/chr_aubrey.png', '奥布里的立绘（自由活动里站左槽）'],
-      ['/act1/images/chr_isabelle.png', '伊莎贝尔的立绘'],
-      ['/act2/images/full_sibylla_maid.png', '女仆装全身图（换装浮层用）'],
-      ['/act2/images/full_sibylla_teacher.png', '牧师服全身图（换装浮层用）'],
-      ['/act2/images/full_sibylla_riding.png', '骑装全身图（换装浮层用）'],
-      ['/act2/images/full_sibylla_black.png', '黑礼服全身图（换装浮层用）'],
+      ['/images/chr_sibylla.webp', '西比拉的女仆装立绘'],
+      ['/images/chr_brown.webp', '布朗管家的立绘'],
+      ['/images/chr_soldier.webp', '门房佣兵的立绘（第一幕补上的那张，通用）'],
+      ['/images/chr_maid.webp', '女仆的立绘（第三幕，通用）'],
+      ['/images/chr_groom.webp', '马夫的立绘（通用；第一幕的约翰用的就是它）'],
+      ['/images/bg_carriage.webp', '马车车厢的背景'],
+      ['/images/bg_gate.webp', '城堡大门的背景'],
+      ['/images/bg_hall.webp', '大厅的背景'],
+      ['/images/chr_sibylla_teacher.webp', '第二幕的牧师服立绘'],
+      ['/images/bg_sibylla_room.webp', '第二幕的新房间背景'],
+      ['/images/bg_corridor.webp', '第二幕的三楼过道背景'],
+      ['/images/bg_classroom.webp', '第二幕的教室背景'],
+      ['/images/bg_isabelle_room.webp', '伊莎贝尔房间的背景'],
+      ['/images/bg_aubrey_room.webp', '奥布里房间的背景（自由活动的 hub）'],
+      ['/images/chr_sibylla_riding.webp', '西比拉的骑装半身像'],
+      ['/images/chr_sibylla_black.webp', '西比拉的黑礼服半身像'],
+      ['/images/chr_aubrey.webp', '奥布里的立绘（自由活动里站左槽）'],
+      ['/images/chr_isabelle.webp', '伊莎贝尔的立绘'],
+      ['/images/bg_laundry.webp', '第三幕的洗衣房背景'],
+      ['/images/bg_meadow.webp', '第三幕的府邸外草地背景'],
+      ['/images/full_sibylla_maid.webp', '女仆装全身图（换装浮层用）'],
+      ['/images/full_sibylla_teacher.webp', '牧师服全身图（换装浮层用）'],
+      ['/images/full_sibylla_riding.webp', '骑装全身图（换装浮层用）'],
+      ['/images/full_sibylla_black.webp', '黑礼服全身图（换装浮层用）'],
     ];
     for (const [url, label] of files) {
       const r = await get(url);
@@ -181,11 +187,21 @@ async function main() {
       t.ok(len > 100000, `${label} 不是空文件（${len} 字节）`);
     }
 
+    // 第三幕：同样一幕一个 story.json，收尾节点接上第二幕的出口
+    const story3Res = await get('/act3/story.json');
+    const story3Body = await story3Res.json();
+    t.eq(story3Res.status, 200, 'GET /act3/story.json 返回 200');
+    t.eq(story3Body.nodes.length, 33, '第三幕的剧本是 33 个节点（27 段主线 + 3 个决定点各岔出的两条）');
+    t.eq(story3Body.meta.continues, undefined, '第三幕是最后一幕，不写 continues');
+    t.eq(story2Body.nodes.find((n) => n.id === 'b25_end').continueTo, story3Body.nodes[0].id,
+      '第二幕结局的 continueTo 就是第三幕的第一个节点');
+    t.ok(story3Body.nodes.some((n) => n.id === 'c27_end' && n.ending), '第三幕也有自己的结局节点');
+
     // story.json 里写了 src 的素材，路径要真能对上。
-    // 用 new URL(src, 这一幕的目录) 来拼 —— 第二幕的 src 是「../act2/images/...」，
-    // 直接字符串接在 /act1/ 后面会拼出 /act1/../act2/... 这种歪路径。
+    // 用 new URL(src, 这一幕的目录) 来拼 —— src 是「../images/...」，
+    // 直接字符串接在 /act1/ 后面会拼出 /act1/../images/... 这种歪路径。
     const missing = [];
-    for (const [dir, body] of [['/act1/', storyBody], ['/act2/', story2Body]]) {
+    for (const [dir, body] of [['/act1/', storyBody], ['/act2/', story2Body], ['/act3/', story3Body]]) {
       for (const [key, asset] of Object.entries((body.art && body.art.assets) || {})) {
         if (!asset.src) continue;
         const url = new URL(asset.src, BASE + dir);

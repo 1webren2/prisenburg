@@ -24,8 +24,9 @@ const api = require(path.join(ROOT, 'act1', 'engine.js'));
 const uiApi = require(path.join(ROOT, 'act1', 'ui.js'));
 const story = require(path.join(ROOT, 'act1', 'story.json'));
 const story2 = require(path.join(ROOT, 'act2', 'story.json'));
-// 和浏览器里 boot() 一样：第一幕 + 顺着 meta.continues 读到的第二幕
-const wholeStory = api.composeStories([story, story2]);
+const story3 = require(path.join(ROOT, 'act3', 'story.json'));
+// 和浏览器里 boot() 一样：第一幕 + 顺着 meta.continues 读到的第二、第三幕
+const wholeStory = api.composeStories([story, story2, story3]);
 
 const { StoryEngine } = api;
 const { Act1UI, CONFIG, imageSrc } = uiApi;
@@ -137,7 +138,7 @@ t.ok(mounted.ui.titleOpen, '开场停在开始界面');
 t.ok(mounted.ui.els['title-screen'].classList.contains('on'), '开始界面是显示状态');
 t.eq(
   mounted.ui.els['title-bg'].style.backgroundImage,
-  'url("images/bg_carriage.webp")',
+  'url("../images/bg_carriage.webp")',
   '开始界面背景用的是马车图'
 );
 
@@ -194,9 +195,10 @@ t.eq(
   '合并后角色的定义取自第一幕（第二幕不重复声明 characters）'
 );
 
-t.eq(uiApi.imageSrc('chr_sibylla', story.art.assets.chr_sibylla), 'images/chr_sibylla.webp', '素材写了 src 就用 src');
-t.eq(uiApi.imageSrc('chr_john', story.art.assets.chr_john), 'images/chr_john.webp', '没写 src 就按 key 拼默认路径（默认扩展名跟着 WebP 走）');
-t.eq(uiApi.imageSrc('chr_sibylla_teacher', story2.art.assets.chr_sibylla_teacher), '../act2/images/chr_sibylla_teacher.webp', '第二幕的素材用相对 act1/ 的路径');
+t.eq(uiApi.imageSrc('chr_sibylla', story.art.assets.chr_sibylla), '../images/chr_sibylla.webp', '素材写了 src 就用 src（所有幕的图都在仓库根目录的 images/ 下）');
+t.eq(uiApi.imageSrc('chr_lanark', story.art.assets.chr_lanark), '../images/chr_lanark.webp', '没写 src 就按 key 拼默认路径（默认扩展名跟着 WebP 走，页面在 /act1/ 所以要先退一级）');
+t.eq(uiApi.imageSrc('chr_sibylla_teacher', story2.art.assets.chr_sibylla_teacher), '../images/chr_sibylla_teacher.webp', '第二幕的素材同样指向根目录 images/');
+t.eq(uiApi.imageSrc('bg_study', story3.art.assets.bg_study), '../images/bg_study.webp', '第三幕的新场景还没画，回落到同名路径（拉不到就走像素占位）');
 
 // 走完整场戏（第一幕 + 第二幕），沿途每一步都核对左右两槽
 const portrait = bootUI(wholeStory);
@@ -280,12 +282,13 @@ for (;;) {
   if (seenOutfits[seenOutfits.length - 1] !== bg) seenOutfits.push(bg);
   if (!autoStep(outfit.ui)) break;
 }
-t.ok(seenOutfits.includes('url("images/chr_sibylla.webp")'), '第二幕前半段西比拉穿女仆装（chr_sibylla）');
-t.ok(seenOutfits.includes('url("../act2/images/chr_sibylla_teacher.webp")'), '换上牧师服（＝教师服）后左槽换成那张');
-t.eq(seenOutfits.filter((s) => s === 'url("../act2/images/chr_sibylla_teacher.webp")').length, 1, '牧师服只出现一段，中间没有来回闪');
+t.ok(seenOutfits.includes('url("../images/chr_sibylla.webp")'), '第二幕前半段西比拉穿女仆装（chr_sibylla）');
+t.ok(seenOutfits.includes('url("../images/chr_sibylla_teacher.webp")'), '换上牧师服（＝教师服）后左槽换成那张');
+// 第二幕（给伊莎贝尔上课）和第三幕（接着当老师）各穿一段牧师服，中间隔着一段女仆装
+t.eq(seenOutfits.filter((s) => s === 'url("../images/chr_sibylla_teacher.webp")').length, 2, '牧师服出现两段，各自连续，中间没有来回闪');
 t.eq(
   seenOutfits[seenOutfits.length - 1],
-  'url("images/chr_sibylla.webp")',
+  'url("../images/chr_sibylla.webp")',
   '结局前换回女仆装，左槽跟着换回来'
 );
 
@@ -299,10 +302,10 @@ const atOutfit = (id) => {
   ui.render(engine.advance());
   return leftBG(ui);
 };
-t.eq(atOutfit('b11_sleep'), 'url("images/chr_sibylla.webp")', '第二幕第一夜：女仆装');
-t.eq(atOutfit('b12_morning'), 'url("../act2/images/chr_sibylla_teacher.webp")', '段30 换上牧师服：左槽换了');
-t.eq(atOutfit('b23_corridor'), 'url("../act2/images/chr_sibylla_teacher.webp")', '一天下来还穿着牧师服');
-t.eq(atOutfit('b24_change'), 'url("images/chr_sibylla.webp")', '段76 换下牧师服：左槽又换回女仆装');
+t.eq(atOutfit('b11_sleep'), 'url("../images/chr_sibylla.webp")', '第二幕第一夜：女仆装');
+t.eq(atOutfit('b12_morning'), 'url("../images/chr_sibylla_teacher.webp")', '段30 换上牧师服：左槽换了');
+t.eq(atOutfit('b23_corridor'), 'url("../images/chr_sibylla_teacher.webp")', '一天下来还穿着牧师服');
+t.eq(atOutfit('b24_change'), 'url("../images/chr_sibylla.webp")', '段76 换下牧师服：左槽又换回女仆装');
 
 /* ---- 像素占位网格什么时候该让位 ----
    立绘和背景都是「像素网格 + 真图」两层叠着的。真图是透明 PNG，
@@ -334,7 +337,7 @@ t.section('背景');
 
 const bg = bootUI(wholeStory);
 bg.ui.begin();
-t.eq(bgBG(bg.ui), 'url("images/bg_carriage.webp")', '开场（马车）用马车图');
+t.eq(bgBG(bg.ui), 'url("../images/bg_carriage.webp")', '开场（马车）用马车图');
 
 const seenBg = new Set();
 let bgGuard = 0;
@@ -347,10 +350,10 @@ t.empty(
   Array.from(seenBg).filter((s) => !s || s === 'none').map(() => '有过没画背景的瞬间'),
   '全程背景都在（换节点时会沿用上一张，不会闪空）'
 );
-t.ok(seenBg.has('url("images/bg_hall.webp")'), '走进大厅时换成了大厅图');
-t.ok(seenBg.has('url("images/bg_gate.webp")'), '到城堡门口时用的是大门口那张图');
-t.ok(seenBg.has('url("../act2/images/bg_sibylla_room.webp")'), '第二幕的新房间有自己的背景');
-t.ok(seenBg.has('url("../act2/images/bg_classroom.webp")'), '第二幕的教室有自己的背景');
+t.ok(seenBg.has('url("../images/bg_hall.webp")'), '走进大厅时换成了大厅图');
+t.ok(seenBg.has('url("../images/bg_gate.webp")'), '到城堡门口时用的是大门口那张图');
+t.ok(seenBg.has('url("../images/bg_sibylla_room.webp")'), '第二幕的新房间有自己的背景');
+t.ok(seenBg.has('url("../images/bg_classroom.webp")'), '第二幕的教室有自己的背景');
 
 /* ===================================================================
  * 5. 选项
@@ -373,7 +376,7 @@ t.ok(ch.ui.els['dialogue-box'].classList.contains('collapsed'), '出选项时对
 t.ok(litLeft(ch.ui), '序章选项点是西比拉的视角，左槽亮着');
 t.ok(rightSlotEmpty(ch.ui), '出选项时没人说话，右槽收起来');
 t.eq(ch.engine.pov, '西比拉', '序章选项点确实是西比拉视角');
-t.eq(leftBG(ch.ui), 'url("images/chr_sibylla.webp")', '选项点上左槽是主视角角色西比拉');
+t.eq(leftBG(ch.ui), 'url("../images/chr_sibylla.webp")', '选项点上左槽是主视角角色西比拉');
 
 // 用键盘 1/2/3 也能选
 const kb = bootUI();
@@ -391,7 +394,7 @@ while (!(main.ui.view.type === 'choices' && main.engine.pov === '奥布里')) {
   if (main.ui.view.type === 'choices') main.ui.choose(0); else main.ui.step();
 }
 t.eq(main.engine.pov, '奥布里', '走到了奥布里的选项点');
-t.eq(leftBG(main.ui), 'url("images/chr_aubrey.webp")', '主视角换成奥布里后，左槽站的是奥布里（不再借西比拉的脸）');
+t.eq(leftBG(main.ui), 'url("../images/chr_aubrey.webp")', '主视角换成奥布里后，左槽站的是奥布里（不再借西比拉的脸）');
 t.ok(litLeft(main.ui), '选项点上是玩家替奥布里做决定，左槽亮着');
 t.ok(rightSlotEmpty(main.ui), '奥布里的选项点：右槽空着');
 
@@ -462,7 +465,7 @@ t.eq(bridge.ui.els['end-screen'].classList.contains('on'), false, '结局屏收�
 t.eq(bridge.ui.els['dialogue-box'].classList.contains('collapsed'), false, '对话框又打开了');
 t.eq(bridge.engine.pov, '西比拉', '第二幕是西比拉视角');
 t.eq(bridge.ui.els['title-bar'].getAttribute('data-pov'), '西比拉 · 德 · 克莱尔（观察者）', '右上角的视角标签跟着换');
-t.eq(leftBG(bridge.ui), 'url("images/chr_sibylla.webp")', '左槽换成第二幕主视角的西比拉');
+t.eq(leftBG(bridge.ui), 'url("../images/chr_sibylla.webp")', '左槽换成第二幕主视角的西比拉');
 
 // 从结局屏一路走下去，能走到第二幕的结局
 let g5 = 0;
@@ -473,8 +476,26 @@ while (g5++ < 4000) {
 t.eq(bridge.ui.view.type, 'end', '第二幕也能走到结局');
 t.eq(bridge.ui.view.node.id, 'b25_end', '停在第二幕的结局节点 b25_end');
 t.eq(bridge.ui.els['end-title'].textContent, '第二幕 · 完', '第二幕的结局标题跟着节点走');
-t.eq(bridge.ui.els['end-continue'].style.display, 'none', '第二幕后面没有了，按钮藏起来');
+t.eq(bridge.ui.els['end-continue'].style.display, '', '第二幕后面还有第三幕，按钮照旧在');
+t.eq(bridge.ui.els['end-continue'].getAttribute('data-next'), 'c1_door', '按钮指向第三幕的开头');
+t.eq(bridge.ui.els['end-continue'].textContent, '继续第三幕 ▶', '按钮上写着第三幕');
 t.eq(bridge.engine.stats['伊莎贝尔_好感'] + bridge.engine.stats['西比拉_警惕'], 3, '数值一路带过来，没有被第二幕改掉');
+
+// 接着走进第三幕，一路走到第三幕的结局
+bridge.fire(bridge.ui.els['end-continue'], 'click');
+t.eq(bridge.engine.node.id, 'c1_door', '点一下接着演第三幕');
+t.eq(bridge.engine.pov, '西比拉', '第三幕仍然是西比拉视角');
+t.eq(bridge.ui.els['end-screen'].classList.contains('on'), false, '结局屏又收掉了');
+
+let g6 = 0;
+while (g6++ < 4000) {
+  if (bridge.ui.view.type === 'end' && bridge.ui.view.node.id === 'c27_end') break;
+  if (!autoStep(bridge.ui)) break;
+}
+t.eq(bridge.ui.view.type, 'end', '第三幕也能走到结局');
+t.eq(bridge.ui.view.node.id, 'c27_end', '停在第三幕的结局节点 c27_end');
+t.eq(bridge.ui.els['end-continue'].style.display, 'none', '第三幕是最后一幕，没有「继续下一幕」了');
+t.eq(bridge.ui.els['end-roam'].style.display, '', '第三幕的结局屏上照旧有「自由活动」的入口');
 
 /* ===================================================================
  * 6c. 选项框：点下去就该立刻消失

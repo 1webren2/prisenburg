@@ -90,7 +90,7 @@
     "约翰": {
       "displayName": "约翰",
       "color": "#a07850",
-      "portrait": "chr_john"
+      "portrait": "chr_groom"
     },
     "士兵": {
       "displayName": "门房佣兵",
@@ -99,12 +99,12 @@
     }
   },
   "art": {
-    "note": "有 src 的用真实图片，没有 src 的回落到像素块占位（引擎按 palette + label 生成一块确定性的像素图）。图片放在 act1/images/ 下。",
+    "note": "有 src 的用真实图片，没有 src 的回落到像素块占位（引擎按 palette + label 生成一块确定性的像素图）。所有幕的图片统一放在仓库根目录的 images/ 下，页面在 /act1/，所以路径写成 ../images/xxx.webp。",
     "assets": {
       "bg_carriage": {
         "kind": "background",
         "label": "马车车厢 · 雨",
-        "src": "images/bg_carriage.webp",
+        "src": "../images/bg_carriage.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -129,7 +129,7 @@
       "bg_castle": {
         "kind": "background",
         "label": "普里森堡 · 雨中的远景",
-        "src": "images/bg_gate.webp",
+        "src": "../images/bg_gate.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -142,7 +142,7 @@
       "bg_bridge": {
         "kind": "background",
         "label": "城堡门口 · 吊桥前",
-        "src": "images/bg_gate.webp",
+        "src": "../images/bg_gate.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -155,7 +155,7 @@
       "bg_courtyard": {
         "kind": "background",
         "label": "外庭院 · 佣兵宿舍",
-        "src": "images/bg_gate.webp",
+        "src": "../images/bg_gate.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -168,7 +168,7 @@
       "bg_hall": {
         "kind": "background",
         "label": "普里森堡 · 大厅高台",
-        "src": "images/bg_hall.webp",
+        "src": "../images/bg_hall.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -181,7 +181,7 @@
       "bg_portrait_wall": {
         "kind": "background",
         "label": "主座背后 · 拉纳克·德·沃的画像",
-        "src": "images/bg_hall.webp",
+        "src": "../images/bg_hall.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -194,7 +194,7 @@
       "chr_sibylla": {
         "kind": "portrait",
         "label": "西比拉 · 女仆装（半身）",
-        "src": "images/chr_sibylla.webp",
+        "src": "../images/chr_sibylla.webp",
         "cols": 15,
         "rows": 20,
         "palette": [
@@ -215,7 +215,7 @@
           "#8a6f4a",
           "#c9a878"
         ],
-        "src": "images/chr_brown.webp"
+        "src": "../images/chr_brown.webp"
       },
       "chr_aubrey": {
         "kind": "portrait",
@@ -228,7 +228,7 @@
           "#33445c",
           "#5b7fa8"
         ],
-        "src": "images/chr_aubrey.webp"
+        "src": "../images/chr_aubrey.webp"
       },
       "chr_isabelle": {
         "kind": "portrait",
@@ -241,7 +241,7 @@
           "#d98f9b",
           "#e8c8a8"
         ],
-        "src": "images/chr_isabelle.webp"
+        "src": "../images/chr_isabelle.webp"
       },
       "chr_haier": {
         "kind": "portrait",
@@ -254,11 +254,12 @@
           "#66795a",
           "#8aa87a"
         ],
-        "src": "images/chr_haier.webp"
+        "src": "../images/chr_haier.webp"
       },
-      "chr_john": {
+      "chr_groom": {
         "kind": "portrait",
-        "label": "约翰马夫（立绘未画，像素占位）",
+        "label": "马夫 · 半身（通用立绘：马夫、普通女仆、侍卫等没有单独立绘的角色都可套用）",
+        "src": "../images/chr_groom.webp",
         "cols": 15,
         "rows": 20,
         "palette": [
@@ -270,7 +271,8 @@
       },
       "chr_soldier": {
         "kind": "portrait",
-        "label": "门房佣兵（立绘未画，像素占位）",
+        "label": "门房佣兵 · 半身",
+        "src": "../images/chr_soldier.webp",
         "cols": 15,
         "rows": 20,
         "palette": [

@@ -41,6 +41,11 @@ const ACTS = [
     source: path.join(ROOT, 'act2', 'source', '普里森堡第二章.txt'),
     story: require(path.join(ROOT, 'act2', 'story.json')),
   },
+  {
+    name: '第三幕',
+    source: path.join(ROOT, 'act3', 'source', '第三章.txt'),
+    story: require(path.join(ROOT, 'act3', 'story.json')),
+  },
 ];
 
 const t = suite('原文核对');
@@ -234,6 +239,6 @@ t.eq(speakerOf('这群该死的佣兵！', whole1), '布朗', '「布朗站在�
 t.eq(speakerOf('原来如此。', whole1), '西比拉', '跨逗号也认得出（「西比拉听在耳里，点着头说道：“…”」）');
 t.eq(speakerOf('海尔，谢谢你，你现在还有事要做吗？', whole2), null, '「她将衣服从海尔手上拿下，笑着说：」——海尔是宾语，不乱认说话人');
 t.eq(speakerOf('是西比拉小姐太严厉了！我感觉她随时准备打我。', whole2), null, '「转过头指着西比拉辩解道：」——西比拉是宾语，不乱认说话人');
-console.log(`  · 两幕合计认出 ${totalChecked} 句的说话人，逐句核对了归属（认不出的不下结论）`);
+console.log(`  · 各幕合计认出 ${totalChecked} 句的说话人，逐句核对了归属（认不出的不下结论）`);
 
 t.done();
