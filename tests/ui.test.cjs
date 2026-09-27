@@ -366,24 +366,27 @@ ch.ui.begin();
 while (ch.ui.view.type !== 'choices') ch.ui.step();
 
 const btns = ch.ui.els.choices.children;
-t.eq(btns.length, 3, '第一个决定点有 3 个选项');
-t.eq(btns.map((b) => b.getAttribute('data-index')), ['0', '1', '2'], '按钮带着 data-index');
+t.eq(btns.length, 4, '第一个决策点（o1_wait）有 4 个选项');
+t.eq(btns.map((b) => b.getAttribute('data-index')), ['0', '1', '2', '3'], '按钮带着 data-index');
 t.ok(btns[0].children.some((c) => c.className.includes('choice-text')), '选项按钮里有正文');
-t.ok(btns[0].children.some((c) => c.className.includes('choice-hint')), '选项按钮里有 hint');
+t.empty(
+  btns.filter((b) => b.children.some((c) => c.className.includes('choice-hint'))).map((b) => b.getAttribute('data-index')),
+  '第一幕的选项不带数值 hint（改了数值靠浮字提示，选项上不报数字）'
+);
 t.ok(ch.ui.els['dialogue-box'].classList.contains('collapsed'), '出选项时对话框整个收起来（不再半透明地挂在底部）');
 
-// 序章的选项点：替西比拉做决定，左槽亮着、右槽空着
-t.ok(litLeft(ch.ui), '序章选项点是西比拉的视角，左槽亮着');
+// 第一幕的决策点全在奥布里的幕间里：替奥布里做决定，左槽亮着、右槽空着
+t.ok(litLeft(ch.ui), '幕间决策是奥布里的视角，左槽亮着');
 t.ok(rightSlotEmpty(ch.ui), '出选项时没人说话，右槽收起来');
-t.eq(ch.engine.pov, '西比拉', '序章选项点确实是西比拉视角');
-t.eq(leftBG(ch.ui), 'url("../images/chr_sibylla.webp")', '选项点上左槽是主视角角色西比拉');
+t.eq(ch.engine.pov, '奥布里', '第一个决策点确实是奥布里视角');
+t.eq(leftBG(ch.ui), 'url("../images/chr_aubrey.webp")', '选项点上左槽是主视角角色奥布里');
 
-// 用键盘 1/2/3 也能选
+// 用键盘 1/2/3/4 也能选
 const kb = bootUI();
 kb.ui.begin();
 while (kb.ui.view.type !== 'choices') kb.ui.step();
 kb.fireKey('2');
-t.eq(kb.engine.history[kb.engine.history.length - 1], 'p1_self', '按 2 选了第二个选项');
+t.eq(kb.engine.history[kb.engine.history.length - 1], 'o1_files', '按 2 选了第二个选项（翻旧卷宗）');
 
 // 主场的选项点：替奥布里做决定，立绘压暗
 const main = bootUI();
@@ -418,16 +421,18 @@ t.eq(litLeft(fin.ui), false, '结局不是谁在说话，左槽压暗');
 t.eq(litRight(fin.ui), false, '结局右槽也压暗');
 t.ok(rightSlotEmpty(fin.ui), '结局屏上右槽收起来');
 t.ok(fin.ui.els['dialogue-box'].classList.contains('collapsed'), '走到结局时对话框也收起来');
-// 标题和副题跟着结局节点走，不再是写死的「第一幕 · 完」
-t.eq(fin.ui.els['end-title'].textContent, '第一幕 · 完', '结局标题取自节点 title');
-t.eq(fin.ui.els['end-sub'].textContent, '西比拉·德·克莱尔住进了伊莎贝尔的隔壁。', '副题取自节点的 endSub');
+// 标题和副题跟着结局节点走，不是写死的
+t.eq(fin.ui.els['end-title'].textContent, '第一章 · 普里森堡的阴雨', '结局标题取自节点 title');
+const endNode = story.nodes.find((n) => n.id === 'o4_end');
+t.ok((endNode.endSub || '').length > 80, '结局节点写了 endSub');
+t.eq(fin.ui.els['end-sub'].textContent, endNode.endSub, '副题取自节点的 endSub');
 // 只载入第一幕时后面那一幕不在，按钮不该出现（免得点了没反应）
 t.eq(fin.ui.els['end-continue'].style.display, 'none', '没有下一幕时「继续下一幕」按钮藏起来');
 t.eq(fin.ui.continueNextAct(), false, '没有下一幕时按「继续」不会出事');
 
 fin.ui.restart();
 t.ok(fin.ui.titleOpen, '「重新开始」退回开始界面');
-t.eq(fin.engine.node.id, 'p1_carriage', '「重新开始」把剧情复位到开头');
+t.eq(fin.engine.node.id, 's1_rain', '「重新开始」把剧情复位到开头');
 t.eq(fin.ui.els['end-screen'].classList.contains('on'), false, '「重新开始」把结局界面收掉');
 t.eq(fin.engine.stats, story.initialStats, '「重新开始」把数值归零');
 
@@ -452,14 +457,16 @@ while (bridge.ui.view.type !== 'end') {
   if (bridge.ui.view.type === 'choices') bridge.ui.choose(0); else bridge.ui.step();
 }
 t.eq(bridge.ui.view.type, 'end', '第一幕照常走到结局屏');
-t.eq(bridge.ui.view.node.id, 'a10_end', '停的是第一幕的结局节点');
-t.eq(bridge.ui.els['end-title'].textContent, '第一幕 · 完', '结局标题是第一幕的');
+t.eq(bridge.ui.view.node.id, 'o4_end', '停的是第一幕的结局节点');
+t.eq(bridge.ui.els['end-title'].textContent, '第一章 · 普里森堡的阴雨', '结局标题是第一幕的');
 t.eq(bridge.ui.els['end-continue'].style.display, '', '有下一幕时按钮显示出来');
 t.eq(bridge.ui.els['end-continue'].getAttribute('data-next'), 'b1_room', '按钮记着要去的节点');
 t.eq(bridge.ui.els['end-continue'].textContent, '继续第二幕 ▶', '按钮上写着下一幕的名字');
 
 bridge.fire(bridge.ui.els['end-continue'], 'click');
 t.eq(bridge.engine.node.id, 'b1_room', '点一下接着演第二幕');
+// 刚跨进第二幕那一刻的数值，留到第二幕结尾去比（第二幕一个 effects 都没写）
+const statsAtAct2 = Object.assign({}, bridge.engine.stats);
 t.eq(bridge.ui.view.type, 'line', '接上之后直接就是第二幕的第一句话');
 t.eq(bridge.ui.els['end-screen'].classList.contains('on'), false, '结局屏收掉了');
 t.eq(bridge.ui.els['dialogue-box'].classList.contains('collapsed'), false, '对话框又打开了');
@@ -479,7 +486,7 @@ t.eq(bridge.ui.els['end-title'].textContent, '第二幕 · 完', '第二幕的�
 t.eq(bridge.ui.els['end-continue'].style.display, '', '第二幕后面还有第三幕，按钮照旧在');
 t.eq(bridge.ui.els['end-continue'].getAttribute('data-next'), 'c1_door', '按钮指向第三幕的开头');
 t.eq(bridge.ui.els['end-continue'].textContent, '继续第三幕 ▶', '按钮上写着第三幕');
-t.eq(bridge.engine.stats['伊莎贝尔_好感'] + bridge.engine.stats['西比拉_警惕'], 3, '数值一路带过来，没有被第二幕改掉');
+t.eq(bridge.engine.stats, statsAtAct2, '第二幕一个 effects 都没写，跨进第三幕时数值跟跨进第二幕时一模一样');
 
 // 接着走进第三幕，一路走到第三幕的结局
 bridge.fire(bridge.ui.els['end-continue'], 'click');
@@ -543,7 +550,7 @@ const findText = (list, text) => list.findIndex((c) => c.text === text);
 const gone = bootUI();
 gone.ui.begin();
 stepTo(gone.ui, 'choices');
-t.eq(gone.ui.els.choices.children.length, 3, '选项画出来了');
+t.eq(gone.ui.els.choices.children.length, 4, '选项画出来了（第一章是四选一）');
 t.eq(gone.ui.view.type, 'choices', '确实停在选项屏上');
 
 // 走真浏览器里的那条路：点按钮 -> 冒泡到 #choices 上的事件代理
@@ -577,7 +584,7 @@ t.eq(solo.ui.els['end-roam'].style.display, 'none', '剧本里没写自由活动
 
 const fr = bootUI(wholeStory);
 fr.ui.begin();
-playTo(fr.ui, 'a10_end');
+playTo(fr.ui, 'o4_end');
 t.eq(fr.ui.view.type, 'end', '先走到第一幕的结局（出的是结局卡片，不是黑屏）');
 t.eq(fr.ui.els['end-continue'].style.display, '', '「继续下一幕」照旧在');
 t.eq(fr.ui.els['end-roam'].style.display, '', '结局卡片上多了「自由活动 ▶」');
@@ -643,9 +650,12 @@ t.eq(
 );
 
 // ---- 好感低：触摸 -> 警惕上升，并且只给「感觉」不给数字 ----
-t.eq(fr.engine.getStat('西比拉_好感'), 0, '刚进来好感是 0');
+// 这一段是照固定选项一路走到幕间来的，-7 就是那一条路带进来的底数。
+// 断言的意思不是「等于 7」，而是「自由活动不清零重来」——v1 那会儿主线从 0 起，
+// 所以这儿才写着 0；第一章重构后好感从 -10 起步，落到这儿是 -7。
+t.eq(fr.engine.getStat('西比拉_好感'), -7, '刚进来好感就是主线带过来的那个数，没被重置');
 fr.engine.setStat('西比拉_好感', -10); // 落到「≥-49」那一档（0 那一档台词照说，但不动数值）
-// 主线走下来警惕已经有底数了（主线的「好感 + 警惕 恒等于 3」），所以后面都按「涨了多少」来断言
+// 警惕也有主线带下来的底数（第一章从 80 起步），所以后面都按「涨了多少」来断言
 const baseWatch = fr.engine.getStat('西比拉_警惕');
 fr.fire(fr.ui.els.choices, 'click', {
   target: fr.ui.els.choices.children[findText(fr.ui.view.choices, '触摸')],
@@ -875,7 +885,7 @@ t.eq(pzEnd.ui.els['pause-btn'].style.display, 'none', '结局屏上没有暂停�
 // 从结局卡片进的自由活动也没有可回的地方
 const pzRoam = bootUI(wholeStory);
 pzRoam.ui.begin();
-playTo(pzRoam.ui, 'a10_end');
+playTo(pzRoam.ui, 'o4_end');
 pzRoam.fire(pzRoam.ui.els['end-roam'], 'click');
 t.eq(pzRoam.engine.node.id, 'fr_hub', '从结局卡片进了自由活动');
 t.eq(pzRoam.ui.els['pause-btn'].style.display, 'none', '这里没有「原来的剧情」，按钮不显示');
@@ -897,7 +907,7 @@ t.ok(stat.ui.els['stats-body'].children[0].className.includes('stat-hidden'), '�
 
 stat.fireKey('v');
 t.eq(stat.engine.showStats, true, '按 V 打开真实数值');
-t.eq(stat.ui.els['stats-body'].children.length, 4, '打开后有 4 行（四个隐藏数值，多了「亲密」）');
+t.eq(stat.ui.els['stats-body'].children.length, 13, '打开后有 13 行（第一章的四维数值＋线索＋关系）');
 t.eq(stat.ui.els['stats-toggle'].getAttribute('data-on'), '1', '按钮状态跟着变');
 t.eq(stat.ui.els['stats-panel'].classList.contains('revealed'), true, '面板展开');
 

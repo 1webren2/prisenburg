@@ -10,12 +10,13 @@
  * 各查各的。不把两份原文拼成一个大串 —— 拼起来会放松要求，第二幕漏掉的小句
  * 可能被第一幕的文字凑巧满足。
  *
- * 最后一对是 act1/story_v2.json（重构稿）配 act1/source/第一章剧本.txt。
- * 那一份原文带制作标签（【布朗管家】【若选A】【数值面板 · 当前】、A./A1. 选项行、
+ * 最后一对是 act1/story.json 配 act1/source/第一章剧本.txt（第一章重构稿上线后，
+ * 第一幕就是这一份了；v1 那对已经下线 —— 拿新剧本去对旧原文只会全红）。
+ * 这一份原文带制作标签（【布朗管家】【若选A】【数值面板 · 当前】、A./A1. 选项行、
  * 【第一章 · 数值结算】之后的四张表），所以它比别人多几条取舍规则，都写在那条
  * ACTS 记录上：skip 是「这行不是正文」，skipFrom 是「这行往后都不是正文」，
  * stripTag 是「把行首标签削掉、后面的字留下」。**只有这一对用这些规则**，
- * 前三幕一个字都没动 —— 原文那一侧的松紧一旦放开，正查（不许自编）就守不住了，
+ * 第二、三幕一个字都没动 —— 原文那一侧的松紧一旦放开，正查（不许自编）就守不住了，
  * 所以松的只能是「反查」那一侧，正查永远拿完整的原文来对。
  *
  * 两道硬性检查（不过就是 bug）：
@@ -40,11 +41,6 @@ const ROOT = path.join(__dirname, '..');
 
 const ACTS = [
   {
-    name: '第一幕',
-    source: path.join(ROOT, 'act1', 'source', '第一幕原文.txt'),
-    story: require(path.join(ROOT, 'act1', 'story.json')),
-  },
-  {
     name: '第二幕',
     source: path.join(ROOT, 'act2', 'source', '普里森堡第二章.txt'),
     story: require(path.join(ROOT, 'act2', 'story.json')),
@@ -55,8 +51,8 @@ const ACTS = [
     story: require(path.join(ROOT, 'act3', 'story.json')),
   },
   {
-    // 重构稿 act1/story_v2.json 的原文。这一份是**带制作标签的剧本**，不是小说原文，
-    // 所以要多几条取舍规则（只有这一对写了这几项，前三幕一个字都没动）：
+    // 第一章的原文。这一份是**带制作标签的剧本**，不是小说原文，
+    // 所以要多几条取舍规则（只有这一对写了这几项，第二、三幕一个字都没动）：
     //   skip      行：标题、「时间：…」、A./A1. 选项行、数值面板、「【幕间 …】」小标题
     //   skipFrom  行：从「【第一章 · 数值结算】」起是四张表（数值/线索/关系/待处理事项），
     //                 按约定只作为游戏状态（面板 + 0/1 标记 + meta.pending），文字不进剧情
@@ -64,9 +60,9 @@ const ACTS = [
     //   tagSpeakers ：这份原文的归属写成【布朗管家】这种独立一行的小标题，见 tagSpeakerOf
     // 注意这几条只影响**反查**（原文的小句是不是都进了剧本）；正查仍然拿完整的
     // 原文来对，一个字都不放过。
-    name: '第一章（重构稿）',
+    name: '第一章',
     source: path.join(ROOT, 'act1', 'source', '第一章剧本.txt'),
-    story: require(path.join(ROOT, 'act1', 'story_v2.json')),
+    story: require(path.join(ROOT, 'act1', 'story.json')),
     stripTag: /^【[^】]*】/,
     skip: [
       /^第一章[:：]/,
@@ -199,7 +195,6 @@ function tagSpeakerOf(text, wholeSource) {
 
 let totalChecked = 0;
 let totalClauses = 0;
-const act1 = ACTS[0];
 
 for (const act of ACTS) {
   const scriptLines = [];
@@ -319,8 +314,13 @@ for (const act of ACTS) {
  * =================================================================== */
 
 t.section('检查器自检');
-const whole1 = act1.wholeSource;
-const whole2 = ACTS[1].wholeSource;
+// 自检的语料直接读原文，不跟 ACTS 挂钩：第一幕那对已经从核对清单里下线了
+// （v1 的剧本不在仓库里了），但 speakerOf 那几条例子是照着第一幕的句子写的，
+// 留着当样本才验得出前缀式 / 后缀式归属还认不认得出。
+const fixture = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
+  .split(/\r?\n/).map((s) => s.trim()).filter(Boolean).map(flat).join('\n');
+const whole1 = fixture('act1/source/第一幕原文.txt');
+const whole2 = fixture('act2/source/普里森堡第二章.txt');
 t.eq(speakerOf('伯爵大人不禁止仆人们喝酒吗？', whole1), '西比拉', '前缀式归属认得出（西比拉问道：“…”）');
 t.eq(speakerOf('难道就没有人将你买下过吗？', whole1), '奥布里', '后缀式归属认得出（“…”奥布里问道。）');
 t.eq(speakerOf('这群该死的佣兵！', whole1), '布朗', '「布朗站在原地，向西比拉抱怨道」——西比拉是听话的人，说话的是布朗');

@@ -29,6 +29,10 @@ tests/shots_v2/
 # 页面（正式稿接进来之后就该删）。防的是 git add . 顺手把它卷进去
 preview_v2/
 
+# 第一幕 v1 的备份。v1 已经在 git 历史 e110f40 里躺着，随时能 git show 出来，
+# 不在工作区留重复 —— 留着只会让「哪份才是在线的剧本」变得可疑
+act1/story_v1_backup.json
+
 # 系统 / 编辑器的临时文件
 Thumbs.db
 desktop.ini

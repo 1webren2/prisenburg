@@ -66,12 +66,12 @@ const postJSON = (p, body) => fetch(BASE + p, {
 function validSave(over) {
   return Object.assign({
     version: 1,
-    nodeId: 'p1_carriage',
+    nodeId: 's1_rain',
     pov: '西比拉',
-    stats: { 伊莎贝尔_好感: 1, 西比拉_警惕: 2 },
+    stats: { 伊莎贝尔_好感: 1, 西比拉_警惕: 82 },
     lineIndex: 3,
-    history: ['p1_carriage'],
-    visited: ['p1_carriage'],
+    history: ['s1_rain'],
+    visited: ['s1_rain'],
     showStats: false,
   }, over || {});
 }
@@ -95,11 +95,13 @@ async function main() {
     t.eq(health.status, 200, '/api/health 返回 200');
     t.eq(hb.ok, true, '/api/health 里 ok=true');
     t.ok(hb.act1 && hb.act1.loaded !== false, '服务器启动时载入了 act1/story.json');
-    t.eq(hb.act1.nodes, 109, '三幕的节点并进了同一张表（34 + 42 + 33，自由活动锚点和报仇结局都在第二幕那张表里）');
+    t.eq(hb.act1.nodes, 105, '三幕的节点并进了同一张表（30 + 42 + 33，自由活动锚点和报仇结局都在第二幕那张表里）');
     t.eq(
       hb.act1.stats,
-      ['伊莎贝尔_好感', '西比拉_好感', '西比拉_警惕', '西比拉_亲密'],
-      '数值表跟着第一幕走（多了自由活动里长出来的「亲密」）'
+      ['西比拉_好感', '西比拉_警惕', '西比拉_亲密', '西比拉_力量', '西比拉_压力', '西比拉_自主性',
+        '佣兵_纪律', '伊莎贝尔_好感', '伊莎贝尔_礼仪成长', '海尔_好感', '布朗_好感',
+        '线索_克莱尔旧事', '线索_观察西比拉', '线索_初夜观察', '线索_路上表现'],
+      '数值表跟着第一幕走（第一章那 15 项）'
     );
 
     /* ---------- 静态页面 ---------- */
@@ -116,7 +118,7 @@ async function main() {
     const storyRes = await get('/act1/story.json');
     const storyBody = await storyRes.json();
     t.eq(storyRes.status, 200, 'GET /act1/story.json 返回 200');
-    t.eq(storyBody.nodes.length, 34, '第一幕的剧本是 34 个节点');
+    t.eq(storyBody.nodes.length, 30, '第一幕的剧本是 30 个节点');
     t.eq(storyBody.meta.continues, ['../act2/story.json'], '第一幕指着后面的第二幕');
 
     const story2Res = await get('/act2/story.json');
@@ -140,7 +142,7 @@ async function main() {
 
     // 收尾节点确实接得上：第一幕的出口就是第二幕的入口
     t.eq(
-      storyBody.nodes.find((n) => n.id === 'a10_end').continueTo,
+      storyBody.nodes.find((n) => n.id === 'o4_end').continueTo,
       story2Body.nodes[0].id,
       '第一幕结局的 continueTo 就是第二幕的第一个节点'
     );
@@ -259,7 +261,7 @@ async function main() {
       t.ok(!!b.message, `拒绝${label}时给了说明`);
     }
 
-    const bodyTooBig = await postJSON('/api/act1/save', { nodeId: 'p1_carriage', stats: { 伊莎贝尔_好感: 1 }, blob: 'x'.repeat(20000) });
+    const bodyTooBig = await postJSON('/api/act1/save', { nodeId: 's1_rain', stats: { 伊莎贝尔_好感: 1 }, blob: 'x'.repeat(20000) });
     t.eq(bodyTooBig.status, 413, '请求体过大返回 413');
 
     // 好感的区间放宽成了 -100~100（报仇线会把好感打到负的），负数要能存能读
@@ -300,10 +302,10 @@ async function main() {
     /* ---------- 存完还能继续 ---------- */
     t.section('存档不干扰后续');
 
-    const again = await postJSON('/api/act1/save', validSave({ nodeId: 'a10_end', stats: { 伊莎贝尔_好感: 0, 西比拉_警惕: 3 }, history: ['p1_carriage', 'a10_end'] }));
+    const again = await postJSON('/api/act1/save', validSave({ nodeId: 'o4_end', stats: { 伊莎贝尔_好感: 0, 西比拉_警惕: 82 }, history: ['s1_rain', 'o4_end'] }));
     t.eq(again.status, 200, '可以覆盖保存');
     const reload = await (await get('/api/act1/load')).json();
-    t.eq((reload.save.snapshot || reload.save).nodeId, 'a10_end', '读回来的是最新那份');
+    t.eq((reload.save.snapshot || reload.save).nodeId, 'o4_end', '读回来的是最新那份');
 
     /* ---------- 跨幕存档 ---------- */
     t.section('跨幕存档');
@@ -313,10 +315,10 @@ async function main() {
     const act2Snap = validSave({
       nodeId: 'b12_morning',
       pov: '西比拉',
-      stats: { 伊莎贝尔_好感: 2, 西比拉_警惕: 1 },
+      stats: { 伊莎贝尔_好感: 2, 西比拉_警惕: 82 },
       lineIndex: 1,
-      history: ['p1_carriage', 'p5_bridge', 'a1_returned', 'a10_end', 'b1_room', 'b12_morning'],
-      visited: ['p1_carriage', 'a10_end', 'b1_room', 'b12_morning'],
+      history: ['s1_rain', 's4_hall', 'o4_end', 'b1_room', 'b12_morning'],
+      visited: ['s1_rain', 'o4_end', 'b1_room', 'b12_morning'],
     });
     const act2Res = await postJSON('/api/act1/save', act2Snap);
     t.eq(act2Res.status, 200, '第二幕的节点也能存（服务器认得 b 开头的节点）');
@@ -345,10 +347,10 @@ async function main() {
     const roamSnap = validSave({
       nodeId: 'fr_sib_riding',
       pov: '奥布里',
-      stats: { 伊莎贝尔_好感: 2, 西比拉_好感: 3, 西比拉_警惕: 2 },
+      stats: { 伊莎贝尔_好感: 2, 西比拉_好感: 3, 西比拉_警惕: 82 },
       lineIndex: 0,
-      history: ['p1_carriage', 'a10_end', 'fr_hub', 'fr_sib_riding'],
-      visited: ['p1_carriage', 'a10_end', 'fr_hub', 'fr_sib_riding'],
+      history: ['s1_rain', 'o4_end', 'fr_hub', 'fr_sib_riding'],
+      visited: ['s1_rain', 'o4_end', 'fr_hub', 'fr_sib_riding'],
     });
     const roamRes = await postJSON('/api/act1/save', roamSnap);
     t.eq(roamRes.status, 200, '自由活动的锚点节点也能存（服务器顺着 continues 收到了它）');

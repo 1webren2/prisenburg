@@ -1356,7 +1356,7 @@
     ],
     "hubs": {
       "fr_hub": {
-        "after": "a10_end",
+        "after": "o4_end",
         "lines": [
           {
             "speaker": "旁白",

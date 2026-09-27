@@ -1,48 +1,19 @@
 {
   "meta": {
-    "title": "沃伯爵的府邸",
-    "act": "第一幕",
-    "version": "2.0.0",
-    "start": "p1_carriage",
-    "description": "序章为观察者视角，跟随西比拉进入普里森堡；在西比拉向主座行礼、说出「伯爵大人，我也很高兴见到您」之后，视角切换为奥布里·德·沃伯爵。",
-    "textSource": "全部台词与旁白均取自小说原文，没有自编内容。选项只决定「这次先看/先做原文里的哪一个动作」，每个分支播放的依然是对应那一句原文。",
-    "continues": [
-      "../act2/story.json"
+    "title": "普里森堡的阴雨",
+    "act": "第一章",
+    "version": "1.0.0",
+    "start": "s1_rain",
+    "continues": ["../act2/story.json"],
+    "description": "第一章：西比拉线（马车 → 城堡门口 → 外庭院 → 大厅觐见）与奥布里幕间线交替，四个幕间各有一组决策。全部选择点都在奥布里视角；西比拉视角是观察者，只负责看。结局接第二幕 b1_room。",
+    "textSource": "全部台词与旁白均取自 act1/source/第一章剧本.txt，没有自编内容。选项文本直接照抄文档里的 A./B./C. 行（去掉「（数值）」括注），括注里的「你决定：…？」搬成了下一个节点的旁白。原文核对新增的取舍规则（skip / skipFrom / stripTag / tagSpeakers）见 tests/fidelity.cjs 里「第一章」那一条 ACTS 记录。",
+    "pending": [
+      "佣兵酗酒问题（布朗已多次抱怨）",
+      "西比拉的房间安排在伊莎贝尔隔壁（已执行）",
+      "克莱尔家旧卷宗中的“北方势力”线索（待深挖）",
+      "西比拉的第一晚表现（取决于奥布里幕间选择）",
+      "待补变体台词：s2_bridge（门房佣兵）与 s3_courtyard（宿舍）各留了一个 ifHooks 挂点，等原文补上，不要自编"
     ]
-  },
-  "config": {
-    "showStats": false,
-    "statRanges": {
-      "伊莎贝尔_好感": [-100, 100],
-      "西比拉_好感": [-100, 100]
-    },
-    "statOrder": [
-      "伊莎贝尔_好感",
-      "西比拉_好感",
-      "西比拉_警惕",
-      "西比拉_亲密"
-    ],
-    "statLabels": {
-      "伊莎贝尔_好感": "伊莎贝尔 · 对你的依赖",
-      "西比拉_好感": "西比拉 · 对你的好感",
-      "西比拉_警惕": "西比拉 · 对你的警惕",
-      "西比拉_亲密": "西比拉 · 与你的亲密"
-    },
-    "statNotes": {
-      "伊莎贝尔_好感+": "妹妹往你这边靠了靠。",
-      "伊莎贝尔_好感-": "妹妹安静下去了。",
-      "西比拉_好感+": "她看你的眼神软了一点。",
-      "西比拉_好感-": "她垂下眼睛，不说话了。",
-      "西比拉_警惕+": "她看你的目光收紧了一点。",
-      "西比拉_警惕-": "她的神色松开了一点。",
-      "西比拉_亲密+": "她没有再往后退。"
-    }
-  },
-  "initialStats": {
-    "伊莎贝尔_好感": 0,
-    "西比拉_好感": 0,
-    "西比拉_警惕": 0,
-    "西比拉_亲密": 0
   },
   "povs": {
     "西比拉": {
@@ -57,40 +28,31 @@
     }
   },
   "characters": {
-    "旁白": {
-      "displayName": "",
-      "color": "#8a8378",
-      "narration": true
-    },
+    "旁白": { "narration": true },
     "西比拉": {
       "displayName": "西比拉",
-      "color": "#b9a37e",
+      "color": "#8aa87a",
       "portrait": "chr_sibylla"
     },
     "布朗": {
       "displayName": "布朗管家",
-      "color": "#c9a05a",
+      "color": "#a07850",
       "portrait": "chr_brown"
     },
     "奥布里": {
       "displayName": "奥布里",
-      "color": "#5b7fa8",
+      "color": "#7a8aa8",
       "portrait": "chr_aubrey"
     },
     "伊莎贝尔": {
       "displayName": "伊莎贝尔",
-      "color": "#d98f9b",
+      "color": "#c98fa0",
       "portrait": "chr_isabelle"
     },
     "海尔": {
       "displayName": "海尔",
       "color": "#8aa87a",
       "portrait": "chr_haier"
-    },
-    "约翰": {
-      "displayName": "约翰",
-      "color": "#a07850",
-      "portrait": "chr_groom"
     },
     "士兵": {
       "displayName": "门房佣兵",
@@ -99,1200 +61,789 @@
     }
   },
   "art": {
-    "note": "有 src 的用真实图片，没有 src 的回落到像素块占位（引擎按 palette + label 生成一块确定性的像素图）。所有幕的图片统一放在仓库根目录的 images/ 下，页面在 /act1/，所以路径写成 ../images/xxx.webp。",
+    "note": "图仍统一放在仓库根目录的 images/ 下，写 ../images/xxx.webp。这一章没有新增素材，全部复用第一幕已有的 key。",
     "assets": {
       "bg_carriage": {
         "kind": "background",
         "label": "马车车厢 · 雨",
         "src": "../images/bg_carriage.webp",
         "cols": 46,
-        "rows": 13,
-        "palette": [
-          "#171310",
-          "#241d16",
-          "#33291d",
-          "#453726"
-        ]
+        "rows": 13
       },
       "bg_forest": {
         "kind": "background",
-        "label": "普里森堡 · 外层树林（还没有对应的图，仍是像素占位）",
+        "label": "普里森堡 · 外层树林（暂时用马车图顶着，等有树林图了只改这一行 src）",
+        "src": "../images/bg_carriage.webp",
         "cols": 46,
-        "rows": 13,
-        "palette": [
-          "#0e120e",
-          "#161d16",
-          "#1f2a1e",
-          "#2b382a"
-        ]
+        "rows": 13
       },
       "bg_castle": {
         "kind": "background",
         "label": "普里森堡 · 雨中的远景",
         "src": "../images/bg_gate.webp",
         "cols": 46,
-        "rows": 13,
-        "palette": [
-          "#2c2f33",
-          "#3d4145",
-          "#525659",
-          "#2a4a8a"
-        ]
+        "rows": 13
       },
       "bg_bridge": {
         "kind": "background",
         "label": "城堡门口 · 吊桥前",
         "src": "../images/bg_gate.webp",
         "cols": 46,
-        "rows": 13,
-        "palette": [
-          "#2a2a28",
-          "#3b3b37",
-          "#4e4e47",
-          "#2a4a8a"
-        ]
+        "rows": 13
       },
       "bg_courtyard": {
         "kind": "background",
         "label": "外庭院 · 佣兵宿舍",
         "src": "../images/bg_gate.webp",
         "cols": 46,
-        "rows": 13,
-        "palette": [
-          "#1d1a14",
-          "#2c271c",
-          "#3e3626",
-          "#544831"
-        ]
+        "rows": 13
       },
       "bg_hall": {
         "kind": "background",
         "label": "普里森堡 · 大厅高台",
         "src": "../images/bg_hall.webp",
         "cols": 46,
-        "rows": 13,
-        "palette": [
-          "#1a1410",
-          "#2b2118",
-          "#40301f",
-          "#5c452a"
-        ]
+        "rows": 13
       },
       "bg_portrait_wall": {
         "kind": "background",
         "label": "主座背后 · 拉纳克·德·沃的画像",
         "src": "../images/bg_hall.webp",
         "cols": 46,
-        "rows": 13,
-        "palette": [
-          "#221a12",
-          "#3a2c1c",
-          "#5a4526",
-          "#8a8a8a"
-        ]
+        "rows": 13
       },
       "chr_sibylla": {
         "kind": "portrait",
         "label": "西比拉 · 女仆装（半身）",
         "src": "../images/chr_sibylla.webp",
         "cols": 15,
-        "rows": 20,
-        "palette": [
-          "#3b352c",
-          "#544c3e",
-          "#6b6257",
-          "#8a7f70"
-        ]
+        "rows": 20
       },
       "chr_brown": {
         "kind": "portrait",
         "label": "布朗管家 · 半身",
+        "src": "../images/chr_brown.webp",
         "cols": 15,
-        "rows": 20,
-        "palette": [
-          "#4a3a24",
-          "#6b5436",
-          "#8a6f4a",
-          "#c9a878"
-        ],
-        "src": "../images/chr_brown.webp"
+        "rows": 20
       },
       "chr_aubrey": {
         "kind": "portrait",
         "label": "奥布里·德·沃 · 半身",
+        "src": "../images/chr_aubrey.webp",
         "cols": 15,
-        "rows": 20,
-        "palette": [
-          "#14181f",
-          "#232c3a",
-          "#33445c",
-          "#5b7fa8"
-        ],
-        "src": "../images/chr_aubrey.webp"
+        "rows": 20
       },
       "chr_isabelle": {
         "kind": "portrait",
         "label": "伊莎贝尔 · 半身",
+        "src": "../images/chr_isabelle.webp",
         "cols": 15,
-        "rows": 20,
-        "palette": [
-          "#5a3f42",
-          "#8a5f63",
-          "#d98f9b",
-          "#e8c8a8"
-        ],
-        "src": "../images/chr_isabelle.webp"
+        "rows": 20
       },
       "chr_haier": {
         "kind": "portrait",
         "label": "海尔 · 半身",
+        "src": "../images/chr_haier.webp",
         "cols": 15,
-        "rows": 20,
-        "palette": [
-          "#2c3327",
-          "#44523c",
-          "#66795a",
-          "#8aa87a"
-        ],
-        "src": "../images/chr_haier.webp"
-      },
-      "chr_groom": {
-        "kind": "portrait",
-        "label": "马夫 · 半身（通用立绘：马夫、普通女仆、侍卫等没有单独立绘的角色都可套用）",
-        "src": "../images/chr_groom.webp",
-        "cols": 15,
-        "rows": 20,
-        "palette": [
-          "#2b1f16",
-          "#452f20",
-          "#6a4a32",
-          "#a07850"
-        ]
+        "rows": 20
       },
       "chr_soldier": {
         "kind": "portrait",
         "label": "门房佣兵 · 半身",
         "src": "../images/chr_soldier.webp",
         "cols": 15,
-        "rows": 20,
-        "palette": [
-          "#2a2a2a",
-          "#43433f",
-          "#66665e",
-          "#9a9a94"
-        ]
-      },
-      "chr_lanark": {
-        "kind": "portrait",
-        "label": "拉纳克 · 德 · 沃（画像）",
-        "cols": 15,
-        "rows": 20,
-        "palette": [
-          "#241b12",
-          "#3d2e1c",
-          "#6b5228",
-          "#9a8046"
-        ]
+        "rows": 20
       }
     }
   },
+  "config": {
+    "showStats": false,
+    "statRanges": {
+      "西比拉_好感": [-100, 100],
+      "西比拉_亲密": [-100, 100],
+      "伊莎贝尔_好感": [-100, 100],
+      "海尔_好感": [-100, 100],
+      "布朗_好感": [-100, 100],
+      "西比拉_力量": [-100, 100],
+      "西比拉_压力": [-100, 100],
+      "西比拉_自主性": [-100, 100],
+      "佣兵_纪律": [-100, 100],
+      "伊莎贝尔_礼仪成长": [-100, 100],
+      "线索_克莱尔旧事": [0, 1],
+      "线索_观察西比拉": [0, 1],
+      "线索_初夜观察": [0, 1],
+      "线索_路上表现": [0, 1]
+    },
+    "statOrder": [
+      "西比拉_好感",
+      "西比拉_警惕",
+      "西比拉_亲密",
+      "西比拉_力量",
+      "西比拉_压力",
+      "西比拉_自主性",
+      "佣兵_纪律",
+      "伊莎贝尔_好感",
+      "伊莎贝尔_礼仪成长",
+      "线索_克莱尔旧事",
+      "线索_观察西比拉",
+      "线索_初夜观察",
+      "线索_路上表现"
+    ],
+    "statLabels": {
+      "西比拉_好感": "西比拉 · 对你的好感",
+      "西比拉_警惕": "西比拉 · 对你的警惕",
+      "西比拉_亲密": "西比拉 · 与你的亲密",
+      "西比拉_力量": "西比拉 · 体力",
+      "西比拉_压力": "西比拉 · 压力",
+      "西比拉_自主性": "西比拉 · 自主",
+      "佣兵_纪律": "佣兵 · 纪律",
+      "伊莎贝尔_好感": "伊莎贝尔 · 对你的依赖",
+      "伊莎贝尔_礼仪成长": "伊莎贝尔 · 礼仪",
+      "海尔_好感": "海尔 · 对你的感激",
+      "布朗_好感": "布朗 · 对你的评价",
+      "线索_克莱尔旧事": "线索 · 克莱尔家旧事",
+      "线索_观察西比拉": "线索 · 观察西比拉",
+      "线索_初夜观察": "线索 · 第一晚的动静",
+      "线索_路上表现": "线索 · 路上的表现"
+    },
+    "statNotes": {
+      "西比拉_好感+": "她看你的眼神软了一点。",
+      "西比拉_好感-": "她垂下眼睛，不说话了。",
+      "西比拉_警惕+": "她看你的目光收紧了一点。",
+      "西比拉_警惕-": "她的神色松开了一点。",
+      "西比拉_亲密+": "她没有再往后退。",
+      "西比拉_亲密-": "她往旁边挪开了一点。",
+      "西比拉_力量+": "她的脚步稳了一些。",
+      "西比拉_力量-": "她的脚步沉了一点。",
+      "西比拉_压力+": "她绷得更紧了。",
+      "西比拉_压力-": "她松开了一点。",
+      "西比拉_自主性+": "她开始自己拿主意了。",
+      "佣兵_纪律+": "门口的守卫站直了些。",
+      "佣兵_纪律-": "门口的守卫又散漫起来。",
+      "伊莎贝尔_好感+": "妹妹往你这边靠了靠。",
+      "伊莎贝尔_好感-": "妹妹安静下去了。",
+      "伊莎贝尔_礼仪成长+": "妹妹的行礼像样了一点。",
+      "海尔_好感+": "小女仆看你的眼睛亮了一下。",
+      "海尔_好感-": "小女仆低下头去。",
+      "布朗_好感+": "管家躬身的姿势自然了些。",
+      "布朗_好感-": "管家把这件事记在了心里。",
+      "线索_克莱尔旧事+": "你把这件事记下了。",
+      "线索_观察西比拉+": "你决定多看着她一阵子。",
+      "线索_初夜观察+": "第一晚的动静会有人报给你。",
+      "线索_路上表现+": "路上的细节，你打算问个清楚。"
+    }
+  },
+  "initialStats": {
+    "西比拉_好感": -10,
+    "西比拉_警惕": 80,
+    "西比拉_亲密": 0,
+    "西比拉_力量": 5,
+    "西比拉_压力": 0,
+    "西比拉_自主性": 0,
+    "佣兵_纪律": 0,
+    "伊莎贝尔_好感": 0,
+    "伊莎贝尔_礼仪成长": 0,
+    "海尔_好感": 0,
+    "布朗_好感": 0,
+    "线索_克莱尔旧事": 0,
+    "线索_观察西比拉": 0,
+    "线索_初夜观察": 0,
+    "线索_路上表现": 0
+  },
   "nodes": [
     {
-      "id": "p1_carriage",
+      "id": "s1_rain",
       "pov": "西比拉",
-      "title": "序章 · 雨中马车",
-      "art": {
-        "bg": "bg_carriage",
-        "portrait": "chr_sibylla"
-      },
+      "title": "第一幕 · 马车内",
+      "art": { "bg": "bg_carriage", "portrait": "chr_sibylla" },
       "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "蒙克特常常阴雨连绵，在普里森堡里则更为明显，即使是正午，潮湿的泥泞还是将马腿死死缠住，让马车只能缓慢挪动，这里是奥布里·德·沃伯爵的领地。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉作为奥布里·德·沃伯爵在前几日新买下的仆人，如今正被布朗管家送往沃伯爵的府邸，车中，肥胖的布朗管家坐在西比拉身前。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "阴湿的细雨并不会让车内空气清新哪怕一点，布朗将帘子掀开，细碎的雨点立即透过车帘的空隙打在他脸上，布朗又连忙将帘子重新关上，大声叫道——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "哦！这该死的雨，我们恐怕得天黑才能到伯爵家中了。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉作为伯爵买下的仆人也未能逃脱责备，布朗管家望向端坐在他对面的西比拉，说道——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "西比拉小姐，作为奥布里大人新买下的仆人，你对于路途延期似乎很不在意呢。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "面对布朗管家的询问，西比拉将右手放置胸前，恭敬地答道——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "管家先生，我已经习惯了因为各种原因导致延长的路途，相比这些，我更担忧让伯爵大人等得久了。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "布朗管家哈哈大笑——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "西比拉小姐，很快就能见到了。"
-        }
+        { "speaker": "旁白", "text": "蒙克特常常阴雨连绵，在普里森堡里则更为明显，即使是正午，潮湿的泥泞还是将马腿死死缠住，让马车只能缓慢挪动。" },
+        { "speaker": "旁白", "text": "你与布朗管家来到了奥布里·德·沃伯爵的领地。" },
+        { "speaker": "旁白", "text": "车帘被掀开一条缝，雨点立刻打在布朗管家脸上。" },
+        { "speaker": "布朗", "text": "哦！这该死的雨，我们恐怕得天黑才能到伯爵家中了。" },
+        { "speaker": "旁白", "text": "他骂了一声，又把帘子摔回去，抬起倒八眉，看向你。" },
+        { "speaker": "布朗", "text": "西比拉小姐，作为奥布里大人新买下的仆人，你对于路途延期似乎很不在意呢。" },
+        { "speaker": "旁白", "text": "布朗管家的声音刺进你的耳朵，你抬起头，有些疲惫又无奈的望向他。" },
+        { "speaker": "西比拉", "text": "管家先生，我已经习惯了因为各种原因导致延长的路途。相比这些，我更担忧让伯爵大人等得久了。" },
+        { "speaker": "布朗", "text": "西比拉小姐，很快就能见到了。" }
       ],
-      "choices": [
-        {
-          "text": "观察 · 看这位管家",
-          "hint": "他离你最近，也最吵",
-          "next": "p1_brown"
-        },
-        {
-          "text": "观察 · 看自己",
-          "hint": "你已经很久没有好好看过自己了",
-          "next": "p1_self"
-        },
-        {
-          "text": "仔细听 · 车外的动静",
-          "hint": "不看人，只听声音",
-          "next": "p1_outside"
-        }
-      ]
+      "next": "s1_forest"
     },
     {
-      "id": "p1_brown",
+      "id": "s1_forest",
       "pov": "西比拉",
-      "art": {
-        "bg": "bg_carriage",
-        "portrait": "chr_sibylla"
-      },
+      "title": "第一幕 · 外层树林",
+      "art": { "bg": "bg_forest", "portrait": "chr_sibylla" },
       "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "肥胖的布朗管家坐在西比拉身前，头上布满了虚汗。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "布朗管家望向端坐在他对面的西比拉，抬了抬那双挂着倒八眉毛的眼睛。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "布朗又连忙将帘子重新关上，脸色难看得像是刚刚被挖出的煤炭。"
-        }
+        { "speaker": "旁白", "text": "你扭过头，望向车外的阴云。车队正好驶入普里森堡的外层树林，光线更加阴暗。" },
+        { "speaker": "旁白", "text": "你叫做西比拉·德·克莱尔，克莱尔伯爵的长女。" },
+        { "speaker": "旁白", "text": "半年前，克莱尔伯爵被沃伯爵向查理陛下提起诉讼，最终以异教徒罪名剥夺爵位。克莱尔家族领地大部分赏给了沃伯爵，子女被当作仆人售卖。" },
+        { "speaker": "旁白", "text": "几日前，你被沃伯爵买下，如今正被布朗管家运往普里森堡的府邸。" },
+        { "speaker": "西比拉", "text": "管家先生，请问伯爵大人要怎么安排我呢？" },
+        { "speaker": "布朗", "text": "这一切都要听奥布里大人的安排！" },
+        { "speaker": "西比拉", "text": "我知道了，管家先生。" }
       ],
-      "next": "p2_background"
+      "next": "s1_castle"
     },
     {
-      "id": "p1_self",
+      "id": "s1_castle",
       "pov": "西比拉",
-      "art": {
-        "bg": "bg_carriage",
-        "portrait": "chr_sibylla"
-      },
+      "title": "第一幕 · 雨中的城堡",
+      "art": { "bg": "bg_castle", "portrait": "chr_sibylla" },
       "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "西比拉穿着一件粗羊毛的灰褐色长裙。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "如果没有这场风尘仆仆的路途和女仆培养院半年的磨难的话，她应该是位美丽的小姐。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "当然，即使是现在，西比拉也是位毫不逊色的漂亮女人。"
-        }
+        { "speaker": "旁白", "text": "你继续望向车外的乌云。不远处，一座古典质朴的城堡缓缓浮现在阴雨之中——灰褐色城墙与山融为一体，只有塔楼顶端的蓝色旗帜在雨中摇曳。" },
+        { "speaker": "布朗", "text": "西比拉小姐，就快要到了。" }
       ],
-      "next": "p2_background"
+      "next": "o1_wait"
     },
+
     {
-      "id": "p1_outside",
-      "pov": "西比拉",
-      "art": {
-        "bg": "bg_carriage",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "西比拉扭过头，望向车外的阴云。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "此时车队正好驶入了普里森堡的外层树林，光线更加阴暗。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "雨冲洗着大地，风摇晃着树林发出唰唰声。"
-        }
-      ],
-      "next": "p2_background"
-    },
-    {
-      "id": "p2_background",
-      "pov": "西比拉",
-      "title": "序章 · 克莱尔家的长女",
-      "art": {
-        "bg": "bg_carriage",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "西比拉，原名西比拉·德·克莱尔，是克莱尔伯爵的长女，原本只为等待成年之后获得克莱尔伯爵的赐予，就可以得到一片封地。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "可就在半年前，克莱尔伯爵被如今的沃伯爵向蒙克特帝国的查理陛下提起诉讼，最终克莱尔伯爵被判处了异教徒的罪名，剥夺了爵位。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "同时，克莱尔家族领地的大部分都赏赐给了沃伯爵，克莱尔的子女被当作仆人售卖。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉正是在几日前被沃伯爵买下，如今正被布朗管家运往普里森堡的府邸。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉看了许久之后，回头向布朗管家问道——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "管家先生，请问伯爵大人要怎么安排我呢？"
-        }
-      ],
-      "next": "p3_answer"
-    },
-    {
-      "id": "p3_answer",
-      "pov": "西比拉",
-      "art": {
-        "bg": "bg_carriage",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "布朗管家的眼珠在小小的眼眶中打了几个滚之后，手摸向他早已光秃的头顶，喊道——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "西比拉小姐，这一切都要听奥布里大人的安排！"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "我知道了，管家先生。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉点点头，继续望向车外的乌云，不知道在沃伯爵的府中会发生些什么。"
-        }
-      ],
-      "next": "p4_castle"
-    },
-    {
-      "id": "p4_castle",
-      "pov": "西比拉",
-      "title": "序章 · 雨中的普里森堡",
-      "art": {
-        "bg": "bg_castle",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "而在不远处，一座古典质朴的城堡缓缓浮现在阴雨之中，正是普里森堡，像突然出现在灰蒙蒙的雾中似的，灰褐色的城墙与身后的山融为一体。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "如果不是塔楼顶端摇曳着沃家的蓝色旗帜的话，恐怕西比拉还没有发现它的存在。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "布朗哈哈笑道——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "西比拉小姐，就快要到了。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "马车很快被布朗管家招呼着在城堡门口停下，皮肤黝黑、棕色卷发的约翰马夫将两人扶下马车。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉双手叠在腹前，跟在布朗管家的身后，而早已在城堡门口等着的一位小巧女仆见两人到了，立即走上前为他们打伞。"
-        }
-      ],
-      "next": "p5_bridge"
-    },
-    {
-      "id": "p5_bridge",
-      "pov": "西比拉",
-      "title": "序章 · 吊桥之前",
-      "art": {
-        "bg": "bg_bridge",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "西比拉与管家走到吊桥前，她抬起头望向这庄严的塔楼，在一座座门房中没有一位士兵的身影。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "布朗走向前大声喊道——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "放下吊桥！我是布朗管家！"
-        },
-        {
-          "speaker": "旁白",
-          "text": "一座门房之内探出一名士兵的脑袋，看起来不是纯正的蒙克特人，混杂了些北方人的血统，他喊道——"
-        },
-        {
-          "speaker": "士兵",
-          "text": "布朗管家！请你稍等！我这就让他们放下吊桥！"
-        },
-        {
-          "speaker": "旁白",
-          "text": "布朗站在原地，向西比拉抱怨道——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "这群该死的佣兵！昨天我就写信叫他们提前放下吊桥，今天却还是这幅样子，准是又喝酒一直到了天亮！我真该叫奥布里大人把他们换掉！"
-        },
-        {
-          "speaker": "旁白",
-          "text": "他摸了摸白净的光头，抹下一手的汗，西比拉见状，拿出一块手帕递给布朗——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "管家先生，请你消消气，我想这些佣兵是因为要时刻保护城堡的安全，所以没有提前放下吊桥。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "布朗深深地看了西比拉一眼——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "西比拉小姐真是个善心人，主一定会保佑你的。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "他接过手帕，在将手上和头上的汗抹干净之后丢回西比拉手中——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "真抱歉把它弄脏了。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉脸上挂着温和的笑容，将手帕仔细收好，头微微低下——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "这是我应该做的。"
-        }
-      ],
-      "choices": [
-        {
-          "text": "看向身旁打伞的小女仆",
-          "hint": "她一直怯生生地看着你",
-          "next": "p5_haier"
-        },
-        {
-          "text": "看布朗怎么对待下人",
-          "hint": "他刚刚还在骂佣兵",
-          "next": "p5_scold"
-        },
-        {
-          "text": "把手重新放回腹前",
-          "hint": "什么都不做，等桥放下",
-          "next": "p5_wait"
-        }
-      ]
-    },
-    {
-      "id": "p5_haier",
-      "pov": "西比拉",
-      "art": {
-        "bg": "bg_bridge",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "见吊桥放下来还有段时间，西比拉看向身旁打伞的小女仆，小女仆胆怯地看着她，恭敬地弯了个腰说道——"
-        },
-        {
-          "speaker": "海尔",
-          "text": "小姐，你真美丽。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉摸了摸她的脑袋，和蔼地说道——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "你叫做什么名字？"
-        }
-      ],
-      "next": "p6_courtyard"
-    },
-    {
-      "id": "p5_scold",
-      "pov": "西比拉",
-      "art": {
-        "bg": "bg_bridge",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "这时，西比拉身旁的布朗管家叫起来——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "她叫做海尔，你可别被她这模样欺骗！"
-        },
-        {
-          "speaker": "旁白",
-          "text": "听见布朗管家的吼声，小海尔被吓得身体缩了缩，手上的伞随之倾斜，布朗管家的肩膀沾上几滴雨水，他顿时叫道——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "你看！西比拉小姐，这孩子总是这样毛手毛脚的！"
-        }
-      ],
-      "next": "p6_courtyard"
-    },
-    {
-      "id": "p5_wait",
-      "pov": "西比拉",
-      "art": {
-        "bg": "bg_bridge",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "西比拉微微皱眉，却没有说什么，她将手重新放回腹前，等待吊桥放下。"
-        }
-      ],
-      "next": "p6_courtyard"
-    },
-    {
-      "id": "p6_courtyard",
-      "pov": "西比拉",
-      "title": "序章 · 外庭院",
-      "art": {
-        "bg": "bg_courtyard",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "终于，吊桥发出一声轰隆的声响，布朗管家被激起的尘雾呛得连连咳嗽，他嘴上骂了几句，带着西比拉走进了府邸。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "穿过外门走进外庭院，途中经过一间门半掩着的宿舍，西比拉能从那宿舍门前的空气中闻到一股难闻的酒味、烟味、马粪味以及混杂着烤面包的味道。"
-        }
-      ],
-      "choices": [
-        {
-          "text": "问伯爵大人是否禁酒",
-          "hint": "这些味道说明了很多事",
-          "next": "p6_ask"
-        },
-        {
-          "text": "听布朗怎么骂",
-          "hint": "他捂着鼻子，憋了一路",
-          "next": "p6_curse"
-        },
-        {
-          "text": "看路过的女仆",
-          "hint": "她们都在看你",
-          "next": "p6_gaze"
-        }
-      ]
-    },
-    {
-      "id": "p6_ask",
-      "pov": "西比拉",
-      "art": {
-        "bg": "bg_courtyard",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "西比拉问道——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "伯爵大人不禁止仆人们喝酒吗？"
-        },
-        {
-          "speaker": "旁白",
-          "text": "布朗管家皱着脸，没好气地说道——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "奥布里大人宽容得很，从来不管这些。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉听在耳里，点着头说道——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "原来如此。"
-        }
-      ],
-      "next": "p7_hall"
-    },
-    {
-      "id": "p6_curse",
-      "pov": "西比拉",
-      "art": {
-        "bg": "bg_courtyard",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "布朗管家捂起鼻子，带着西比拉绕过宿舍，他暗骂几声——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "这些腌臜鬼！我一定要向奥布里大人建议禁止他们喝酒！"
-        }
-      ],
-      "next": "p7_hall"
-    },
-    {
-      "id": "p6_gaze",
-      "pov": "西比拉",
-      "art": {
-        "bg": "bg_courtyard",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "布朗管家没有多说，带她穿过外庭院后终于走进了大厅。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "在这过程中，他们路过的地方总会有工作的女仆停下来好奇地张望，似乎西比拉是个什么稀有物种。"
-        }
-      ],
-      "next": "p7_hall"
-    },
-    {
-      "id": "p7_hall",
-      "pov": "西比拉",
-      "title": "序章 · 大厅高台",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "西比拉走进大厅，入眼是几条长桌，她跟着布朗管家走到大厅尽头之后，则是一架高台。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "高台之上又是一条长桌，长桌的尽头，一位瘦削阴郁的男人坐在主座之上，男人右手第一位是与他有几分相像的可爱女童，手撑在桌上晃荡脑袋，同时，脚也一起晃动。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "而男人穿着深色羊毛外衣，眼神深邃，坐在主座上看向西比拉与布朗。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉轻轻提起裙摆，左脚微微后撤，双膝微曲，身体向下沉，低下头颅。而布朗管家微微曲身，将左手放在胸前，低下头去。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "二人同时叫道——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "伯爵大人。"
-        },
-        {
-          "speaker": "布朗",
-          "text": "奥布里大人。"
-        }
-      ],
-      "next": "p8_greeting"
-    },
-    {
-      "id": "p8_greeting",
-      "pov": "西比拉",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "主座上的奥布里点了点头，他右手之上戴着一颗镶嵌了湛蓝色宝石的戒指，而宝石之上雕刻了兰花的标记，那是沃家族的族徽。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "他脸上阴翳的面容一松，说道——"
-        },
-        {
-          "speaker": "奥布里",
-          "text": "西比拉小姐礼仪真是得体，不愧是克莱尔家的小姐，很高兴能够与你再次见面。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉提着裙摆的手微微颤抖，她将头低得更深，恭敬地答道——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "伯爵大人，我也很高兴见到您。"
-        }
-      ],
-      "next": "a1_returned"
-    },
-    {
-      "id": "a1_returned",
+      "id": "o1_wait",
       "pov": "奥布里",
-      "title": "第一幕 · 主座之上",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
-      "povSwitch": {
-        "line": "西比拉·德·克莱尔 视角结束 —— 奥布里·德·沃 视角开始"
-      },
+      "title": "幕间 · 奥布里",
+      "povSwitch": { "line": "幕间 · 奥布里视角" },
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
       "dialogues": [
-        {
-          "speaker": "奥布里",
-          "text": "自从克莱尔家败落以后，我们就没有见过了，前个月有人告诉我，还有个克莱尔家的小姐一直在培养院呢。"
-        }
+        { "speaker": "旁白", "text": "你坐在大厅高台的主座上，手指无意识地摩挲着戒指上的兰花族徽。" },
+        { "speaker": "旁白", "text": "窗外雨声不绝。你知道布朗的马车已经在路上，但以这天气，恐怕还要一阵子。" },
+        { "speaker": "旁白", "text": "——你要如何度过这段等待时间？" }
       ],
       "choices": [
         {
-          "text": "手指轻轻敲击着戒指",
-          "hint": "你习惯用这个动作替自己数拍子",
-          "next": "a1_ring",
+          "text": "让人去门口盯着，马车一到立刻通报。",
+          "next": "o1_door",
+          "effects": [{ "stat": "西比拉_警惕", "value": 2 }]
+        },
+        {
+          "text": "继续翻看手边关于克莱尔家败落前的旧卷宗。",
+          "next": "o1_files",
+          "effects": [{ "stat": "线索_克莱尔旧事", "value": 1 }]
+        },
+        {
+          "text": "陪伊莎贝尔玩一会儿，等她困了再让人带她去睡。",
+          "next": "o1_isabelle",
           "effects": [
-            {
-              "stat": "西比拉_警惕",
-              "value": 1
-            }
+            { "stat": "伊莎贝尔_好感", "value": 2 },
+            { "stat": "西比拉_亲密", "value": 3 }
           ]
         },
         {
-          "text": "侧身抱过右手边的女孩",
-          "hint": "伊莎贝尔一直撑着桌子晃脑袋",
-          "next": "a1_hold",
+          "text": "什么都不做，安静地等。",
+          "next": "s2_arrive",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "o1_door",
+      "pov": "奥布里",
+      "title": "幕间 · 门口的动静",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "你叫来一名仆人：“去门口盯着，马车到了立刻来报。”仆人躬身退下。" }
+      ],
+      "next": "s2_arrive"
+    },
+    {
+      "id": "o1_files",
+      "pov": "奥布里",
+      "title": "幕间 · 旧卷宗",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "你翻开卷宗，随意的扫了几眼，目光划过“异教徒”三个字，你心底想，也算得上是诬蔑。" }
+      ],
+      "next": "s2_arrive"
+    },
+    {
+      "id": "o1_isabelle",
+      "pov": "奥布里",
+      "title": "幕间 · 伊莎贝尔",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "伊莎贝尔拉着你的手指，像个小猫一样的靠在你的手边，好像困了，你轻轻抬了抬手指，又将她弄得清醒过来。" },
+        { "speaker": "奥布里", "text": "伊莎贝尔，再坚持一会儿，老师还没来呢。" },
+        { "speaker": "旁白", "text": "伊莎贝尔迷迷糊糊得点头，奋力地撑起身。" }
+      ],
+      "next": "s2_arrive"
+    },
+
+    {
+      "id": "s2_arrive",
+      "pov": "西比拉",
+      "title": "第二幕 · 城堡门口",
+      "povSwitch": { "line": "西比拉视角 · 剧情" },
+      "art": { "bg": "bg_bridge", "portrait": "chr_sibylla" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "马车在城堡门口停下。皮肤黝黑、棕色卷发的约翰马夫将你们扶下马车。" },
+        { "speaker": "旁白", "text": "你将双手叠在腹前，跟在布朗管家身后。" },
+        { "speaker": "海尔", "text": "管家先生，你们终于到了。" },
+        { "speaker": "旁白", "text": "眼前这位小巧地女仆抬起眼睛偷偷看你。" },
+        { "speaker": "旁白", "text": "你朝她温和地笑笑，抬起头望向塔楼——门房里没有一位士兵的身影。" },
+        { "speaker": "布朗", "text": "放下吊桥！我是布朗管家！" },
+        { "speaker": "旁白", "text": "一名士兵探出脑袋，看起来混杂了些北方人血统。" },
+        { "speaker": "士兵", "text": "布朗管家！请你稍等！我这就让他们放下吊桥！" }
+      ],
+      "next": "s2_bridge"
+    },
+    {
+      "id": "s2_bridge",
+      "pov": "西比拉",
+      "title": "第二幕 · 吊桥前",
+      "art": { "bg": "bg_bridge", "portrait": "chr_sibylla" },
+      "ifHooks": [
+        {
+          "cond": { "stat": "佣兵_纪律", "op": ">=", "value": 1 },
+          "note": "待补变体台词：奥布里在幕间整顿过佣兵纪律之后，这一段（佣兵的反应 / 布朗的抱怨）应有不同说法。等原文，不要自编。"
+        }
+      ],
+      "dialogues": [
+        { "speaker": "布朗", "text": "这群该死的佣兵！昨天我就写信叫他们提前放下吊桥，今天却还是这幅样子，准是又喝酒一直到了天亮！我真该叫奥布里大人把他们换掉！" },
+        { "speaker": "旁白", "text": "他摸了摸白净的光头，抹下一手的汗。" },
+        { "speaker": "旁白", "text": "你拿出一块手帕递给布朗。" },
+        { "speaker": "西比拉", "text": "管家先生，请你消消气。我想这些佣兵是因为要时刻保护城堡的安全，所以没有提前放下吊桥。" },
+        { "speaker": "旁白", "text": "布朗深深看了你一眼。" },
+        { "speaker": "布朗", "text": "西比拉小姐真是个善心人，主一定会保佑你的。" },
+        { "speaker": "旁白", "text": "他接过手帕，擦完手和头之后丢回你手中。" },
+        { "speaker": "布朗", "text": "真抱歉把它弄脏了。" },
+        { "speaker": "旁白", "text": "你将手帕仔细收好，头微微低下。" },
+        { "speaker": "西比拉", "text": "这是我应该做的。" }
+      ],
+      "next": "s2_haier"
+    },
+    {
+      "id": "s2_haier",
+      "pov": "西比拉",
+      "title": "第二幕 · 小女仆海尔",
+      "art": { "bg": "bg_bridge", "portrait": "chr_sibylla" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "打伞的小女仆胆怯地看着你。" },
+        { "speaker": "海尔", "text": "小姐，你真美丽。" },
+        { "speaker": "旁白", "text": "你摸了摸她的脑袋。" },
+        { "speaker": "西比拉", "text": "你叫做什么名字？" },
+        { "speaker": "布朗", "text": "她叫做海尔，你可别被她这模样欺骗！" },
+        { "speaker": "旁白", "text": "小海尔被吓得身体缩了缩，伞一斜，布朗肩膀沾上几滴雨水。" },
+        { "speaker": "布朗", "text": "你看！西比拉小姐，这孩子总是这样毛手毛脚的！" },
+        { "speaker": "旁白", "text": "你皱着眉，却没有说什么，将手重新放回腹前。" },
+        { "speaker": "旁白", "text": "吊桥轰隆放下，尘雾呛得布朗连连咳嗽。他骂了几句，带你走进府邸。" }
+      ],
+      "next": "o2_watch"
+    },
+
+    {
+      "id": "o2_watch",
+      "pov": "奥布里",
+      "title": "幕间 · 奥布里",
+      "povSwitch": { "line": "幕间 · 奥布里视角" },
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "有人来报：布朗管家的马车已到门口，吊桥正在放下。" },
+        { "speaker": "旁白", "text": "你放下手中的事，起身走到窗边。从这里能看到外庭院的一角。" },
+        { "speaker": "旁白", "text": "——你注意到什么？" }
+      ],
+      "choices": [
+        { "text": "布朗又在骂佣兵。", "next": "o2_guard" },
+        { "text": "西比拉给布朗递了手帕。", "next": "o2_handkerchief" },
+        { "text": "小海尔被布朗吓到了。", "next": "o2_haier" }
+      ]
+    },
+    {
+      "id": "o2_guard",
+      "pov": "奥布里",
+      "title": "幕间 · 佣兵纪律",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "——你决定：是否整顿佣兵纪律？" }
+      ],
+      "choices": [
+        { "text": "暂时不管，先观察。", "next": "s3_courtyard", "effects": [] },
+        {
+          "text": "记在心里，晚些时候找佣兵队长谈话。",
+          "next": "s3_courtyard",
           "effects": [
-            {
-              "stat": "伊莎贝尔_好感",
-              "value": 1
-            }
+            { "stat": "西比拉_警惕", "value": 3 },
+            { "stat": "佣兵_纪律", "value": 1 }
           ]
         }
       ]
     },
     {
-      "id": "a1_ring",
+      "id": "o2_handkerchief",
       "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
+      "title": "幕间 · 那块手帕",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
       "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "奥布里手指轻轻敲击着戒指。"
-        }
-      ],
-      "next": "a1_two"
-    },
-    {
-      "id": "a1_hold",
-      "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "他侧身抱过右手边的女孩。"
-        }
-      ],
-      "next": "a1_two"
-    },
-    {
-      "id": "a1_two",
-      "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "紧接着，开口道——"
-        },
-        {
-          "speaker": "奥布里",
-          "text": "没想到，居然会是你，我原以为你已经到了哪位公爵家里了。"
-        }
-      ],
-      "next": "a2_deny"
-    },
-    {
-      "id": "a2_deny",
-      "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
-      "dialogues": [
-        {
-          "speaker": "西比拉",
-          "text": "伯爵大人，很抱歉，我无法欺骗您。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉将头埋得更低——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "姐妹们在克莱尔家沦落后就早早被买走了，唯独我一直没有人肯接纳。"
-        }
-      ],
-      "next": "a3_ask"
-    },
-    {
-      "id": "a3_ask",
-      "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
-      "dialogues": [
-        {
-          "speaker": "奥布里",
-          "text": "难道就没有人将你买下过吗？"
-        },
-        {
-          "speaker": "旁白",
-          "text": "奥布里问道。"
-        }
-      ],
-      "next": "a4_hair"
-    },
-    {
-      "id": "a4_hair",
-      "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
-      "dialogues": [
-        {
-          "speaker": "西比拉",
-          "text": "有的。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉抬起头，无奈看着奥布里——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "但都被女主人重新将我赶回了培养院，据夫人们说，我的头发是魔鬼的象征，放在府里，是亵渎的。"
-        }
+        { "speaker": "旁白", "text": "——你决定：如何评估她的行为？" }
       ],
       "choices": [
         {
-          "text": "脸上挂起一抹轻笑",
-          "hint": "你并不打算把这句话说透",
-          "next": "a4_smile",
+          "text": "她是个善于讨好的人。",
+          "next": "s3_courtyard",
           "effects": [
-            {
-              "stat": "西比拉_警惕",
-              "value": 1
-            }
+            { "stat": "西比拉_好感", "value": -2 },
+            { "stat": "西比拉_警惕", "value": 5 }
           ]
         },
         {
-          "text": "低头看看怀里的女孩",
-          "hint": "伊莎贝尔一直在动",
-          "next": "a4_look",
+          "text": "她懂得隐忍和察言观色，有用。",
+          "next": "s3_courtyard",
           "effects": [
-            {
-              "stat": "伊莎贝尔_好感",
-              "value": 1
-            }
+            { "stat": "西比拉_好感", "value": 2 },
+            { "stat": "西比拉_亲密", "value": 1 }
           ]
         }
       ]
     },
     {
-      "id": "a4_smile",
+      "id": "o2_haier",
       "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
+      "title": "幕间 · 受惊的小女仆",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
       "dialogues": [
+        { "speaker": "旁白", "text": "——你决定：是否干预？" }
+      ],
+      "choices": [
+        { "text": "布朗管教下人，不必插手。", "next": "s3_courtyard", "effects": [] },
         {
-          "speaker": "奥布里",
-          "text": "我倒觉得不是这个原因。"
-        },
+          "text": "晚些时候提醒布朗，对海尔温和些。",
+          "next": "s3_courtyard",
+          "effects": [
+            { "stat": "海尔_好感", "value": 3 },
+            { "stat": "布朗_好感", "value": -1 }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "s3_courtyard",
+      "pov": "西比拉",
+      "title": "第三幕 · 外庭院",
+      "povSwitch": { "line": "西比拉视角 · 剧情" },
+      "art": { "bg": "bg_courtyard", "portrait": "chr_sibylla" },
+      "ifHooks": [
         {
-          "speaker": "旁白",
-          "text": "奥布里脸上挂起一抹轻笑，却没有多说。"
+          "cond": { "stat": "佣兵_纪律", "op": ">=", "value": 1 },
+          "note": "待补变体台词：佣兵被整顿过之后，宿舍这一段（酒味 / 布朗的抱怨）应有不同说法。等原文，不要自编。"
         }
       ],
-      "next": "a5_teach"
-    },
-    {
-      "id": "a4_look",
-      "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
       "dialogues": [
-        {
-          "speaker": "奥布里",
-          "text": "我倒觉得不是这个原因。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "低下头看了看怀里的女孩。"
-        }
+        { "speaker": "旁白", "text": "穿过外门，走进外庭院。途中经过一间门半掩着的宿舍，空气中飘来酒味、烟味、马粪味，还有混杂着烤面包的味道。" },
+        { "speaker": "旁白", "text": "布朗捂起鼻子，带你绕过宿舍。" },
+        { "speaker": "布朗", "text": "这些腌臜鬼！我一定要向奥布里大人建议禁止他们喝酒！" },
+        { "speaker": "西比拉", "text": "伯爵大人不禁止仆人们喝酒吗？" },
+        { "speaker": "布朗", "text": "奥布里大人宽容得很，从来不管这些。" },
+        { "speaker": "西比拉", "text": "原来如此。" },
+        { "speaker": "旁白", "text": "你注意到，路过的女仆总会停下来好奇地张望。像你是什么稀有物种。" }
       ],
-      "next": "a5_teach"
+      "next": "o3_watch"
     },
+
     {
-      "id": "a5_teach",
+      "id": "o3_watch",
       "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
+      "title": "幕间 · 奥布里",
+      "povSwitch": { "line": "幕间 · 奥布里视角" },
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
       "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "对西比拉说道——"
-        },
-        {
-          "speaker": "奥布里",
-          "text": "西比拉小姐，这次买下你，除了作为女仆以外，还希望你能教导我的妹妹，伊莎贝尔，让她学习贵族的礼仪。"
-        }
+        { "speaker": "旁白", "text": "你远远看到布朗带着西比拉穿过外庭院。她穿着老旧却干净的衣服，一如既往的美丽，脸却憔悴了许多。" },
+        { "speaker": "旁白", "text": "——你发现她的目光在不断漂移。" }
       ],
       "choices": [
         {
-          "text": "逗她笑",
-          "hint": "先把气氛松下来",
-          "next": "a5_chin",
+          "text": "她在观察环境，试图掌握情报。",
+          "next": "o3_after",
+          "effects": [{ "stat": "西比拉_警惕", "value": 3 }]
+        },
+        {
+          "text": "她只是初来乍到，好奇而已。",
+          "next": "o3_after",
           "effects": [
-            {
-              "stat": "伊莎贝尔_好感",
-              "value": 1
-            }
+            { "stat": "西比拉_警惕", "value": -2 },
+            { "stat": "西比拉_好感", "value": 1 }
           ]
         },
         {
-          "text": "先把她要说的话定死",
-          "hint": "你习惯先把标准摆在前面",
-          "next": "a5_rule",
+          "text": "她在评估逃跑路线。",
+          "next": "o3_guard",
+          "effects": [{ "stat": "西比拉_警惕", "value": 5 }]
+        }
+      ]
+    },
+    {
+      "id": "o3_guard",
+      "pov": "奥布里",
+      "title": "幕间 · 看管",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "——你决定：是否加强看管？" }
+      ],
+      "choices": [
+        {
+          "text": "加强夜间巡逻。",
+          "next": "o3_after",
           "effects": [
-            {
-              "stat": "西比拉_警惕",
-              "value": 1
-            }
+            { "stat": "西比拉_警惕", "value": 3 },
+            { "stat": "西比拉_力量", "value": -1 }
+          ]
+        },
+        { "text": "暂时不动，看她会不会露出马脚。", "next": "o3_after", "effects": [] }
+      ]
+    },
+    {
+      "id": "o3_after",
+      "pov": "奥布里",
+      "title": "幕间 · 帘子",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "她朝你这看过来了，你很快将帘子拉上，不知道她是否看见了你？" }
+      ],
+      "next": "s4_hall"
+    },
+
+    {
+      "id": "s4_hall",
+      "pov": "西比拉",
+      "title": "第四幕 · 大厅觐见",
+      "povSwitch": { "line": "西比拉视角 · 剧情" },
+      "art": { "bg": "bg_hall", "portrait": "chr_sibylla" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "走进大厅，入眼是几条长桌。你跟着布朗走到大厅尽头，入目的是一架高台。" },
+        { "speaker": "旁白", "text": "高台之上又是一条长桌。长桌尽头，一位瘦削阴郁的男人坐在主座之上。" },
+        { "speaker": "旁白", "text": "他右手第一位，是一个与他有几分相像的可爱女童，手撑在桌上晃荡脑袋，脚也一起晃。" },
+        { "speaker": "旁白", "text": "男人穿着深色羊毛外衣，眼神深邃，看向你和布朗。" },
+        { "speaker": "旁白", "text": "你轻轻提起裙摆，左脚微微后撤，双膝微曲，身体向下沉，低下头颅。布朗微微曲身，左手放在胸前。" },
+        { "speaker": "西比拉", "text": "伯爵大人。" },
+        { "speaker": "布朗", "text": "奥布里大人。" }
+      ],
+      "next": "s4_recognize"
+    },
+    {
+      "id": "s4_recognize",
+      "pov": "西比拉",
+      "title": "第四幕 · 再次见面",
+      "art": { "bg": "bg_hall", "portrait": "chr_sibylla" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "奥布里点了点头。他右手戴着一颗镶嵌湛蓝色宝石的戒指，宝石上雕刻着兰花标记——沃家族族徽。" },
+        { "speaker": "旁白", "text": "他脸上阴翳的面容一松。" },
+        { "speaker": "奥布里", "text": "西比拉小姐礼仪真是得体，不愧是克莱尔家的小姐，很高兴能够与你再次见面。" },
+        { "speaker": "旁白", "text": "你提着裙摆的手微微颤抖。你将头低得更深。" },
+        { "speaker": "西比拉", "text": "伯爵大人，我也很高兴见到您。" },
+        { "speaker": "奥布里", "text": "自从克莱尔家败落以后，我们就没有见过了。前个月有人告诉我，还有个克莱尔家的小姐一直在培养院呢。" },
+        { "speaker": "旁白", "text": "他侧身抱过右手边的女孩。" },
+        { "speaker": "奥布里", "text": "没想到，居然会是你。我原以为你已经到了哪位公爵家里了。" },
+        { "speaker": "西比拉", "text": "伯爵大人，很抱歉，我无法欺骗您。姐妹们在克莱尔家沦落后就早早被买走了，唯独我一直没有人肯接纳。" },
+        { "speaker": "奥布里", "text": "难道就没有人将你买下过吗？" },
+        { "speaker": "西比拉", "text": "有的。但都被女主人重新将我赶回了培养院。据夫人们说，我的头发是魔鬼的象征，放在府里，是亵渎的。" },
+        { "speaker": "奥布里", "text": "我倒觉得不是这个原因。" },
+        { "speaker": "旁白", "text": "他脸上挂起一抹轻笑，却没有多说，低下头看了看怀里的女孩。" }
+      ],
+      "next": "s4_teach"
+    },
+    {
+      "id": "s4_teach",
+      "pov": "西比拉",
+      "title": "第四幕 · 托付",
+      "art": { "bg": "bg_hall", "portrait": "chr_sibylla" },
+      "dialogues": [
+        { "speaker": "奥布里", "text": "西比拉小姐，这次买下你，除了作为女仆以外，还希望你能教导我的妹妹，伊莎贝尔，让她学习贵族的礼仪。" },
+        { "speaker": "旁白", "text": "他手指摩挲着伊莎贝尔的下巴，逗得女孩细细笑着。" },
+        { "speaker": "旁白", "text": "你攥紧了裙摆。" },
+        { "speaker": "西比拉", "text": "遵命，伯爵大人，我一定会好好教导伊莎贝尔小姐的。" },
+        { "speaker": "奥布里", "text": "按照克莱尔家的标准，不要因为她是我的妹妹而松懈。" },
+        { "speaker": "旁白", "text": "他面容苍白，笑起来没有多少美感，反而凸显出一点悲凉。" },
+        { "speaker": "奥布里", "text": "她今年七岁，我想应该让她学习一下礼仪了。" },
+        { "speaker": "西比拉", "text": "是的大人，小姐们都是七岁开始的。" },
+        { "speaker": "旁白", "text": "其实这是句假话。你从学习走路开始，就被教导贵族之间的礼仪了。" },
+        { "speaker": "奥布里", "text": "嗯，那伊莎贝尔，你还不算晚呢。" },
+        { "speaker": "伊莎贝尔", "text": "哥哥，我会努力的。" },
+        { "speaker": "奥布里", "text": "好！" }
+      ],
+      "next": "s4_leave"
+    },
+    {
+      "id": "s4_leave",
+      "pov": "西比拉",
+      "title": "第四幕 · 隔壁的房间",
+      "art": { "bg": "bg_hall", "portrait": "chr_sibylla" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "他将伊莎贝尔放回原位，拍了拍她的头，对布朗说道：" },
+        { "speaker": "奥布里", "text": "管家先生，请你将西比拉小姐安排到伊莎贝尔的房间隔壁住下，那里我已经让人打扫过了。" },
+        { "speaker": "布朗", "text": "遵命，奥布里大人。" },
+        { "speaker": "旁白", "text": "布朗直起身向你说道：" },
+        { "speaker": "布朗", "text": "西比拉小姐请随我来。" },
+        { "speaker": "旁白", "text": "你点点头，跟着布朗走了。" }
+      ],
+      "next": "s4_portrait"
+    },
+    {
+      "id": "s4_portrait",
+      "pov": "西比拉",
+      "title": "第四幕 · 主座背后的画像",
+      "art": { "bg": "bg_portrait_wall", "portrait": "chr_sibylla" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "临走前，你看向大厅——主座背后，高高挂着一副画像，是沃家族最初被册封为伯爵的拉纳克·德·沃。两边的墙壁上挂着这位伯爵曾经的佩剑和铠甲，保养得很好。" }
+      ],
+      "next": "o4_review"
+    },
+
+    {
+      "id": "o4_review",
+      "pov": "奥布里",
+      "title": "幕间 · 奥布里 · 第一章结算",
+      "povSwitch": { "line": "幕间 · 奥布里视角 · 第一章结算" },
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "西比拉跟着布朗离开了大厅。伊莎贝尔也被女仆带下去洗漱。" },
+        { "speaker": "旁白", "text": "大厅空了下来。你独自坐在主座上，手指敲击着扶手。" },
+        { "speaker": "旁白", "text": "——你如何评价今天与西比拉的初次见面？" }
+      ],
+      "choices": [
+        {
+          "text": "她比想象中更加冷静。",
+          "next": "o4_r_a",
+          "effects": [
+            { "stat": "西比拉_好感", "value": 3 },
+            { "stat": "西比拉_警惕", "value": 2 }
+          ]
+        },
+        {
+          "text": "她只是在强撑，内心早已慌乱。",
+          "next": "o4_r_b",
+          "effects": [
+            { "stat": "西比拉_好感", "value": 1 },
+            { "stat": "西比拉_警惕", "value": -3 }
+          ]
+        },
+        {
+          "text": "她恨我。",
+          "next": "o4_r_c",
+          "effects": [
+            { "stat": "西比拉_警惕", "value": 5 },
+            { "stat": "西比拉_亲密", "value": -1 }
+          ]
+        },
+        {
+          "text": "我需要更多信息才能判断。",
+          "next": "o4_expect",
+          "effects": [{ "stat": "线索_观察西比拉", "value": 1 }]
+        }
+      ]
+    },
+    {
+      "id": "o4_r_a",
+      "pov": "奥布里",
+      "title": "幕间 · 不愧是西比拉",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "不愧是西比拉。" }
+      ],
+      "next": "o4_expect"
+    },
+    {
+      "id": "o4_r_b",
+      "pov": "奥布里",
+      "title": "幕间 · 强撑",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "半年培养院的折磨，总归让她受了不少苦。" }
+      ],
+      "next": "o4_expect"
+    },
+    {
+      "id": "o4_r_c",
+      "pov": "奥布里",
+      "title": "幕间 · 恨意",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "即便西比拉装的再柔和，你总能感到若有若无的恨意从那双棕黑色瞳孔中泄露而出。" }
+      ],
+      "next": "o4_expect"
+    },
+    {
+      "id": "o4_expect",
+      "pov": "奥布里",
+      "title": "幕间 · 礼仪教育",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [
+        { "speaker": "旁白", "text": "——关于伊莎贝尔的礼仪教育，你的期望是？" }
+      ],
+      "choices": [
+        {
+          "text": "严格按照克莱尔家的标准，不能松懈。",
+          "next": "o4_night",
+          "effects": [
+            { "stat": "西比拉_压力", "value": 3 },
+            { "stat": "伊莎贝尔_礼仪成长", "value": 2 }
+          ]
+        },
+        {
+          "text": "适度就好，不必太苛责。",
+          "next": "o4_night",
+          "effects": [
+            { "stat": "西比拉_压力", "value": 1 },
+            { "stat": "伊莎贝尔_好感", "value": 1 },
+            { "stat": "西比拉_好感", "value": 1 }
+          ]
+        },
+        {
+          "text": "让西比拉自己把握分寸。",
+          "next": "o4_night",
+          "effects": [
+            { "stat": "西比拉_自主性", "value": 2 },
+            { "stat": "西比拉_亲密", "value": 1 }
           ]
         }
       ]
     },
     {
-      "id": "a5_chin",
+      "id": "o4_night",
       "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
+      "title": "幕间 · 今晚",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
       "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "奥布里手指摩挲着伊莎贝尔的下巴，逗得这位乖巧可爱的小女儿细细笑着，听声音天真无比。"
-        }
+        { "speaker": "旁白", "text": "——今晚，你是否要采取一些行动？" }
       ],
-      "next": "a6_answer"
+      "choices": [
+        {
+          "text": "派人暗中观察西比拉的第一晚。",
+          "next": "o4_end",
+          "effects": [
+            { "stat": "西比拉_警惕", "value": 3 },
+            { "stat": "线索_初夜观察", "value": 1 }
+          ]
+        },
+        {
+          "text": "亲自去伊莎贝尔房间隔壁看看。",
+          "next": "o4_end",
+          "effects": [
+            { "stat": "西比拉_亲密", "value": 2 },
+            { "stat": "西比拉_警惕", "value": 1 }
+          ]
+        },
+        {
+          "text": "什么都不做，让她休息。",
+          "next": "o4_end",
+          "effects": [
+            { "stat": "西比拉_好感", "value": 2 },
+            { "stat": "西比拉_警惕", "value": -2 }
+          ]
+        },
+        {
+          "text": "召见布朗管家，询问路上细节。",
+          "next": "o4_end",
+          "effects": [{ "stat": "线索_路上表现", "value": 1 }]
+        }
+      ]
     },
     {
-      "id": "a5_rule",
+      "id": "o4_end",
       "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
-      "dialogues": [
-        {
-          "speaker": "奥布里",
-          "text": "按照克莱尔家的标准，不要因为她是我的妹妹而松懈。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "奥布里点头笑道，他面容苍白，笑起来没有多少美感，反而凸显出一点悲凉。"
-        }
-      ],
-      "next": "a6_answer"
-    },
-    {
-      "id": "a6_answer",
-      "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "西比拉攥紧了裙摆，说道——"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "遵命，伯爵大人，我一定会好好教导伊莎贝尔小姐的。"
-        }
-      ],
-      "next": "a7_seven"
-    },
-    {
-      "id": "a7_seven",
-      "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "奥布里用手指戳着伊莎贝尔的脸庞，而伊莎贝尔从奥布里怀里偷偷抬起头好奇地看了西比拉一眼，奥布里说道——"
-        },
-        {
-          "speaker": "奥布里",
-          "text": "她今年七岁，我想应该让她学习一下礼仪了。"
-        },
-        {
-          "speaker": "西比拉",
-          "text": "是的大人，小姐们都是七岁开始的。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "西比拉接过奥布里的话，其实这是句假话，因为西比拉从学习走路开始就被教导贵族之间的礼仪了。"
-        }
-      ],
-      "next": "a8_reply"
-    },
-    {
-      "id": "a8_reply",
-      "pov": "奥布里",
-      "art": {
-        "bg": "bg_hall",
-        "portrait": "chr_aubrey"
-      },
-      "dialogues": [
-        {
-          "speaker": "奥布里",
-          "text": "嗯，那伊莎贝尔，你还不算晚呢。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "奥布里听见这话点了点头，对着伊莎贝尔说道。"
-        },
-        {
-          "speaker": "伊莎贝尔",
-          "text": "哥哥，我会努力的。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "伊莎贝尔抬起头，一脸认真地说道。"
-        }
-      ],
-      "next": "a9_assign"
-    },
-    {
-      "id": "a9_assign",
-      "pov": "奥布里",
-      "title": "大厅 · 散场",
-      "art": {
-        "bg": "bg_portrait_wall",
-        "portrait": "chr_aubrey"
-      },
-      "dialogues": [
-        {
-          "speaker": "奥布里",
-          "text": "好！"
-        },
-        {
-          "speaker": "旁白",
-          "text": "奥布里将伊莎贝尔放回原来的位置，拍了拍她的头，对西比拉身旁的布朗管家说道——"
-        },
-        {
-          "speaker": "奥布里",
-          "text": "管家先生，请你将西比拉小姐安排到伊莎贝尔的房间隔壁住下，那里我已经让人打扫过了。"
-        },
-        {
-          "speaker": "布朗",
-          "text": "遵命，奥布里大人。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "布朗管家点头应道，随后直起身向西比拉说道——"
-        },
-        {
-          "speaker": "布朗",
-          "text": "西比拉小姐请随我来。"
-        }
-      ],
-      "next": "a10_end"
-    },
-    {
-      "id": "a10_end",
-      "pov": "奥布里",
+      "title": "第一章 · 普里森堡的阴雨",
+      "art": { "bg": "bg_hall", "portrait": "chr_aubrey" },
+      "dialogues": [],
       "ending": true,
-      "title": "第一幕 · 完",
-      "art": {
-        "bg": "bg_portrait_wall",
-        "portrait": "chr_aubrey"
-      },
-      "dialogues": [
-        {
-          "speaker": "旁白",
-          "text": "西比拉点点头，跟着布朗管家走了，临走前，她看向大厅，主座背后，高高挂着一副画像，是沃家族的那位最初被册封为伯爵的拉纳克·德·沃。"
-        },
-        {
-          "speaker": "旁白",
-          "text": "而两边的墙壁上挂着这位伯爵曾经的佩剑和铠甲，保养得很好。"
-        }
-      ],
       "continueTo": "b1_room",
-      "endSub": "西比拉·德·克莱尔住进了伊莎贝尔的隔壁。"
+      "endSub": "窗外的雨不知道什么时候停了，你让伊莎贝尔回去休息之后，独自在房间中熬着汤药，不断冒腾的炊烟莫名的掀起你的一点思绪，也许，买下西比拉并不仅仅只是一个意外，你忽然有些期待，未来的沃府邸里，多了这么一个女人之后，会发生些什么样的故事……"
     }
   ]
 }
