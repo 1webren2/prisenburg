@@ -769,6 +769,10 @@ body:not(.ready) #app { opacity: 0; }
 .end-card {
   width: min(520px, 88vw);
   padding: 34px 38px;
+  /* 结局结算表的行数跟着剧本长（第一章重构稿是 13 行：数值 + 线索 0/1）。
+     窗口矮的时候让卡片自己滚，别把下面的按钮顶出屏幕。 */
+  max-height: 88vh;
+  overflow-y: auto;
   text-align: center;
   border-radius: var(--radius);
   border: 1px solid var(--panel-edge);
