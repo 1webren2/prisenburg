@@ -768,9 +768,11 @@ body:not(.ready) #app { opacity: 0; }
 
 .end-card {
   width: min(520px, 88vw);
-  padding: 34px 38px;
-  /* 结局结算表的行数跟着剧本长（第一章重构稿是 13 行：数值 + 线索 0/1）。
-     窗口矮的时候让卡片自己滚，别把下面的按钮顶出屏幕。 */
+  /* 结局结算表的行数跟着剧本长（第一章重构稿是 13 行：数值 + 线索 0/1），
+     所以这张卡片比别处紧一点：13 行 × 每行 27px 加标题、副题、按钮，
+     自然高约 590px —— 1280×720 那种矮窗口也装得下，用不着滚。
+     万一以后还有更长的结算表，max-height + overflow 是兜底。 */
+  padding: 30px 38px;
   max-height: 88vh;
   overflow-y: auto;
   text-align: center;
@@ -790,22 +792,23 @@ body:not(.ready) #app { opacity: 0; }
 }
 
 .end-sub {
-  margin: 0 0 22px;
-  font-size: 13px;
+  margin: 0 0 16px;
+  font-size: 12px;
+  line-height: 1.55;
   color: var(--parchment-dim);
 }
 
 .end-stat-row {
   display: flex;
   justify-content: space-between;
-  padding: 7px 0;
+  padding: 4px 0;
   border-bottom: 1px solid rgba(201, 160, 90, 0.12);
   font-size: 13px;
 }
 .end-stat-label { color: var(--parchment-dim); }
 .end-stat-value { color: var(--parchment); font-family: var(--font-sans); }
 
-.end-card .hud-btn { margin-top: 24px; }
+.end-card .hud-btn { margin-top: 18px; }
 
 /* 「继续下一幕」只在结局节点写了 continueTo 时才出现（ui.js 把没用的那个 display:none） */
 .end-continue-btn {
