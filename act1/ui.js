@@ -51,6 +51,10 @@
     imageExt: '.webp',
     /** 打字机速度（毫秒/字）。系统设了「减少动画」会自动跳过 */
     typeSpeed: 24,
+    /** 一次最多提前拉几张图（背景 + 立绘 + 说话人的脸都算在内） */
+    prefetchLimit: 6,
+    /** 图片加载超过这么久才冒「加载中…」—— 图来得快的时候不该闪一下 */
+    loadingHintDelay: 160,
     /**
      * 存档写在浏览器自己的 localStorage 里的哪把钥匙底下。
      * 网页是纯静态的（部署在 Vercel 上，没有后端可调），存档只活在玩家这台机器上。
@@ -209,6 +213,10 @@
       this._pending = null;         // 打字中还没播完的那一行
       this.view = null;
       this.locked = false;          // 打字未完成时锁住推进
+      this._loading = 0;            // 正在加载的图片张数，见 _beginLoad()
+      this._loadingTimer = null;    // 「加载中…」的延迟器
+      this._loadingEl = null;
+      this._prefetched = null;      // 已经提前拉过的 url，不重复拉
     }
 
     /* ---------------- 挂载 ---------------- */
@@ -274,8 +282,15 @@
       // 换图换得比加载还快时，回调回来要能认出「这已经不是当前那张了」
       const stillCurrent = () => imgEl.getAttribute('data-src') === url;
       const probe = new win.Image();
-      probe.onload = () => { if (stillCurrent()) gridEl.style.display = 'none'; };
-      probe.onerror = () => { if (stillCurrent()) gridEl.style.display = ''; };
+      this._beginLoad();
+      probe.onload = () => {
+        this._endLoad();
+        if (stillCurrent()) gridEl.style.display = 'none';
+      };
+      probe.onerror = () => {
+        this._endLoad();
+        if (stillCurrent()) gridEl.style.display = '';
+      };
       probe.src = url;
     }
 
@@ -390,6 +405,92 @@
       on = !!on;
       this.els['dialogue-box'].classList.toggle('collapsed', !on);
       if (!on) this.stopTyping();       // 收起时别留着打字机自己跑
+    }
+
+    /* ===================================================================
+     * 预加载 + 「加载中…」提示
+     * -------------------------------------------------------------------
+     * 立绘是几百 KB 的图，等它到位要几百毫秒；玩家点了选项才去拉，那一眼
+     * 就是空场。所以每画完一格，顺手把**下一格**要用的图在后台拉下来
+     * （引擎的 upcomingAssets() 说拉哪几张，这里只管拉）。
+     *
+     * 拉的时候不白屏：底下那层像素占位网格一直亮着（就是那张「低像素图」），
+     * 超过 CONFIG.loadingHintDelay 还没到位，再补一句「加载中…」——
+     * 图来得快的时候不该闪一下。
+     * =================================================================== */
+
+    /** 提前把这几张素材拉进浏览器缓存 */
+    prefetch(keys) {
+      const win = this.win;
+      // 无头环境没有 Image，直接跳过（和 applyImageLayer 里那道判断一个道理）
+      if (!win || typeof win.Image !== 'function') return 0;
+      if (!this._prefetched) this._prefetched = {};
+
+      let started = 0;
+      for (const key of keys || []) {
+        const url = imageSrc(key, this.engine.assets[key]);
+        if (this._prefetched[url]) continue;      // 拉过就别重复拉
+        this._prefetched[url] = true;
+        this._beginLoad();
+        const img = new win.Image();
+        img.onload = () => this._endLoad();
+        img.onerror = () => this._endLoad();      // 失败也算完事，不能把计数器吊死
+        img.src = url;
+        started += 1;
+      }
+      return started;
+    }
+
+    /** 又一张图开始加载了 */
+    _beginLoad() {
+      this._loading += 1;
+      if (this._loading === 1 && this.win && this.win.setTimeout) {
+        this._loadingTimer = this.win.setTimeout(() => {
+          this._loadingTimer = null;
+          if (this._loading > 0) this.setLoadingHint(true);
+        }, CONFIG.loadingHintDelay);
+      }
+    }
+
+    /** 一张图完了（成功失败都算） */
+    _endLoad() {
+      this._loading = Math.max(0, this._loading - 1);
+      if (this._loading > 0) return;
+      if (this._loadingTimer && this.win && this.win.clearTimeout) {
+        this.win.clearTimeout(this._loadingTimer);
+      }
+      this._loadingTimer = null;
+      this.setLoadingHint(false);
+    }
+
+    /**
+     * 「加载中…」那个小药丸。**运行时造出来的，不带 id** ——
+     * index.html 里的 id 被测试逐个点数过（dom-stub 按 id 正则扫出来），
+     * 为它加一个带 id 的元素就得同步 mount() 清单和测试里的计数，不值当。
+     * 样式也内联在这一处，省得为一句提示去动 style.css。
+     */
+    loadingEl() {
+      if (this._loadingEl) return this._loadingEl;
+      const host = this.doc.getElementById('stage')
+                || this.doc.getElementById('app')
+                || this.doc.body;
+      if (!host || !host.appendChild) return null;
+
+      const node = el(this.doc, 'div', 'loading-hint', '加载中…');
+      node.setAttribute('style',
+        'position:fixed;left:50%;top:14%;transform:translateX(-50%);z-index:30;' +
+        'padding:5px 16px;border-radius:999px;font-size:13px;letter-spacing:2px;' +
+        'color:rgba(232,224,208,.85);background:rgba(12,10,16,.55);' +
+        'border:1px solid rgba(200,175,120,.32);pointer-events:none;' +
+        'opacity:0;transition:opacity .25s ease;');
+      host.appendChild(node);
+      this._loadingEl = node;
+      return node;
+    }
+
+    setLoadingHint(on) {
+      const node = this.loadingEl();
+      if (node) node.style.opacity = on ? '1' : '0';
     }
 
     /* ---------------- 开始界面 ---------------- */
@@ -788,6 +889,8 @@
         this.showEnd(view);
       }
       this.syncPauseBtn(view);
+      // 画完这一格，顺手把下一格要用的图悄悄拉下来（拉哪几张由引擎说了算）
+      this.prefetch(this.engine.upcomingAssets(CONFIG.prefetchLimit));
       return this;
     }
 

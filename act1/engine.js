@@ -725,10 +725,10 @@
       return (this.roam && this.roam.mode) || 'menu';
     }
 
-    /** 当前锚点属于哪个房间（不在任何房间里就是 null，即在 hub 上） */
-    _roamRoomName() {
+    /** 某个锚点属于哪个房间（不在任何房间里就是 null，即在 hub 上）。不传就是当前节点。 */
+    _roamRoomName(nodeId) {
       const rooms = (this.roamData && this.roamData.rooms) || {};
-      const id = this.node && this.node.id;
+      const id = nodeId || (this.node && this.node.id);
       for (const name of Object.keys(rooms)) {
         const r = rooms[name];
         if (r.anchor === id) return name;
@@ -739,11 +739,11 @@
       return null;
     }
 
-    /** 这个房间里的人此刻穿着哪一套（按当前所在锚点反查） */
-    _roamOutfitId(roomName) {
+    /** 这个房间里的人此刻穿着哪一套（按锚点反查）。nodeId 不传就是当前节点。 */
+    _roamOutfitId(roomName, nodeId) {
       const r = ((this.roamData || {}).rooms || {})[roomName];
       if (!r || !r.outfits) return null;
-      const id = this.node && this.node.id;
+      const id = nodeId || (this.node && this.node.id);
       for (const oid of Object.keys(r.outfits)) {
         if (r.outfits[oid].node === id) return oid;
       }
@@ -1311,6 +1311,100 @@
         ok: true, choice: item, effects, node: this.node, changed,
         notes: effects.map((e) => e.note).filter(Boolean),
       };
+    }
+
+    /* ==================================================================
+     * 预加载：接下来会画到哪些素材
+     * ------------------------------------------------------------------
+     * 全是纯查询 —— 这一层不加载任何东西（不碰 DOM、不碰网络），只回答
+     * 「照现在这个局面，剧情还可能往哪走、那些地方要什么图」。
+     * 真去拉图片是 ui.js 的事：它拿这里给的 key 在后台 new Image()。
+     *
+     * 放在引擎里而不是界面里，是因为「下一格是哪儿」这件事只有引擎知道
+     * （分支、结局按钮、自由活动的菜单目标都在它的状态机里），
+     * 界面自己去猜就会猜错。
+     * ================================================================== */
+
+    /** 当前这一格往前看，接下来可能走到的节点 id（不重复、越可能先用到越靠前） */
+    nextNodeIds() {
+      const out = [];
+      const add = (id) => { if (id && this.nodes[id] && out.indexOf(id) < 0) out.push(id); };
+
+      if (this._roamHasMenu()) {
+        // 自由活动：菜单项各自会把人带到哪个锚点，逐项问一遍
+        for (const item of this.availableChoices()) add(this._roamTargetNode(item));
+        return out;
+      }
+
+      if (this.node && this.node.next) add(this.node.next);
+      if (this.hasChoices()) {
+        for (const item of this.availableChoices()) {
+          if (item.enabled) add((item.choice || {}).next);
+        }
+      }
+      // 结局屏上那两颗按钮：继续下一幕 / 进自由活动
+      if (this.node) {
+        if (this.node.continueTo) add(this.node.continueTo);
+        add(this.roamAnchorAfter(this.node.id));
+      }
+      return out;
+    }
+
+    /** 自由活动菜单里某一项会把人带到哪个节点（普通选项不走这儿，它们直接读 choice.next） */
+    _roamTargetNode(item) {
+      const r = (item && item.roam) || {};
+      if (r.kind === 'goto') return r.node || this._roamRoomEntry(r.room);
+      if (r.kind === 'invite') return this._roamInvite(r.target, r.room);
+      if (r.kind === 'wear') {
+        const room = ((this.roamData || {}).rooms || {})[this.roam && this.roam.room] || {};
+        const o = (room.outfits || {})[r.outfit];
+        return o ? o.node : null;
+      }
+      return null;   // 动作 / 特殊剧情 / 开关浮层：原地不动，不产生新场景
+    }
+
+    /** 某个节点会画到的素材 key：背景、左槽立绘、台词里说话人的脸、房间里的她 */
+    nodeAssets(nodeId) {
+      const node = this.nodes[nodeId];
+      if (!node) return [];
+
+      const keys = [];
+      const push = (k) => { if (k && this.assets[k] && keys.indexOf(k) < 0) keys.push(k); };
+
+      const art = node.art || {};
+      push(art.bg);
+      push(art.portrait);
+      for (const d of node.dialogues || []) {
+        push((this.characters[d.speaker] || {}).portrait);
+      }
+
+      // 自由活动的锚点：右槽站的是房间里那个人此刻的样子，换装浮层还要一张全身像
+      const roomName = this._roamRoomName(nodeId);
+      const room = roomName ? ((this.roamData.rooms || {})[roomName] || {}) : null;
+      if (room && room.outfits) {
+        const o = room.outfits[this._roamOutfitId(roomName, nodeId)] || {};
+        push(o.half);
+        push(o.full);
+      } else if (room) {
+        push(room.portrait);
+      }
+      return keys;
+    }
+
+    /**
+     * 现在就该提前拉的素材（去重）。顺序就是优先级：
+     * 当前这一格 → 下一格 → 各个分支，界面可以只取前几个。
+     */
+    upcomingAssets(limit) {
+      const keys = [];
+      const push = (list) => { for (const k of list) if (keys.indexOf(k) < 0) keys.push(k); };
+
+      if (this.node) push(this.nodeAssets(this.node.id));
+      for (const id of this.nextNodeIds()) {
+        push(this.nodeAssets(id));
+        if (limit && keys.length >= limit) break;
+      }
+      return limit ? keys.slice(0, limit) : keys;
     }
 
     /* ---------------- 画面素材 ---------------- */
