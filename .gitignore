@@ -23,6 +23,11 @@ save.json
 
 # 无头截图的产物：tests/shots.cjs 跑出来的图，随时能重新生成（脚本要留）
 tests/shots/
+tests/shots_v2/
+
+# 剧本预览页：新稿还没接进 meta.continues 时，为了在浏览器里看一眼而临时复制的
+# 页面（正式稿接进来之后就该删）。防的是 git add . 顺手把它卷进去
+preview_v2/
 
 # 系统 / 编辑器的临时文件
 Thumbs.db
