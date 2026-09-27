@@ -582,7 +582,7 @@ t.eq(cond({ stat: '西比拉_警惕', op: '==', value: 0 }, {}), true, '没记�
 // 被锁住的选项，绕过界面直接调用也会被拒
 const locked = new StoryEngine(story);
 locked.start();
-locked.node = { id: 'x', pov: '西比拉', dialogues: [], choices: [{ text: '锁着的', next: 'p1_carriage', if: { stat: '西比拉_警惕', op: '>=', value: 99 } }] };
+locked.node = { id: 'x', pov: '西比拉', dialogues: [], choices: [{ text: '锁着的', next: 's1_rain', if: { stat: '西比拉_警惕', op: '>=', value: 99 } }] };
 t.eq(locked.choose(0).ok, false, '锁住的选项选不了');
 t.eq(locked.choose(0).reason, 'locked', '拒绝理由是 locked');
 t.eq(locked.choose(99).reason, 'out-of-range', '越界的选项被拒');
@@ -712,7 +712,7 @@ roam1.start();
 t.eq(roam1.enterRoam('o4_end').ok, false, '结局节点本身不是自由活动的入口（要走 hubs[].after 反查）');
 t.eq(roam1.roamAnchorAfter('o4_end'), 'fr_hub', '第一幕结局之后进 fr_hub');
 t.eq(roam1.roamAnchorAfter('b25_end'), 'fr_end_hub', '第二幕结局之后进 fr_end_hub');
-t.eq(roam1.roamAnchorAfter('p1_carriage'), null, '没安排自由活动的节点反查得到 null');
+t.eq(roam1.roamAnchorAfter('s1_rain'), null, '没安排自由活动的节点反查得到 null');
 
 roam1.enterNode('o4_end');
 t.eq(roam1.enterRoam(roam1.roamAnchorAfter('o4_end')).ok, true, '从第一幕结局进得了自由活动');

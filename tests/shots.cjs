@@ -44,8 +44,8 @@ const RESOLUTIONS = [
  */
 const TARGETS = [
   { name: '01-开始界面', mode: 'title' },
-  { name: '02-双立绘-西比拉与布朗', node: 'p1_brown', mode: 'first', speaker: '布朗' },
-  { name: '03-选项点-奥布里视角', node: 'a1_returned', mode: 'choices' },
+  { name: '02-双立绘-西比拉与布朗', node: 's1_rain', mode: 'first', speaker: '布朗' },
+  { name: '03-选项点-奥布里视角', node: 'o1_wait', mode: 'choices' },
   { name: '04-跨幕第一眼', node: 'b1_room', via: 'o4_end', mode: 'first' },
   { name: '05-牧师服', node: 'b12_morning', mode: 'first' },
   { name: '06-教室-伊莎贝尔', node: 'b18_classroom', mode: 'first', speaker: '伊莎贝尔' },
@@ -449,12 +449,12 @@ async function endToEnd(cdp) {
     if (i === 99) throw new Error('页面没 boot 起来');
   }
 
-  // boot() 是不是真的把两幕都读进来了？（不是只有 tests 里 composeStories 能拼）
+  // boot() 是不是真的把三幕都读进来了？（不是只有 tests 里 composeStories 能拼）
   const loaded = await cdp.eval('(() => ({ nodes: window.act1.story.nodes.length, hasAct2: !!window.act1.engine.nodes.b1_room, hasAct3: !!window.act1.engine.nodes.c1_door }))()');
   log(`  · boot() 自己读进来的剧本：${loaded.nodes} 个节点，第二幕${loaded.hasAct2 ? '在' : '不在'}，第三幕${loaded.hasAct3 ? '在' : '不在'}`);
   if (!loaded.hasAct2) bad.push('boot() 没把第二幕读进来（meta.continues 的路径解错了）');
   if (!loaded.hasAct3) bad.push('boot() 没把第三幕读进来（meta.continues 的路径解错了）');
-  if (loaded.nodes !== 109) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 109（三幕合起来）`);
+  if (loaded.nodes !== 105) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 105（三幕合起来）`);
 
   await cdp.eval(PLAY_JS);
 
