@@ -683,7 +683,7 @@
      * 主线（含 enumeratePaths 枚举的那些路径）一个字节都不受影响。
      *
      * 位置还是用节点表示 —— 每个房间一个锚点节点、西比拉的每套装束各一个，
-     * 所以「人在哪儿、此刻穿着什么」天然被 snapshot/restore/服务器存档记住，
+     * 所以「人在哪儿、此刻穿着什么」天然被 snapshot/restore/本地浏览器存档记住，
      * 一句持久化代码都不用写。
      *
      * 菜单是运行时生成的（「离开」要回你从哪个 hub 进来的、「换装」要换到哪张
@@ -1358,7 +1358,7 @@
     restore(snap) {
       if (!snap || !snap.nodeId) throw new Error('存档里没有 nodeId');
       this.showStats = snap.showStats !== undefined ? !!snap.showStats : this.showStats;
-      // 读档是唯一不可信的数据入口（旧版本的存档、手改过的、服务器上还没更新的那份），
+      // 读档是唯一不可信的数据入口（旧版本的存档、手改过的、别的浏览器留下的那份），
       // 所以每一项都要按它自己的区间夹一遍。initialStats 反过来不夹 —— 那是作者写的，写错了该报错。
       const merged = Object.assign(deepClone(this.initialStats), snap.stats || {});
       for (const name of Object.keys(merged)) {
@@ -1374,7 +1374,7 @@
       if (this.history[this.history.length - 1] === snap.nodeId) this.history.pop();
       // 自由活动的运行时状态（台词队列、摸了几下的连击账）不进存档，读档就重新开始。
       // 不置空的话，读档正好落在同一个锚点上时 _roamSync() 会以为「没换锚点」而不重建。
-      // 暂停状态同样不进存档（服务器那份白名单重建的 save 里没有它）。
+      // 暂停状态同样不进存档（本地浏览器存档里只白名单重建了引擎那几个字段，没有它）。
       this.roam = null;
       this.paused = false;
       this._pauseReturn = null;

@@ -21,8 +21,8 @@
  *   换装不需要额外机制：给换衣服的那个节点写一个不同的 art.portrait 就行。
  *
  * 【替换真实图片】
- *   素材在 story.json 的 art.assets 里写 "src": "images/我的图.png"。
- *   没写 src 就按约定找 act1/images/<素材key>.png。
+ *   素材在 story.json 的 art.assets 里写 "src": "images/我的图.webp"。
+ *   没写 src 就按约定找 act1/images/<素材key>.webp（见 CONFIG.imageExt）。
  *   图片放上去就自动生效，不需要改代码：图片层盖在像素块网格上面，
  *   404 的时候浏览器不画任何东西，底下的像素块就露出来了（占位）。
  * ---------------------------------------------------------------
@@ -47,14 +47,15 @@
   const CONFIG = {
     /** 真实图片放这里（相对 index.html），文件名 = 素材 key + 扩展名 */
     imageDir: 'images/',
-    imageExt: '.png',
+    /** 素材没写 src 时的兜底扩展名 —— 插画都转成 WebP 了，新素材也照这个来 */
+    imageExt: '.webp',
     /** 打字机速度（毫秒/字）。系统设了「减少动画」会自动跳过 */
     typeSpeed: 24,
-    /** 存档接口：同源时用相对路径，file:// 打开时回落到本地服务器 */
-    apiBase: (typeof location !== 'undefined' && location.protocol === 'file:') ? 'http://localhost:3000' : '',
-    endpoints: { save: '/api/act1/save', load: '/api/act1/load', health: '/api/health' },
-    /** 存档写回的文件名，仅用于提示文案 */
-    saveLabel: 'act1/save.json',
+    /**
+     * 存档写在浏览器自己的 localStorage 里的哪把钥匙底下。
+     * 网页是纯静态的（部署在 Vercel 上，没有后端可调），存档只活在玩家这台机器上。
+     */
+    storageKey: 'prisenburg.act1.save',
 
     /* ---------- 立绘 ---------- */
 
@@ -127,6 +128,22 @@
     } catch (err) { return false; }
   }
 
+  /**
+   * 取 localStorage。**必须包在 try 里**：站点数据被禁、被嵌在 iframe 里、
+   * 某些浏览器的无痕模式下，光是读这个属性就会抛 SecurityError，
+   * 不接住的话整个页面会白屏 —— 存档只是个小功能，不该拖垮整场戏。
+   *
+   * 参数是注入进来的 window（测试里是替身），所以替身挂上 localStorage 就能测。
+   */
+  function localStore(win) {
+    try {
+      if (win && win.localStorage) return win.localStorage;
+    } catch (err) { /* 落下去试全局那个 */ }
+    try {
+      return typeof localStorage !== 'undefined' ? localStorage : null;
+    } catch (err) { return null; }
+  }
+
   /* ===================================================================
    * 2. 像素块网格
    * =================================================================== */
@@ -192,7 +209,6 @@
       this._pending = null;         // 打字中还没播完的那一行
       this.view = null;
       this.locked = false;          // 打字未完成时锁住推进
-      this.serverOnline = null;
     }
 
     /* ---------------- 挂载 ---------------- */
@@ -721,11 +737,16 @@
       }
     }
 
-    setServerState(online, text) {
+    /**
+     * 右上角那颗小灯：本地存档到底能不能用。
+     * 元素 id 还叫 server-dot（index.html / style.css / 测试都认它），
+     * 但它现在报的是 localStorage 的状态，不是服务器。
+     */
+    setSaveState(on, text) {
       const dot = this.els['server-dot'];
-      dot.classList.toggle('online', !!online);
-      dot.classList.toggle('offline', !online);
-      dot.textContent = text || (online ? '存档服务器已连接' : '存档服务器未连接');
+      dot.classList.toggle('online', !!on);
+      dot.classList.toggle('offline', !on);
+      dot.textContent = text || (on ? '本地存档可用' : '本地存档不可用');
     }
 
     notify() {
@@ -940,70 +961,97 @@
     }
 
     /* ===================================================================
-     * 存档：直接把 engine.snapshot() 发给服务器
+     * 存档：存在浏览器自己的 localStorage 里
+     * -------------------------------------------------------------------
+     * 网页是纯静态的（部署在 Vercel 上，后面没有服务器可调），所以存档
+     * 就落在玩家这台机器上：换设备、清浏览数据就没了，这是静态站的代价。
+     *
+     * 引擎那边只提供 snapshot() / restore() 这一对纯数据的接口，
+     * 「存到哪儿」完全是这一层的事 —— 所以改成 localStorage，engine.js
+     * 一个字都不用动，连存档格式（version / nodeId / stats / history）
+     * 都和以前一模一样。
+     *
+     * 三个失败点都得接住：拿不到 localStorage（无痕模式）、写不进去（配额满）、
+     * 读出来的东西不对（手改过 / 别的版本留下的）。存档坏了不该让页面白屏。
      * =================================================================== */
 
-    request(path, options) {
-      const win = this.win;
-      const fetchFn = (win && win.fetch) || (typeof fetch !== 'undefined' ? fetch : null);
-      if (!fetchFn) throw new Error('这个环境没有 fetch');
-
-      const url = CONFIG.apiBase + path;
-      return fetchFn(url, options).then((res) =>
-        res.json().then(
-          (body) => ({ ok: res.ok, status: res.status, body }),
-          () => ({ ok: false, status: res.status, body: { message: '服务器返回的不是 JSON' } })
-        )
-      ).catch((err) => {
-        throw Object.assign(new Error('连不上服务器'), { offline: true, cause: err });
-      });
-    }
-
+    /** 本地存档读写成功；返回快照本身（失败返回 null） */
     save() {
-      const snap = this.engine.snapshot();
-      return this.request(CONFIG.endpoints.save, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(snap),
-      }).then((r) => {
-        if (!r.ok || !r.body.ok) throw new Error((r.body && r.body.message) || '保存失败');
-        this.setServerState(true);
-        // 用去过的节点数而不是 history.length：中途暂停会额外压两条进去，那样步数会虚高
-        this.showToast('已保存到 ' + CONFIG.saveLabel + '（第 ' + (this.engine.visited.size) + ' 步）');
-        return r.body;
-      }).catch((err) => {
-        if (err.offline) this.setServerState(false);
-        this.showToast('保存失败：' + err.message);
+      const store = localStore(this.win);
+      if (!store) {
+        this.setSaveState(false);
+        this.showToast('这个浏览器不让存本地数据（无痕模式？）');
         return null;
-      });
+      }
+      const snap = this.engine.snapshot();
+      try {
+        store.setItem(CONFIG.storageKey, JSON.stringify(snap));
+      } catch (err) {
+        this.setSaveState(false);
+        this.showToast('保存失败：' + ((err && err.message) || '浏览器不让我写'));
+        return null;
+      }
+      this.setSaveState(true);
+      // 用去过的节点数而不是 history.length：中途暂停会额外压两条进去，那样步数会虚高
+      this.showToast('已保存到这台电脑的浏览器（第 ' + (this.engine.visited.size) + ' 步）');
+      return snap;
     }
 
     load() {
-      return this.request(CONFIG.endpoints.load, { method: 'GET' }).then((r) => {
-        if (!r.ok || !r.body.ok) throw new Error((r.body && r.body.message) || '读取失败');
-        const snap = r.body.save.snapshot || r.body.save;
-        this.stopTyping();
-        this.locked = false;
-        this.hideEnd();
-        this.hideTitleScreen();       // 读档直接进场，不要停在开始界面
-        this.engine.restore(snap);
-        this.renderStats();
-        this.render(this.engine.advance());
-        this.setServerState(true);
-        this.showToast('已读取存档（回到 ' + this.engine.currentTitle() + '）');
-        return r.body;
-      }).catch((err) => {
-        if (err.offline) this.setServerState(false);
-        this.showToast('读取失败：' + err.message);
+      const store = localStore(this.win);
+      if (!store) {
+        this.setSaveState(false);
+        this.showToast('这个浏览器不让读本地数据（无痕模式？）');
         return null;
-      });
+      }
+
+      const raw = store.getItem(CONFIG.storageKey);
+      if (!raw) {
+        this.showToast('还没有存档 —— 先按「存档」存一份');
+        return null;
+      }
+
+      let snap;
+      try {
+        snap = JSON.parse(raw);
+      } catch (err) {
+        this.showToast('存档读不出来：内容坏了');
+        return null;
+      }
+      // 先自己拦一道：nodeId 对不上这一版剧本的话，restore() 会抛在半路上，
+      // 那时候引擎已经改了一半（数值换了、节点没进），还不如压根不动它
+      if (!snap || !snap.nodeId || !this.engine.nodes[snap.nodeId]) {
+        this.showToast('存档读不出来：对不上这一版剧本');
+        return null;
+      }
+
+      this.stopTyping();
+      this.locked = false;
+      this.hideEnd();
+      this.hideTitleScreen();       // 读档直接进场，不要停在开始界面
+      this.engine.restore(snap);
+      this.renderStats();
+      this.render(this.engine.advance());
+      this.setSaveState(true);
+      this.showToast('已读取存档（回到 ' + this.engine.currentTitle() + '）');
+      return snap;
     }
 
-    checkServer() {
-      return this.request(CONFIG.endpoints.health, { method: 'GET' }).then((r) => {
-        this.setServerState(!!(r.ok && r.body.ok));
-        return r.ok;
-      }).catch(() => { this.setServerState(false); return false; });
+    /** 开场探一下能不能本地存档，顺便把那颗小灯点亮 / 灭掉 */
+    checkStorage() {
+      const store = localStore(this.win);
+      let ok = false;
+      if (store) {
+        // 真写一个探针键再删掉：无痕模式下 localStorage 常常是「在，但不给写」
+        try {
+          const probe = CONFIG.storageKey + '.probe';
+          store.setItem(probe, '1');
+          store.removeItem(probe);
+          ok = true;
+        } catch (err) { ok = false; }
+      }
+      this.setSaveState(ok);
+      return ok;
     }
   }
 
@@ -1053,8 +1101,9 @@
       return drain();
     }
 
-    // 剧本用 fetch 读 story.json。用 file:// 直接双击打开的话 fetch 会被拦，
-    // 那种情况下请起服务器：node server.js 然后访问 http://localhost:3000/act1
+    // 剧本用 fetch 读 story.json。**双击 index.html（file://）打不开** ——
+    // 浏览器不许 file:// 页面 fetch 本地文件（跟存档没关系，存档走 localStorage）。
+    // 本地试玩请起一个静态服务器：node server.js 然后访问 http://localhost:3000/act1
     fetchStory('story.json')
       .then((first) => loadAllStories('story.json', first))
       .then((stories) => {
@@ -1070,7 +1119,7 @@
         // render() 里三个分支一个都不匹配，页面会一片空白。
         ui.start();
         ui.showTitleScreen();     // 开场先停在开始界面，点「开始游戏」再进正片
-        ui.checkServer();
+        ui.checkStorage();
 
         // 暴露给控制台，方便调试
         win.act1 = { engine, ui, story, report };

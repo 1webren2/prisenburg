@@ -104,7 +104,7 @@
       "bg_carriage": {
         "kind": "background",
         "label": "马车车厢 · 雨",
-        "src": "images/bg_carriage.png",
+        "src": "images/bg_carriage.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -129,7 +129,7 @@
       "bg_castle": {
         "kind": "background",
         "label": "普里森堡 · 雨中的远景",
-        "src": "images/bg_gate.png",
+        "src": "images/bg_gate.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -142,7 +142,7 @@
       "bg_bridge": {
         "kind": "background",
         "label": "城堡门口 · 吊桥前",
-        "src": "images/bg_gate.png",
+        "src": "images/bg_gate.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -155,7 +155,7 @@
       "bg_courtyard": {
         "kind": "background",
         "label": "外庭院 · 佣兵宿舍",
-        "src": "images/bg_gate.png",
+        "src": "images/bg_gate.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -168,7 +168,7 @@
       "bg_hall": {
         "kind": "background",
         "label": "普里森堡 · 大厅高台",
-        "src": "images/bg_hall.png",
+        "src": "images/bg_hall.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -181,7 +181,7 @@
       "bg_portrait_wall": {
         "kind": "background",
         "label": "主座背后 · 拉纳克·德·沃的画像",
-        "src": "images/bg_hall.png",
+        "src": "images/bg_hall.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -194,7 +194,7 @@
       "chr_sibylla": {
         "kind": "portrait",
         "label": "西比拉 · 女仆装（半身）",
-        "src": "images/chr_sibylla.png",
+        "src": "images/chr_sibylla.webp",
         "cols": 15,
         "rows": 20,
         "palette": [
@@ -215,7 +215,7 @@
           "#8a6f4a",
           "#c9a878"
         ],
-        "src": "images/chr_brown.png"
+        "src": "images/chr_brown.webp"
       },
       "chr_aubrey": {
         "kind": "portrait",
@@ -228,7 +228,7 @@
           "#33445c",
           "#5b7fa8"
         ],
-        "src": "images/chr_aubrey.png"
+        "src": "images/chr_aubrey.webp"
       },
       "chr_isabelle": {
         "kind": "portrait",
@@ -241,7 +241,7 @@
           "#d98f9b",
           "#e8c8a8"
         ],
-        "src": "images/chr_isabelle.png"
+        "src": "images/chr_isabelle.webp"
       },
       "chr_haier": {
         "kind": "portrait",
@@ -254,7 +254,7 @@
           "#66795a",
           "#8aa87a"
         ],
-        "src": "images/chr_haier.png"
+        "src": "images/chr_haier.webp"
       },
       "chr_john": {
         "kind": "portrait",

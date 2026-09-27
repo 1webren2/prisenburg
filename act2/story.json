@@ -12,7 +12,7 @@
       "chr_sibylla_teacher": {
         "kind": "portrait",
         "label": "西比拉 · 牧师服（半身）",
-        "src": "../act2/images/chr_sibylla_teacher.png",
+        "src": "../act2/images/chr_sibylla_teacher.webp",
         "cols": 15,
         "rows": 20,
         "palette": [
@@ -25,7 +25,7 @@
       "bg_sibylla_room": {
         "kind": "background",
         "label": "西比拉的新房间（三楼）",
-        "src": "../act2/images/bg_sibylla_room.png",
+        "src": "../act2/images/bg_sibylla_room.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -38,7 +38,7 @@
       "bg_corridor": {
         "kind": "background",
         "label": "普里森堡 · 三楼过道",
-        "src": "../act2/images/bg_corridor.png",
+        "src": "../act2/images/bg_corridor.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -51,7 +51,7 @@
       "bg_classroom": {
         "kind": "background",
         "label": "普里森堡 · 三楼教室",
-        "src": "../act2/images/bg_classroom.png",
+        "src": "../act2/images/bg_classroom.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -64,7 +64,7 @@
       "bg_isabelle_room": {
         "kind": "background",
         "label": "普里森堡 · 伊莎贝尔的卧室",
-        "src": "../act2/images/bg_isabelle_room.png",
+        "src": "../act2/images/bg_isabelle_room.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -77,7 +77,7 @@
       "bg_aubrey_room": {
         "kind": "background",
         "label": "普里森堡 · 奥布里的房间",
-        "src": "../act2/images/bg_aubrey_room.png",
+        "src": "../act2/images/bg_aubrey_room.webp",
         "cols": 46,
         "rows": 13,
         "palette": [
@@ -90,7 +90,7 @@
       "chr_sibylla_riding": {
         "kind": "portrait",
         "label": "西比拉 · 骑装（半身）",
-        "src": "../act2/images/chr_sibylla_riding.png",
+        "src": "../act2/images/chr_sibylla_riding.webp",
         "cols": 15,
         "rows": 20,
         "palette": [
@@ -103,7 +103,7 @@
       "chr_sibylla_black": {
         "kind": "portrait",
         "label": "西比拉 · 黑礼服（半身）",
-        "src": "../act2/images/chr_sibylla_black.png",
+        "src": "../act2/images/chr_sibylla_black.webp",
         "cols": 15,
         "rows": 20,
         "palette": [
@@ -116,7 +116,7 @@
       "full_sibylla_maid": {
         "kind": "portrait",
         "label": "西比拉 · 女仆装（全身）",
-        "src": "../act2/images/full_sibylla_maid.png",
+        "src": "../act2/images/full_sibylla_maid.webp",
         "cols": 12,
         "rows": 24,
         "palette": [
@@ -129,7 +129,7 @@
       "full_sibylla_teacher": {
         "kind": "portrait",
         "label": "西比拉 · 牧师服（全身）",
-        "src": "../act2/images/full_sibylla_teacher.png",
+        "src": "../act2/images/full_sibylla_teacher.webp",
         "cols": 12,
         "rows": 24,
         "palette": [
@@ -142,7 +142,7 @@
       "full_sibylla_riding": {
         "kind": "portrait",
         "label": "西比拉 · 骑装（全身）",
-        "src": "../act2/images/full_sibylla_riding.png",
+        "src": "../act2/images/full_sibylla_riding.webp",
         "cols": 12,
         "rows": 24,
         "palette": [
@@ -155,7 +155,7 @@
       "full_sibylla_black": {
         "kind": "portrait",
         "label": "西比拉 · 黑礼服（全身）",
-        "src": "../act2/images/full_sibylla_black.png",
+        "src": "../act2/images/full_sibylla_black.webp",
         "cols": 12,
         "rows": 24,
         "palette": [

@@ -104,7 +104,7 @@ t.section('挂载');
 
 t.eq(CONFIG.portraitOverride, null, '不再统一借西比拉的脸（各自用自己的立绘，值必须是 null）');
 t.eq(CONFIG.fallbackPortrait, 'chr_sibylla', '节点没写 art.portrait 时兜底用西比拉那张，左槽不空场');
-t.eq(CONFIG.imageExt, '.png', '按 key 拼路径时的扩展名是 .png');
+t.eq(CONFIG.imageExt, '.webp', '按 key 拼路径时的扩展名是 .webp（插画都转 WebP 了）');
 t.eq(CONFIG.titleBackground, 'bg_carriage', '开始界面背景是马车图');
 
 const mounted = bootUI();
@@ -137,7 +137,7 @@ t.ok(mounted.ui.titleOpen, '开场停在开始界面');
 t.ok(mounted.ui.els['title-screen'].classList.contains('on'), '开始界面是显示状态');
 t.eq(
   mounted.ui.els['title-bg'].style.backgroundImage,
-  'url("images/bg_carriage.png")',
+  'url("images/bg_carriage.webp")',
   '开始界面背景用的是马车图'
 );
 
@@ -194,9 +194,9 @@ t.eq(
   '合并后角色的定义取自第一幕（第二幕不重复声明 characters）'
 );
 
-t.eq(uiApi.imageSrc('chr_sibylla', story.art.assets.chr_sibylla), 'images/chr_sibylla.png', '素材写了 src 就用 src');
-t.eq(uiApi.imageSrc('chr_john', story.art.assets.chr_john), 'images/chr_john.png', '没写 src 就按 key 拼默认路径');
-t.eq(uiApi.imageSrc('chr_sibylla_teacher', story2.art.assets.chr_sibylla_teacher), '../act2/images/chr_sibylla_teacher.png', '第二幕的素材用相对 act1/ 的路径');
+t.eq(uiApi.imageSrc('chr_sibylla', story.art.assets.chr_sibylla), 'images/chr_sibylla.webp', '素材写了 src 就用 src');
+t.eq(uiApi.imageSrc('chr_john', story.art.assets.chr_john), 'images/chr_john.webp', '没写 src 就按 key 拼默认路径（默认扩展名跟着 WebP 走）');
+t.eq(uiApi.imageSrc('chr_sibylla_teacher', story2.art.assets.chr_sibylla_teacher), '../act2/images/chr_sibylla_teacher.webp', '第二幕的素材用相对 act1/ 的路径');
 
 // 走完整场戏（第一幕 + 第二幕），沿途每一步都核对左右两槽
 const portrait = bootUI(wholeStory);
@@ -280,12 +280,12 @@ for (;;) {
   if (seenOutfits[seenOutfits.length - 1] !== bg) seenOutfits.push(bg);
   if (!autoStep(outfit.ui)) break;
 }
-t.ok(seenOutfits.includes('url("images/chr_sibylla.png")'), '第二幕前半段西比拉穿女仆装（chr_sibylla）');
-t.ok(seenOutfits.includes('url("../act2/images/chr_sibylla_teacher.png")'), '换上牧师服（＝教师服）后左槽换成那张');
-t.eq(seenOutfits.filter((s) => s === 'url("../act2/images/chr_sibylla_teacher.png")').length, 1, '牧师服只出现一段，中间没有来回闪');
+t.ok(seenOutfits.includes('url("images/chr_sibylla.webp")'), '第二幕前半段西比拉穿女仆装（chr_sibylla）');
+t.ok(seenOutfits.includes('url("../act2/images/chr_sibylla_teacher.webp")'), '换上牧师服（＝教师服）后左槽换成那张');
+t.eq(seenOutfits.filter((s) => s === 'url("../act2/images/chr_sibylla_teacher.webp")').length, 1, '牧师服只出现一段，中间没有来回闪');
 t.eq(
   seenOutfits[seenOutfits.length - 1],
-  'url("images/chr_sibylla.png")',
+  'url("images/chr_sibylla.webp")',
   '结局前换回女仆装，左槽跟着换回来'
 );
 
@@ -299,10 +299,10 @@ const atOutfit = (id) => {
   ui.render(engine.advance());
   return leftBG(ui);
 };
-t.eq(atOutfit('b11_sleep'), 'url("images/chr_sibylla.png")', '第二幕第一夜：女仆装');
-t.eq(atOutfit('b12_morning'), 'url("../act2/images/chr_sibylla_teacher.png")', '段30 换上牧师服：左槽换了');
-t.eq(atOutfit('b23_corridor'), 'url("../act2/images/chr_sibylla_teacher.png")', '一天下来还穿着牧师服');
-t.eq(atOutfit('b24_change'), 'url("images/chr_sibylla.png")', '段76 换下牧师服：左槽又换回女仆装');
+t.eq(atOutfit('b11_sleep'), 'url("images/chr_sibylla.webp")', '第二幕第一夜：女仆装');
+t.eq(atOutfit('b12_morning'), 'url("../act2/images/chr_sibylla_teacher.webp")', '段30 换上牧师服：左槽换了');
+t.eq(atOutfit('b23_corridor'), 'url("../act2/images/chr_sibylla_teacher.webp")', '一天下来还穿着牧师服');
+t.eq(atOutfit('b24_change'), 'url("images/chr_sibylla.webp")', '段76 换下牧师服：左槽又换回女仆装');
 
 /* ---- 像素占位网格什么时候该让位 ----
    立绘和背景都是「像素网格 + 真图」两层叠着的。真图是透明 PNG，
@@ -334,7 +334,7 @@ t.section('背景');
 
 const bg = bootUI(wholeStory);
 bg.ui.begin();
-t.eq(bgBG(bg.ui), 'url("images/bg_carriage.png")', '开场（马车）用马车图');
+t.eq(bgBG(bg.ui), 'url("images/bg_carriage.webp")', '开场（马车）用马车图');
 
 const seenBg = new Set();
 let bgGuard = 0;
@@ -347,10 +347,10 @@ t.empty(
   Array.from(seenBg).filter((s) => !s || s === 'none').map(() => '有过没画背景的瞬间'),
   '全程背景都在（换节点时会沿用上一张，不会闪空）'
 );
-t.ok(seenBg.has('url("images/bg_hall.png")'), '走进大厅时换成了大厅图');
-t.ok(seenBg.has('url("images/bg_gate.png")'), '到城堡门口时用的是大门口那张图');
-t.ok(seenBg.has('url("../act2/images/bg_sibylla_room.png")'), '第二幕的新房间有自己的背景');
-t.ok(seenBg.has('url("../act2/images/bg_classroom.png")'), '第二幕的教室有自己的背景');
+t.ok(seenBg.has('url("images/bg_hall.webp")'), '走进大厅时换成了大厅图');
+t.ok(seenBg.has('url("images/bg_gate.webp")'), '到城堡门口时用的是大门口那张图');
+t.ok(seenBg.has('url("../act2/images/bg_sibylla_room.webp")'), '第二幕的新房间有自己的背景');
+t.ok(seenBg.has('url("../act2/images/bg_classroom.webp")'), '第二幕的教室有自己的背景');
 
 /* ===================================================================
  * 5. 选项
@@ -373,7 +373,7 @@ t.ok(ch.ui.els['dialogue-box'].classList.contains('collapsed'), '出选项时对
 t.ok(litLeft(ch.ui), '序章选项点是西比拉的视角，左槽亮着');
 t.ok(rightSlotEmpty(ch.ui), '出选项时没人说话，右槽收起来');
 t.eq(ch.engine.pov, '西比拉', '序章选项点确实是西比拉视角');
-t.eq(leftBG(ch.ui), 'url("images/chr_sibylla.png")', '选项点上左槽是主视角角色西比拉');
+t.eq(leftBG(ch.ui), 'url("images/chr_sibylla.webp")', '选项点上左槽是主视角角色西比拉');
 
 // 用键盘 1/2/3 也能选
 const kb = bootUI();
@@ -391,7 +391,7 @@ while (!(main.ui.view.type === 'choices' && main.engine.pov === '奥布里')) {
   if (main.ui.view.type === 'choices') main.ui.choose(0); else main.ui.step();
 }
 t.eq(main.engine.pov, '奥布里', '走到了奥布里的选项点');
-t.eq(leftBG(main.ui), 'url("images/chr_aubrey.png")', '主视角换成奥布里后，左槽站的是奥布里（不再借西比拉的脸）');
+t.eq(leftBG(main.ui), 'url("images/chr_aubrey.webp")', '主视角换成奥布里后，左槽站的是奥布里（不再借西比拉的脸）');
 t.ok(litLeft(main.ui), '选项点上是玩家替奥布里做决定，左槽亮着');
 t.ok(rightSlotEmpty(main.ui), '奥布里的选项点：右槽空着');
 
@@ -462,7 +462,7 @@ t.eq(bridge.ui.els['end-screen'].classList.contains('on'), false, '结局屏收�
 t.eq(bridge.ui.els['dialogue-box'].classList.contains('collapsed'), false, '对话框又打开了');
 t.eq(bridge.engine.pov, '西比拉', '第二幕是西比拉视角');
 t.eq(bridge.ui.els['title-bar'].getAttribute('data-pov'), '西比拉 · 德 · 克莱尔（观察者）', '右上角的视角标签跟着换');
-t.eq(leftBG(bridge.ui), 'url("images/chr_sibylla.png")', '左槽换成第二幕主视角的西比拉');
+t.eq(leftBG(bridge.ui), 'url("images/chr_sibylla.webp")', '左槽换成第二幕主视角的西比拉');
 
 // 从结局屏一路走下去，能走到第二幕的结局
 let g5 = 0;
@@ -889,72 +889,110 @@ t.eq(stat.engine.showStats, false, '再按 V 收起来');
 
 t.section('存档与读档');
 
-async function saveLoad() {
-  const dom = loadDom();
-  let stored = null;
-  let health = true;
-  const calls = [];
-
-  dom.win.fetch = (url, opts) => {
-    calls.push((opts && opts.method) || 'GET');
-    const reply = (ok, body) => Promise.resolve({
-      ok, status: ok ? 200 : 404,
-      json: () => Promise.resolve(body),
-    });
-    if (url.endsWith(CONFIG.endpoints.save)) { stored = JSON.parse(opts.body); return reply(true, { ok: true, save: stored }); }
-    if (url.endsWith(CONFIG.endpoints.load)) {
-      if (!stored) return reply(false, { ok: false, message: '还没有存档' });
-      return reply(true, { ok: true, save: { snapshot: stored } });
-    }
-    if (url.endsWith(CONFIG.endpoints.health)) return reply(health, { ok: health });
-    return reply(false, { ok: false, message: '没有这个接口：' + url });
+/* 存档现在落在浏览器自己的 localStorage 里（纯静态站，没有后端可调）。
+   ui.js 是从**注入进来的 window** 上取 localStorage 的，所以往 dom.win 上
+   挂一个替身，就等于在真浏览器里跑 —— 下面把能踩的坑挨个踩一遍：
+   没存过档、存档内容坏了、节点对不上剧本、压根没有 localStorage、
+   有但不让写（无痕 / 配额满）。每一种都只该弹一句提示，不该抛错。 */
+function fakeStore() {
+  const map = new Map();
+  return {
+    getItem: (k) => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => { map.set(k, String(v)); },
+    removeItem: (k) => { map.delete(k); },
+    size: () => map.size,
   };
+}
 
+/** 起一局，并装上指定的那个「localStorage」（传 null = 这个环境根本没有） */
+function bootWithStore(store) {
+  const dom = loadDom();
+  dom.win.localStorage = store;
   const engine = new StoryEngine(story);
   const ui = new Act1UI(engine, { doc: dom.doc, win: dom.win });
   ui.mount();
   ui.start();
   ui.begin();
-
-  for (let i = 0; i < 3; i++) ui.step();
-  const where = engine.node.id;
-  const stepCount = engine.history.length;
-
-  await ui.save();
-  t.ok(!!stored, '保存：真的把快照发给了服务器');
-  t.ok(ui.els['server-dot'].classList.contains('online'), '保存成功后服务器指示灯变绿');
-  t.eq(stored.nodeId, where, '存的是当前节点');
-
-  // 再往前走，直到真的换了个节点，然后读回来
-  let walked = 0;
-  while (engine.node.id === where && walked++ < 300) {
-    if (ui.view.type === 'choices') ui.choose(0); else ui.step();
-  }
-  t.ne(engine.node.id, where, '读档前确实已经走远了');
-
-  await ui.load();
-  t.eq(engine.node.id, where, '读档回到存档时的节点');
-  t.eq(engine.history.length, stepCount, '读档回到存档时的步数（不会多出一节）');
-  t.eq(ui.titleOpen, false, '读档直接进正片，不停在开始界面');
-
-  // 服务器没了的时候
-  health = false;
-  await ui.checkServer();
-  t.ok(ui.els['server-dot'].classList.contains('offline'), '连不上服务器时指示灯变灰');
-
-  const dead = loadDom();
-  dead.win.fetch = () => Promise.reject(new Error('ECONNREFUSED'));
-  const ui2 = new Act1UI(new StoryEngine(story), { doc: dead.doc, win: dead.win });
-  ui2.mount();
-  ui2.start();
-  ui2.begin();
-  const saved = await ui2.save();
-  t.eq(saved, null, '连不上服务器时保存不会抛错，只是返回 null');
-  t.ok(ui2.els['server-dot'].classList.contains('offline'), '保存失败时指示灯变灰');
-  t.ok(ui2.els.toast.children.length > 0, '保存失败会弹一句提示');
+  return { ui, engine, store };
 }
 
-saveLoad().then(() => {
+const store = fakeStore();
+const sl = bootWithStore(store);
+
+for (let i = 0; i < 3; i++) sl.ui.step();
+const where = sl.engine.node.id;
+const stepCount = sl.engine.history.length;
+
+const saved = sl.ui.save();
+t.ok(store.size() > 0, '保存：真的写进了 localStorage');
+t.ok(sl.ui.els['server-dot'].classList.contains('online'), '保存成功后存档指示灯变绿');
+t.eq(saved.nodeId, where, '存的是当前节点');
+t.ok(!(saved instanceof Promise), '存档是同步的（不用再等服务器回话）');
+
+const kept = JSON.parse(store.getItem(CONFIG.storageKey));
+t.eq(kept.nodeId, where, 'localStorage 里那份快照就是它（钥匙用的是 CONFIG.storageKey）');
+t.ok(Array.isArray(kept.history) && Array.isArray(kept.visited), '快照该有的字段都在（history / visited）');
+
+// 再往前走，直到真的换了个节点，然后读回来
+let walked = 0;
+while (sl.engine.node.id === where && walked++ < 300) {
+  if (sl.ui.view.type === 'choices') sl.ui.choose(0); else sl.ui.step();
+}
+t.ne(sl.engine.node.id, where, '读档前确实已经走远了');
+
+sl.ui.load();
+t.eq(sl.engine.node.id, where, '读档回到存档时的节点');
+t.eq(sl.engine.history.length, stepCount, '读档回到存档时的步数（不会多出一节）');
+t.eq(sl.ui.titleOpen, false, '读档直接进正片，不停在开始界面');
+
+// 数值也一并拽回去
+const statName = '西比拉_好感';
+const statThen = sl.engine.getStat(statName);
+sl.engine.setStat(statName, statThen + 7);
+sl.ui.load();
+t.eq(sl.engine.getStat(statName), statThen, '读档把数值也拽回存档那一刻');
+
+/* ---- 存不成 / 读不成的时候，都只该弹一句提示 ---- */
+
+const empty = bootWithStore(fakeStore());
+t.eq(empty.ui.load(), null, '没存过档就读：返回 null，不抛错');
+t.ok(empty.ui.els.toast.children.length > 0, '没存过档会弹一句提示');
+
+const broken = bootWithStore(fakeStore());
+broken.store.setItem(CONFIG.storageKey, '{这不是 JSON');
+t.eq(broken.ui.load(), null, '存档不是合法 JSON：返回 null，不抛错');
+t.ok(broken.ui.els.toast.children.length > 0, '存档坏了会弹一句提示');
+
+const wrongNode = bootWithStore(fakeStore());
+wrongNode.store.setItem(CONFIG.storageKey, JSON.stringify({ version: 1, nodeId: '没这个节点', stats: {} }));
+t.eq(wrongNode.ui.load(), null, '存档里的节点对不上这一版剧本：返回 null');
+t.eq(wrongNode.engine.node.id, story.meta.start, '读档失败时引擎一步都没动（还停在开头）');
+
+// 压根没有 localStorage：无痕模式 / 站点数据被禁
+const none = bootWithStore(null);
+t.eq(none.ui.save(), null, '没有 localStorage 时保存返回 null，不抛错');
+t.ok(none.ui.els['server-dot'].classList.contains('offline'), '存不了时指示灯变灰');
+t.ok(none.ui.els.toast.children.length > 0, '存不了会弹一句提示');
+t.eq(none.ui.load(), null, '没有 localStorage 时读档也返回 null，不抛错');
+t.eq(none.ui.checkStorage(), false, '没有 localStorage 时自检返回 false');
+
+// 有 localStorage 但不让写（配额满、无痕模式下常见）
+const full = bootWithStore(Object.assign(fakeStore(), {
+  setItem: () => { throw new Error('QuotaExceededError'); },
+}));
+t.eq(full.ui.save(), null, '写不进去时保存返回 null，不抛错');
+t.ok(full.ui.els['server-dot'].classList.contains('offline'), '写不进去时指示灯变灰');
+t.eq(full.ui.checkStorage(), false, '写不进去时自检也是 false（探针键就写不了）');
+
+// 一切正常的时候
+const good = bootWithStore(fakeStore());
+t.eq(good.ui.checkStorage(), true, '能写的时候自检返回 true');
+t.ok(good.ui.els['server-dot'].classList.contains('online'), '自检通过时指示灯变绿');
+t.eq(good.store.size(), 0, '探针键用完就删掉，不留垃圾');
+
+{
+  /* 下面这一段的变量只在这儿用；以前是个 .then() 回调（存档还是异步的），
+     现在存档同步了，留个普通块就够 */
   /* ===================================================================
    * 9. 样式（看得见的部分没法无头验证，至少确认规则在）
    * =================================================================== */
@@ -1121,7 +1159,4 @@ saveLoad().then(() => {
   t.ok(/\.choice-worn\b/.test(CSS), '标记旁边那行说明文字也有样式');
 
   t.done();
-}).catch((err) => {
-  console.error('存档测试崩了：', err);
-  process.exit(1);
-});
+}
