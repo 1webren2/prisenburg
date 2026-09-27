@@ -19,20 +19,8 @@
     }
   },
   "art": {
-    "note": "第三幕新用到的图同样放在仓库根目录的 images/ 下，路径写 ../images/xxx.webp。bg_study 是新场景、暂时没有对应的图，故意不写 src —— 引擎按 palette 生成一块确定性的像素图占位，不会报错。侍卫 / 马夫 / 普通女仆这三张是**通用立绘**：没有单独立绘的角色都可以套用（马夫 chr_groom 已在第一幕登记，约翰用的就是它）。",
+    "note": "第三幕新用到的图同样放在仓库根目录的 images/ 下，路径写 ../images/xxx.webp。授课那几场（c5_lesson ～ c7_day_end）用的是第二幕已经登记的教室 bg_classroom —— 跨幕复用同一张图，所以这里不再登记一遍（同一个键两幕都定义且内容不同会直接抛错）。侍卫 / 马夫 / 普通女仆这三张是**通用立绘**：没有单独立绘的角色都可以套用（马夫 chr_groom 已在第一幕登记，约翰用的就是它）。",
     "assets": {
-      "bg_study": {
-        "kind": "background",
-        "label": "普里森堡 · 书房（还没有对应的图，仍是像素占位）",
-        "cols": 46,
-        "rows": 13,
-        "palette": [
-          "#191510",
-          "#2a231a",
-          "#403726",
-          "#5f5033"
-        ]
-      },
       "bg_laundry": {
         "kind": "background",
         "label": "普里森堡 · 洗衣房",
@@ -212,7 +200,7 @@
       "pov": "西比拉",
       "title": "第三幕 · 教典与蜡版",
       "art": {
-        "bg": "bg_study",
+        "bg": "bg_classroom",
         "portrait": "chr_sibylla_teacher"
       },
       "dialogues": [
@@ -259,7 +247,7 @@
       "pov": "西比拉",
       "title": "第三幕 · 先来后到",
       "art": {
-        "bg": "bg_study",
+        "bg": "bg_classroom",
         "portrait": "chr_sibylla_teacher"
       },
       "dialogues": [
@@ -323,7 +311,7 @@
       "pov": "西比拉",
       "title": "第三幕 · 到你回答我了",
       "art": {
-        "bg": "bg_study",
+        "bg": "bg_classroom",
         "portrait": "chr_sibylla_teacher"
       },
       "dialogues": [
@@ -375,7 +363,7 @@
       "pov": "西比拉",
       "title": "第三幕 · 一棵大树",
       "art": {
-        "bg": "bg_study",
+        "bg": "bg_classroom",
         "portrait": "chr_sibylla_teacher"
       },
       "dialogues": [
@@ -442,7 +430,7 @@
       "pov": "西比拉",
       "title": "第三幕 · 您画错了",
       "art": {
-        "bg": "bg_study",
+        "bg": "bg_classroom",
         "portrait": "chr_sibylla_teacher"
       },
       "dialogues": [
@@ -494,7 +482,7 @@
       "pov": "西比拉",
       "title": "第三幕 · 好吧，伊莎贝尔小姐",
       "art": {
-        "bg": "bg_study",
+        "bg": "bg_classroom",
         "portrait": "chr_sibylla_teacher"
       },
       "dialogues": [
@@ -538,7 +526,7 @@
       "pov": "西比拉",
       "title": "第三幕 · 明天的明天",
       "art": {
-        "bg": "bg_study",
+        "bg": "bg_classroom",
         "portrait": "chr_sibylla_teacher"
       },
       "dialogues": [

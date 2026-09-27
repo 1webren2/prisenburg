@@ -28,14 +28,14 @@
 | `bg_hall.webp` | 第一幕 · 大厅高台与主座背后；第三幕 · 大宅门厅 | 279.8 KB |
 | `bg_sibylla_room.webp` | 第二幕 · 西比拉的新房间（三楼） | 324.5 KB |
 | `bg_corridor.webp` | 第二幕 · 三楼过道；第三幕 · 楼梯 | 169.8 KB |
-| `bg_classroom.webp` | 第二幕 · 三楼教室 | 322.6 KB |
+| `bg_classroom.webp` | 第二幕 · 三楼教室；第三幕 · 伊莎贝尔的授课场景（跨幕复用同一张） | 322.6 KB |
 | `bg_isabelle_room.webp` | 第二幕 · 伊莎贝尔的卧室；第三幕 · 授课场景 | 339.0 KB |
 | `bg_aubrey_room.webp` | 第二幕 · 奥布里的房间（幕间自由活动的 hub） | 192.2 KB |
 | `bg_laundry.webp` | 第三幕 · 洗衣房 | 352.7 KB |
 | `bg_meadow.webp` | 第三幕 · 府邸外的草地 | 581.9 KB |
 
-> 第三幕的**书房**（`bg_study`）暂时没有图，故意不写 `src`，走像素占位 —— 画好了丢一张
-> `bg_study.webp` 进来即可，剧本不用改。
+> 素材是**跨幕共用**的：教室 `bg_classroom` 在第二幕登记一次，第三幕的授课场景直接引用同一个 key。
+> 同一个 key 不要在两幕各登记一遍（内容不同的话 `composeStories()` 会直接抛错）。
 
 ### 半身立绘 chr_（800 × 1200）
 

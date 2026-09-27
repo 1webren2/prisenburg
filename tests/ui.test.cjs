@@ -198,7 +198,7 @@ t.eq(
 t.eq(uiApi.imageSrc('chr_sibylla', story.art.assets.chr_sibylla), '../images/chr_sibylla.webp', '素材写了 src 就用 src（所有幕的图都在仓库根目录的 images/ 下）');
 t.eq(uiApi.imageSrc('chr_lanark', story.art.assets.chr_lanark), '../images/chr_lanark.webp', '没写 src 就按 key 拼默认路径（默认扩展名跟着 WebP 走，页面在 /act1/ 所以要先退一级）');
 t.eq(uiApi.imageSrc('chr_sibylla_teacher', story2.art.assets.chr_sibylla_teacher), '../images/chr_sibylla_teacher.webp', '第二幕的素材同样指向根目录 images/');
-t.eq(uiApi.imageSrc('bg_study', story3.art.assets.bg_study), '../images/bg_study.webp', '第三幕的新场景还没画，回落到同名路径（拉不到就走像素占位）');
+t.eq(uiApi.imageSrc('bg_classroom', wholeStory.art.assets.bg_classroom), '../images/bg_classroom.webp', '第三幕的授课场景复用第二幕的教室：跨幕共用一张图，素材只在第二幕登记一次');
 
 // 走完整场戏（第一幕 + 第二幕），沿途每一步都核对左右两槽
 const portrait = bootUI(wholeStory);

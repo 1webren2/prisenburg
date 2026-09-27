@@ -3,7 +3,7 @@
  * =====================================================================
  *   node tests/shots.cjs              四个分辨率全跑，截图存 tests/shots/
  *   node tests/shots.cjs --only 1440x900
- *   node tests/shots.cjs --e2e        不截图，从开始界面一路玩到第二幕结局
+ *   node tests/shots.cjs --e2e        不截图，从开始界面一路玩到第三幕结局
  *
  * 为什么要「量」而不是只看图：
  *   立绘顶端顶没顶到章节标题、左右两槽有没有叠在一起、选项和正文有没有对齐，
@@ -63,6 +63,8 @@ const TARGETS = [
   { name: '16-自由活动-请西比拉过来', mode: 'roam', roam: 'fr_hub', pick: '让布朗去请西比拉过来' },
   { name: '17-报仇结局', node: 'fr_revenge', mode: 'end' },
   { name: '18-暂停按钮-剧情中途', node: 'b1_room', mode: 'first' },
+  // 第三幕：授课那几场用的是第二幕已经登记的教室（bg_classroom），跨幕复用同一张图
+  { name: '19-第三幕-教室授课', node: 'c5a_quiz', mode: 'first', speaker: '伊莎贝尔' },
 ];
 
 /* ===================================================================
@@ -448,10 +450,11 @@ async function endToEnd(cdp) {
   }
 
   // boot() 是不是真的把两幕都读进来了？（不是只有 tests 里 composeStories 能拼）
-  const loaded = await cdp.eval('(() => ({ nodes: window.act1.story.nodes.length, hasAct2: !!window.act1.engine.nodes.b1_room }))()');
-  log(`  · boot() 自己读进来的剧本：${loaded.nodes} 个节点，第二幕${loaded.hasAct2 ? '在' : '不在'}`);
+  const loaded = await cdp.eval('(() => ({ nodes: window.act1.story.nodes.length, hasAct2: !!window.act1.engine.nodes.b1_room, hasAct3: !!window.act1.engine.nodes.c1_door }))()');
+  log(`  · boot() 自己读进来的剧本：${loaded.nodes} 个节点，第二幕${loaded.hasAct2 ? '在' : '不在'}，第三幕${loaded.hasAct3 ? '在' : '不在'}`);
   if (!loaded.hasAct2) bad.push('boot() 没把第二幕读进来（meta.continues 的路径解错了）');
-  if (loaded.nodes !== 75) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 75`);
+  if (!loaded.hasAct3) bad.push('boot() 没把第三幕读进来（meta.continues 的路径解错了）');
+  if (loaded.nodes !== 109) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 109（三幕合起来）`);
 
   await cdp.eval(PLAY_JS);
 
@@ -485,9 +488,10 @@ async function endToEnd(cdp) {
   }
 
   log(`  · 一路走过 ${walked.length} 个节点、视角经过 ${[...seenPov].join(' → ')}，最后停在 ${walked[walked.length - 1]}`);
-  if (walked[walked.length - 1] !== 'b25_end') bad.push(`全程没有走到 b25_end，停在 ${walked[walked.length - 1]}`);
+  if (walked[walked.length - 1] !== 'c27_end') bad.push(`全程没有走到 c27_end（第三幕结局），停在 ${walked[walked.length - 1]}`);
   if (!walked.includes('b1_room')) bad.push('全程没有进过第二幕');
   if (!walked.includes('b12_morning')) bad.push('全程没有走到换牧师服那一天');
+  if (!walked.includes('c1_door')) bad.push('全程没有进过第三幕（第二幕结局的 continueTo 没接上）');
 
   // 存档是在第二幕存的，读回来得把人放回第二幕那个节点 ——
   // 而且数值和「此刻穿着哪套衣服」都要跟着回来（存档是跨幕共用的那一份）
@@ -514,7 +518,7 @@ async function endToEnd(cdp) {
   }
 
   for (const b of bad) log(`      ⚠ ${b}`);
-  log(bad.length ? `  ✗ 全程走下来有 ${bad.length} 处不对` : '  ✓ 第一幕 →「继续第二幕」→ 第二幕 → 结局，存档读档跨幕都对');
+  log(bad.length ? `  ✗ 全程走下来有 ${bad.length} 处不对` : '  ✓ 第一幕 →「继续第二幕」→ 第二幕 →「继续第三幕」→ 第三幕结局，存档读档跨幕都对');
   return bad.length;
 }
 
@@ -636,7 +640,7 @@ async function main() {
     process.exit(1);
   }
   if (e2eOnly) {
-    log('\n✓ 从开始界面一路玩到第二幕结局，存档读档跨幕都对得上');
+    log('\n✓ 从开始界面一路玩到第三幕结局，存档读档跨幕都对得上');
   } else {
     log(`\n截图在 ${OUT_DIR}`);
     log('\n✓ 所有分辨率下：立绘不叠、不顶标题、不出画，选项和正文对齐，对话框收起不挤动布局');
