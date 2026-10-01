@@ -1,0 +1,388 @@
+/* =====================================================================
+   Stage 0 专用覆盖层
+   ---------------------------------------------------------------------
+   这份文件**只被 stage0/index.html 加载**，加在 ../act1/style.css 后面。
+   act1 / act2 / act3 一个字都没改，线上显示不受影响。
+
+   目前只做一件事：修掉对话框正上方那条横贯全屏的暗带。
+   它把立绘下摆和场景画蒙住了，来源有两处（都在 act1/style.css 的
+   #dialogue-box 上），叠在一起：
+
+     1) box-shadow: 0 -14px 40px rgba(0,0,0,.45)
+        往上打的一层黑雾，40px。
+     2) --dialogue-bg 的顶档是 rgba(10,9,8,.30) —— 不是全透明；
+        再叠一个 backdrop-filter: blur(7px)，而模糊区域是个**矩形**，
+        矩形上沿和没模糊的地方之间就是那条硬边。
+
+   改法：
+     · 上沿彻底透明，往下 30px 之内完成过渡 → 上沿和场景之间没有边
+     · 往下加厚到 .90，保住正文字的对比度（文字落在 40px 附近）
+     · 去掉往上打的投影
+     · 去掉 backdrop-filter（它自带矩形硬边，和「上沿没有硬边」直接冲突；
+       底部 .70→.90 的实心渐变已经够压住背景）
+     · 去掉 border-top 那条 1px 金线（上沿全透明之后，它会变成一条
+       悬空的硬边，正是要消掉的东西）
+   ===================================================================== */
+
+:root {
+  --dialogue-bg: linear-gradient(180deg,
+                   rgba(10, 9, 8, 0)    0px,
+                   rgba(10, 9, 8, 0.70) 30px,
+                   rgba(10, 9, 8, 0.90) 100%);
+}
+
+#dialogue-box {
+  border-top: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* =====================================================================
+   时段菜单：右下角的图标按钮
+   ---------------------------------------------------------------------
+   只对 s0-locations 生效（stage0.js 在「时段菜单」节点上挂的类）。
+   其余节点的选项 —— 进入 / 返回 / 怎么处理 —— 还是 act1/style.css 里
+   原来那套竖排列表，一个字都没动。
+
+   按钮本身仍然是 ui.js 画的那个 <button class="choice-btn" data-index=N>，
+   点击走的还是 ui.js 挂在 #choices 上的事件代理，所以这里不用写交互。
+   ===================================================================== */
+
+:root {
+  --s0-edge: 30px;   /* 这一排离屏幕右边缘的距离 */
+  --s0-lift: 70px;   /* 离屏幕下边缘的距离（= #app 的 padding-bottom，让开 HUD） */
+  --s0-gap: 14px;    /* 方块之间的缝 */
+  --s0-tile: 96px;   /* 方块高度。改这里，时段提示那行会自己跟着挪 */
+}
+
+#choices.s0-locations {
+  /* 从 #stage 的 flex 流里摘出来，钉在右下角。
+     祖先上没有 filter / transform，fixed 仍然是相对视口定位。 */
+  position: fixed;
+  right: var(--s0-edge);
+  /* 和 #app 的 padding-bottom 对齐：让开底部那条 HUD */
+  bottom: var(--s0-lift);
+  left: auto;
+  margin: 0;
+  padding: 0;
+  flex-direction: row;
+  align-items: stretch;      /* 四个方块一样高，图标齐平 */
+  gap: var(--s0-gap);
+  z-index: 6;                /* 压过 HUD(5)，仍在结局层(8)之下 */
+  pointer-events: none;      /* 方块之间的缝不挡点击 */
+}
+
+#choices.s0-locations .choice-btn {
+  pointer-events: auto;
+  position: relative;
+  flex: 0 0 auto;
+  /* 104 是照着最长的那个场景名（「伊莎贝尔的房间」，7 个字 ×12px）留的，
+     再窄就会折成两行、四个方块高低不齐 */
+  width: 104px;
+  min-height: var(--s0-tile);
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 12px 8px 10px;
+  text-align: center;
+  border-radius: 14px;
+  border-color: rgba(201, 160, 90, 0.36);
+  background: linear-gradient(180deg, rgba(30, 25, 18, 0.88), rgba(12, 10, 8, 0.94));
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.45);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 编号去掉：位置本身就是提示，右下角这一排不需要「1 2 3」 */
+#choices.s0-locations .choice-key { display: none; }
+
+#choices.s0-locations .choice-text {
+  flex: none;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+  word-break: break-word;
+}
+
+#choices.s0-locations .choice-btn:hover:not(:disabled),
+#choices.s0-locations .choice-btn:focus-visible:not(:disabled) {
+  background: linear-gradient(180deg, rgba(52, 42, 28, 0.94), rgba(24, 19, 14, 0.96));
+  border-color: var(--gold);
+  transform: translateY(-4px);
+}
+
+#choices.s0-locations .s0-icon {
+  display: block;
+  width: 32px;
+  height: 32px;
+  color: var(--gold);
+}
+
+#choices.s0-locations .s0-icon svg { display: block; width: 100%; height: 100%; }
+
+/* 场景名做成 tooltip：平时藏起来，悬停 / 键盘聚焦才浮出来。
+
+   往左弹，不居中：右边缘和方块右边缘齐平，文字往左长。
+   居中的话最右边那块（「回房睡下」）的长提示会顶出屏幕右沿 —— 这一排
+   钉在离右边缘 30px 的地方，方块的半宽只有 52px，而最长的提示有 220px。
+   顺带这样整块提示也整体左移，不压画面右半边那个视觉重心。
+   注意宽度要用 max-content，不然会撑满方块那 104px 反而更高。 */
+#choices.s0-locations .choice-hint {
+  position: absolute;
+  right: 0;
+  left: auto;
+  bottom: calc(100% + 10px);
+  width: max-content;
+  max-width: 220px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(12, 10, 8, 0.95);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--parchment);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+#choices.s0-locations .choice-btn:hover .choice-hint,
+#choices.s0-locations .choice-btn:focus-visible .choice-hint { opacity: 1; }
+
+/* 时段提示：菜单正上方一行小字（「早晨 · 选择去向」）。
+   选项一亮出来对话框就整个收起来了，所以这时候屏幕上看不见「【早晨】」
+   那几个字 —— 这一行是补回「现在是几点」的。 */
+#s0-slot-label {
+  position: fixed;
+  right: var(--s0-edge);
+  /* 贴着图标排的上沿：离底 = 排的底 + 方块高 + 8px 缝。
+     方块高度由 --s0-tile 定（内容撑不到那么高），所以这是个定值。 */
+  bottom: calc(var(--s0-lift) + var(--s0-tile) + 8px);
+  z-index: 6;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+
+#s0-slot-label.on { opacity: 1; }
+
+/* =====================================================================
+   HUD 左上角的时间显示（设计稿 §5.1）
+   ---------------------------------------------------------------------
+   全天都在。跟 #hud 一个层（z-index 5）：开始界面(18) / 结算屏(8) /
+   日记本(12) 都会盖住它，用不着单独处理。
+
+   pointer-events: none —— 它纯粹是块牌子，底下的画面该点还能点。
+   ===================================================================== */
+
+#s0-clock {
+  position: fixed;
+  left: 22px;                       /* 和 #hud 的左内边距对齐 */
+  top: 18px;
+  z-index: 5;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  letter-spacing: 0.16em;
+  color: var(--parchment);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#s0-clock.on { opacity: 1; }
+
+#s0-clock .s0-clock-slot { color: var(--gold); }
+
+/* =====================================================================
+   日记本：一页式手记（设计稿 §6）
+   ---------------------------------------------------------------------
+   d1_diary_intro 最后一句播完之后，stage0.js 把这一层摊开。
+
+   z-index 12 是特意挑的：压在结算屏(8)和换装浮层(10)之上，
+   开始界面(18)之下 —— 重开一局时标题屏照常盖住一切。
+   （Stage 0 没有「结算屏上回看」的入口，那个留到 Stage 1。）
+
+   一页纸，从上往下一顺读下来：
+     标题 → 日期/天气 → ─── → 今日事件 → ─── → 她写的
+
+   「缓缓打开」全靠 CSS：一片绕着书脊转的封面。封面盖在整页纸上
+   （left:0 / width:100%），铰链放在左边缘（transform-origin: left center），
+   rotateY 从 0 转到 -172deg 就从右往左掀开了。
+   转 -172 而不是 -180，是为了在左侧留一条没掀平的边 —— 看着才像
+   一本书摊开还没压平，而不是一张贴上去的纸。
+   ===================================================================== */
+
+#diary-screen {
+  /* 纸和墨。跟 --parchment 同族，但纸上要比 UI 上亮，书才立得起来 */
+  --paper:    #ebe3d3;
+  --paper-2:  #ded4bf;
+  --ink:      #3b3229;
+  --ink-dim:  #7d7060;
+
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+
+  /* 用 visibility 而不是 display 开关：display:none → flex 的那一帧
+     过渡不会跑，封面会「啪」地直接出现在打开状态，没有动画。 */
+  visibility: hidden;
+  transition: visibility 0s linear 0.9s;
+}
+
+#diary-screen.on {
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+#diary-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 5, 4, 0.78);
+  /* 背景压暗糊掉。CLAUDE.md 那条禁令（模糊只能加在 #outfit-veil 上）
+     是冲着 #stage / #app 去的 —— 给它们加 filter 会让 fixed 的
+     #bg-layer 失去视口定位。这一层是个叶子节点，底下没有 fixed 后代，安全。 */
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.diary-book {
+  position: relative;
+  display: flex;
+  width: min(620px, 90vw);
+  height: min(600px, 76vh);
+  perspective: 1500px;          /* 封面转起来才有厚度 */
+  opacity: 0;
+  transform: translateY(14px) rotateX(9deg);
+  transition: opacity .5s ease, transform .6s cubic-bezier(.22, .61, .28, 1);
+}
+
+#diary-screen.on .diary-book {
+  opacity: 1;
+  transform: translateY(0) rotateX(0deg);
+}
+
+/* 一页纸。装不下就往下滚（日记会长），不裁字 */
+.diary-page {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 34px 40px 38px;
+  overflow-y: auto;
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--paper), var(--paper-2));
+  color: var(--ink);
+  font-family: var(--font-serif);
+  /* 书脊那一侧的暗影：纸是从书里撕下来的一页，左边该有一点深度 */
+  box-shadow: inset 18px 0 26px -22px rgba(0, 0, 0, .75);
+}
+
+/* 封面：盖在整页纸上，铰链在左边缘 */
+.diary-cover {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  border-radius: 6px;
+  transform-origin: left center;
+  transform: rotateY(0deg);
+  backface-visibility: hidden;
+  background: linear-gradient(120deg, #4a3524, #33241a 60%, #241a12);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, .55), 0 14px 40px rgba(0, 0, 0, .5);
+  transition: transform .85s cubic-bezier(.22, .61, .28, 1);
+}
+
+#diary-screen.on .diary-cover { transform: rotateY(-172deg); }
+
+/* ① 标题 */
+.diary-title {
+  font-size: 21px;
+  letter-spacing: .14em;
+}
+
+/* ② 日期 / 天气：一行，中间一个间隔点 */
+.diary-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.diary-day { font-size: 15px; color: var(--ink-dim); letter-spacing: .08em; }
+.diary-meta-sep { color: var(--ink-dim); }
+.diary-weather { font-size: 15px; letter-spacing: .08em; color: var(--ink-dim); }
+/* 雨天那页偏冷一点点。纯装饰，不占数据位 */
+.diary-weather[data-weather="雨"] { color: #4a6076; }
+
+/* 分隔线。「今日事件」上面那条深一点，下面那条淡一点 ——
+   上面的分的是「系统记录的今天 / 她的题目」，下面分的是「今天 / 她的话」 */
+.diary-rule {
+  margin-top: 14px;
+  border-top: 1px solid rgba(59, 50, 41, .34);
+}
+
+.diary-rule--soft {
+  margin-top: 26px;
+  border-top-color: rgba(59, 50, 41, .18);
+}
+
+/* ③ 今日事件 */
+.diary-events {
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+  line-height: 1.9;
+}
+
+.diary-events li { padding-left: 1.1em; text-indent: -1.1em; }
+.diary-events li::before { content: "· "; color: var(--ink-dim); text-indent: 0; }
+/* 今天什么都没记下（理论上不会发生：早晨那条总在）——
+   给一行灰字，不要空一块留白 */
+.diary-events li.diary-empty { color: var(--ink-dim); }
+
+/* ④ 她写的 */
+.diary-note {
+  margin: 18px 0 0;
+  font-size: 16px;
+  line-height: 2.1;
+  white-space: pre-line;       /* 多条台词之间换行 */
+}
+
+/* 合上那颗按钮跟 HUD 一个样式，但要用深色底 —— 底下是暗的 */
+#diary-close {
+  position: relative;
+  z-index: 3;
+  font-family: var(--font-sans);
+  letter-spacing: .1em;
+}
+
+/* 不喜欢动画的人：直接把过程砍掉 */
+@media (prefers-reduced-motion: reduce) {
+  #diary-screen,
+  .diary-book,
+  .diary-cover { transition-duration: 0s; }
+  .diary-book { opacity: 1; transform: none; }
+}
+
+/* 窄屏：一页纸排窄一点，字号跟着收 */
+@media (max-width: 760px) {
+  .diary-book { width: 92vw; height: min(78vh, 640px); }
+  .diary-page { padding: 24px 22px 26px; }
+  .diary-title { font-size: 18px; }
+  .diary-events { font-size: 14px; }
+  .diary-note { font-size: 15px; }
+  #s0-clock { left: 14px; top: 12px; font-size: 13px; }
+}

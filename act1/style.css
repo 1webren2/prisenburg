@@ -597,6 +597,16 @@ body:not(.ready) #app { opacity: 0; }
   z-index: 5;
 }
 
+/* 这一排是 nowrap 的，宽度又压在 max-width 上：空间不够时**必须由别的东西让路**，
+   不能让按钮自己缩 —— 中文标签一被压缩就折行，按钮从 33px 涨到 50px
+   （1280×720 上六颗全中招，而 --hud-h 是按一行 36px 算的）。
+   所以这里的六颗（含 daily.js 运行时插进来的【日记】那颗）保持原尺寸、标签不折；
+   让路的是右边的按键提示，见下面的 .hud-keys。 */
+#hud .hud-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .hud-btn {
   padding: 7px 14px;
   font-family: var(--font-sans);
@@ -611,11 +621,19 @@ body:not(.ready) #app { opacity: 0; }
 .hud-btn:hover { color: var(--gold); border-color: var(--gold-soft); }
 .hud-btn[data-on="1"] { color: var(--gold); border-color: var(--gold); }
 
+/* 按键提示是这一排里**第一个让路**的：窗口不够宽时它先被裁短（缩到按钮后面去），
+   而不是把六颗按钮挤成两行。flex-shrink 给 100，是为了比右边那颗「本地存档可用」
+   先缩 —— 它是辅助，那盏灯不是。 */
 .hud-keys {
   margin-left: 6px;
   font-size: 11px;
   color: var(--gold-soft);
   letter-spacing: 0.03em;
+  flex: 0 100 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .server-dot {
@@ -941,6 +959,103 @@ body:not(.ready) #app { opacity: 0; }
   padding: 10px 16px;
 }
 
+/* ---------------- 插画过场 ----------------
+
+   整屏一幅画 + 一句原文 + 一行提示，按空格收掉（输入在 ui.js 那头挡住）。
+   元素是 ui.js 运行时造的、不带 id，所以这一整块都按类名选中。
+
+   z-index 取 12：压在换装浮层(10)、结局层(8)、HUD(5) 之上，
+   但仍在开始界面(18)和加载失败提示(20)之下 —— 出岔子的提示不能被画盖住。
+   这一层挂在 <body> 底下，不是 #bg-layer 的祖先，所以随便用 transform。 */
+
+.cut-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;                 /* 缓慢推进放大出来的那一圈要裁掉 */
+  background: #070605;
+  z-index: 12;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+.cut-screen.on { opacity: 1; pointer-events: auto; }
+
+/* 极缓慢推进。0.06 是「看得出来又不会晃」的那个量；
+   9s 比一次停留长得多，玩家多半只看到它在慢慢走。 */
+.cut-frame {
+  position: absolute;
+  inset: 0;
+  transform: scale(1);
+  transition: transform 9s ease-out;
+}
+.cut-screen.on .cut-frame { transform: scale(1.06); }
+
+/* 像素占位 + 真图两层，和别处一个规矩：图到了就把占位收掉，
+   宿主自己不许有 border / background / box-shadow（否则会描出一圈边）。 */
+.cut-grid-host,
+.cut-image {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  border: 0;
+  box-shadow: none;
+}
+
+/* 说明文字压在画面下缘。上沿用渐变淡出，不做成一條硬边 ——
+   和对话框的 --dialogue-bg 同一个道理。 */
+.cut-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 70px 6vw calc(var(--hud-bottom) + 4vh);
+  text-align: center;
+  background: linear-gradient(180deg,
+              rgba(7, 6, 5, 0) 0%,
+              rgba(7, 6, 5, 0.70) 44%,
+              rgba(7, 6, 5, 0.90) 100%);
+  pointer-events: none;             /* 点画面任意处都能收，别被这一段挡住 */
+}
+
+.cut-title {
+  font-family: var(--font-serif);
+  font-size: clamp(15px, 1.8vw, 20px);
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  color: var(--gold);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+}
+
+.cut-line {
+  max-width: min(760px, 88vw);
+  font-family: var(--font-serif);
+  font-size: clamp(14px, 1.6vw, 18px);
+  line-height: 1.8;
+  color: var(--parchment);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+}
+
+.cut-hint {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-indent: 0.22em;
+  color: var(--parchment-dim);
+}
+
+/* 「减少动画」不必在这儿另写一条：文件末尾那条全局规则
+   （transition-duration: 0.001ms !important）已经把推进和淡入都按停了，
+   图会直接到位，只留一层静态的画。 */
+
 /* 加载失败提示 */
 #boot-error {
   display: none;
@@ -964,6 +1079,15 @@ body:not(.ready) #app { opacity: 0; }
    手机竖屏真正要做的是「面板改成浮层、立绘居中、选项占满宽度」，
    现在先不管，电脑布局才是当前重点。
    ===================================================================== */
+
+/* 窄一点的桌面窗口（1280×720 这一档）：HUD 那一排的天然宽度约 1030px，
+   而它的上限是「视口宽 − 284px」，所以窗口窄于约 1314px 就开始挤。
+   这里把按钮内边距和间距各收一点 —— 一排省下约 70px，余量就够了，
+   按键提示也因此不必被裁。1366 往上不生效，那边的观感保持原样。 */
+@media (max-width: 1320px) {
+  #hud { gap: 6px; }
+  #hud .hud-btn { padding: 7px 9px; }
+}
 
 @media (max-width: 820px) {
   :root {

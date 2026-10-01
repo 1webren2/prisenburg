@@ -24,6 +24,7 @@
  *     title:     "第一幕 · 主座之上",            // 可选，转场时显示
  *     art:       { bg: "bg_hall", portrait: "chr_aubrey" },   // 指向 art.assets
  *     povSwitch: { line: "…" },               // 可选，切视角时额外显示的一行
+ *     povSwitch: { silent: true },            // 可选，静默换视角：不弹那行提示，也不发 pov 事件
  *     dialogues: [ { speaker, text, if? } ],   // 台词；if 不满足就跳过这一行
  *     choices:   [ { text, hint, next, if?, lockedHint?, effects? } ],
  *     next:      "a2_returned"                 // 没有 choices 时用 next 直接跳
@@ -31,6 +32,7 @@
  *
  * 效果 / 条件里出现的 stat，必须先在 config.statLabels 里定义过，否则自检会报错：
  *   effects: [ { stat: "伊莎贝尔_好感", value: 1, note: "…" } ]
+ *   effects: [ { stat: "旗_第2天早晨", value: 1, silent: true } ]   // 只记账，不出提示
  *   if:      { stat: "西比拉_警惕", op: ">=", value: 3 }
  */
 
@@ -299,6 +301,7 @@
     const povs = {};
     const actsMeta = [];
     let roamData = null;      // 幕间自由活动：整块合并，不做深合并
+    let diaryData = null;     // 日常层的日记数据：同上，整块认
 
     const mergeTable = (target, src, label, actNo) => {
       for (const key of Object.keys(src || {})) {
@@ -328,6 +331,16 @@
         }
         roamData = story.freeRoam;
       }
+      // 日记数据（日常层 daily/story.json 里的 diary 块）跟 freeRoam 一个道理：
+      // 只认一份，写在后面几幕里照样带得出来。引擎**不认识它的内部结构**，
+      // 只是原样留在拼好的剧本上，给界面层读（daily/diary.js 的 blockOf()）。
+      // 少了这一段，daily.js 从 window.act1.story 里就找不到那本册子。
+      if (story.diary) {
+        if (diaryData && JSON.stringify(diaryData) !== JSON.stringify(story.diary)) {
+          throw new Error(`第 ${actNo} 幕的日记数据和前面那一幕定义得不一样`);
+        }
+        diaryData = story.diary;
+      }
       const m = story.meta || {};
       actsMeta.push({ act: m.act || null, title: m.title || null, start: m.start || null });
     });
@@ -344,6 +357,7 @@
       nodes,
     });
     if (roamData) composed.freeRoam = roamData;
+    if (diaryData) composed.diary = diaryData;
     return composed;
   }
 
@@ -513,7 +527,10 @@
           after,
           changed: delta !== 0,
           // 已经到底了就没变化 —— 这时候给一句「她软了一点」是骗人的，索性不出提示
-          note: delta === 0 ? '' : (eff.note || this.noteFor(eff.stat, delta)),
+          // silent：照常记账，但一个字都不提示。给「记录」类数值（日常层的日记旗）
+          // 用 —— 它记的是「她今天走的是哪一条路」，是给日记本看的，不是给玩家的
+          // 奖励反馈。写了它，eff.note 和 statNotes 都到不了 #toast。
+          note: (eff.silent || delta === 0) ? '' : (eff.note || this.noteFor(eff.stat, delta)),
         };
         results.push(result);
         this.emit('effect', result);
@@ -544,15 +561,21 @@
       this.visited.add(nodeId);
 
       // ---- 视角切换：相邻两个节点的 pov 不一样就切 ----
+      // 节点写了 povSwitch.silent 就**只换视角、不出提示**：日常层（奥布里）
+      // 和原著段（西比拉）每个时段都要来回切一次，不关掉的话玩家每换一个时段
+      // 就吃一行系统提示。静默只影响提示，_prevPov 照常更新，所以下一次真正的
+      // 视角切换仍然认得出来。
       this.povSwitchInfo = null;
       if (prevPov && prevPov !== node.pov) {
-        this.povSwitchInfo = {
-          from: prevPov,
-          to: node.pov,
-          line: (node.povSwitch && node.povSwitch.line) || `${prevPov} 视角结束 —— ${node.pov} 视角开始`,
-          pov: this.povs[node.pov] || null,
-        };
-        this.emit('pov', this.povSwitchInfo);
+        if (!(node.povSwitch && node.povSwitch.silent)) {
+          this.povSwitchInfo = {
+            from: prevPov,
+            to: node.pov,
+            line: (node.povSwitch && node.povSwitch.line) || `${prevPov} 视角结束 —— ${node.pov} 视角开始`,
+            pov: this.povs[node.pov] || null,
+          };
+          this.emit('pov', this.povSwitchInfo);
+        }
       }
       this._prevPov = node.pov;
 

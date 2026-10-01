@@ -1,0 +1,256 @@
+/* =====================================================================
+   日常层的样式（加在 act1/style.css 后面加载）
+   ---------------------------------------------------------------------
+   只做两件事：HUD 左上角的时间显示、HUD 上的【日记】按钮 + 摊开的册子。
+
+   这份文件**只增不改**。stage0.css 里有两条是「改」而不是「增」
+   （:root 的 --dialogue-bg、#dialogue-box 的 border-top / box-shadow /
+   backdrop-filter），那是给右下角那排图标菜单配的 —— 那排图标菜单
+   这一阶段不做，所以这里一条全局覆写都没有，三幕的观感一个字节不变。
+
+   所有选择器都带 dy- 前缀，撞不到 act1/style.css 里的任何一条。
+
+   颜色用的是 act1/style.css 里已有的那些变量（--gold / --parchment /
+   --panel-edge / --font-serif…），不另外定义调色板。
+   ===================================================================== */
+
+/* =====================================================================
+   一、时间显示（设计稿 §5.1）
+   ---------------------------------------------------------------------
+   全天挂着。跟 #hud 一个层（z-index 5）：开始界面(18) / 结算屏(8) /
+   日记本(12) 都会盖住它，用不着单独处理。
+
+   pointer-events: none —— 它纯粹是块牌子，底下的画面该点还能点。
+   ===================================================================== */
+
+.dy-clock {
+  position: fixed;
+  left: 22px;
+  /* 挂在**章节标题底下**，不是页顶。stage0.css 里是 top:18px（和 #hud 的左内边距
+     对齐），但那边从来没在浏览器里量过 —— 真量出来会和 #title-bar 叠在一起：
+     标题栏在 top:22 / left:26，正好压在同一块地方，两行字糊成一团。
+     标题栏最矮的一档是 13px 字 + 5px 间距 + 11px 视角行 ≈ 34px 高，
+     从 22 起算底边约 56；这里留到 78，四种分辨率都验过（tests/shots.cjs
+     的 20/21 两张图会真量「有没有和标题叠上」）。 */
+  top: 78px;
+  z-index: 5;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  letter-spacing: 0.16em;
+  color: var(--parchment);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.dy-clock.on { opacity: 1; }
+.dy-clock.dy-hidden { opacity: 0; }
+
+.dy-clock .dy-clock-slot { color: var(--gold); }
+
+/* =====================================================================
+   二、【日记】按钮（设计稿 §5.2）
+   ---------------------------------------------------------------------
+   就长在 #hud 那一排里，用的是 .hud-btn 原本的样式，只补两点：
+     · 今天还没有记录时是暗的（:disabled）—— 「暗」而不是「藏」，
+       这样玩家知道有这么个东西、只是还不到时候
+     · 有记录之后描一圈金边，跟「查看数值」亮起来时是一样的语言
+   ===================================================================== */
+
+.dy-diary-btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.dy-diary-btn:disabled:hover {
+  color: var(--parchment-dim);
+  border-color: var(--panel-edge);
+}
+
+.dy-diary-btn.dy-ready {
+  color: var(--gold);
+  border-color: var(--gold-soft);
+}
+
+/* =====================================================================
+   三、日记本：一页式手记（设计稿 §6）
+   ---------------------------------------------------------------------
+   一页纸，从上往下一顺读下来：
+     标题 → 日期/天气 → ─── → 今日事件 → ─── → 她写的
+
+   z-index 12 是特意挑的：压在结算屏(8)和换装浮层(10)之上，
+   开始界面(18)之下 —— 重开一局时标题屏照常盖住一切。
+
+   「缓缓打开」全靠 CSS：一片绕着书脊转的封面。封面盖在整页纸上
+   （left:0 / width:100%），铰链放在左边缘（transform-origin: left center），
+   rotateY 从 0 转到 -172deg 就从右往左掀开了。转 -172 而不是 -180，
+   是为了在左侧留一条没掀平的边 —— 看着才像一本书摊开还没压平。
+   ===================================================================== */
+
+.dy-diary-screen {
+  /* 纸和墨。跟 --parchment 同族，但纸上要比 UI 上亮，书才立得起来 */
+  --paper:    #ebe3d3;
+  --paper-2:  #ded4bf;
+  --ink:      #3b3229;
+  --ink-dim:  #7d7060;
+
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+
+  /* 用 visibility 而不是 display 开关：display:none → flex 的那一帧
+     过渡不会跑，封面会「啪」地直接出现在打开状态，没有动画。 */
+  visibility: hidden;
+  transition: visibility 0s linear 0.9s;
+}
+
+.dy-diary-screen.on {
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.dy-diary-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 5, 4, 0.78);
+  /* 背景压暗糊掉。CLAUDE.md 那条禁令（模糊只能加在 #outfit-veil 上）
+     是冲着 #stage / #app 去的 —— 给它们加 filter 会让 fixed 的
+     #bg-layer 失去视口定位。这一层是个叶子节点，底下没有 fixed 后代，安全。 */
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.dy-diary-book {
+  position: relative;
+  display: flex;
+  width: min(620px, 90vw);
+  height: min(600px, 76vh);
+  perspective: 1500px;          /* 封面转起来才有厚度 */
+  opacity: 0;
+  transform: translateY(14px) rotateX(9deg);
+  transition: opacity .5s ease, transform .6s cubic-bezier(.22, .61, .28, 1);
+}
+
+.dy-diary-screen.on .dy-diary-book {
+  opacity: 1;
+  transform: translateY(0) rotateX(0deg);
+}
+
+/* 一页纸。装不下就往下滚（日记会长），不裁字 */
+.dy-diary-page {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 34px 40px 38px;
+  overflow-y: auto;
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--paper), var(--paper-2));
+  color: var(--ink);
+  font-family: var(--font-serif);
+  /* 书脊那一侧的暗影：纸是从书里撕下来的一页，左边该有一点深度 */
+  box-shadow: inset 18px 0 26px -22px rgba(0, 0, 0, .75);
+}
+
+/* 封面：盖在整页纸上，铰链在左边缘 */
+.dy-diary-cover {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  border-radius: 6px;
+  transform-origin: left center;
+  transform: rotateY(0deg);
+  backface-visibility: hidden;
+  background: linear-gradient(120deg, #4a3524, #33241a 60%, #241a12);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, .55), 0 14px 40px rgba(0, 0, 0, .5);
+  transition: transform .85s cubic-bezier(.22, .61, .28, 1);
+}
+
+.dy-diary-screen.on .dy-diary-cover { transform: rotateY(-172deg); }
+
+/* ① 标题 */
+.dy-diary-title {
+  font-size: 21px;
+  letter-spacing: .14em;
+}
+
+/* ② 日期 / 天气：一行，中间一个间隔点 */
+.dy-diary-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.dy-diary-day { font-size: 15px; color: var(--ink-dim); letter-spacing: .08em; }
+.dy-diary-meta-sep { color: var(--ink-dim); }
+.dy-diary-weather { font-size: 15px; letter-spacing: .08em; color: var(--ink-dim); }
+/* 雨天那页偏冷一点点。纯装饰，不占数据位 */
+.dy-diary-weather[data-weather="雨"] { color: #4a6076; }
+
+/* 分隔线。「今日事件」上面那条深一点，下面那条淡一点 ——
+   上面的分的是「系统记录的今天 / 她的题目」，下面分的是「今天 / 她的话」 */
+.dy-diary-rule {
+  margin-top: 14px;
+  border-top: 1px solid rgba(59, 50, 41, .34);
+}
+
+.dy-diary-rule--soft {
+  margin-top: 26px;
+  border-top-color: rgba(59, 50, 41, .18);
+}
+
+/* ③ 今日事件 */
+.dy-diary-events {
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+  line-height: 1.9;
+}
+
+.dy-diary-events li { padding-left: 1.1em; text-indent: -1.1em; }
+.dy-diary-events li::before { content: "· "; color: var(--ink-dim); text-indent: 0; }
+/* 一条事件都没有的那一页（第 1 日）**整块收掉** —— 列表、两条分隔线都由
+   daily.js 的 fillDiary() 一起隐藏，所以这里没有「空状态」这根线可画。 */
+
+/* ④ 她写的 */
+.dy-diary-note {
+  margin: 18px 0 0;
+  font-size: 16px;
+  line-height: 2.1;
+  white-space: pre-line;       /* 多段之间空一行 */
+}
+
+/* 合上那颗按钮跟 HUD 一个样式，但要用深色底 —— 底下是暗的 */
+.dy-diary-close {
+  position: relative;
+  z-index: 3;
+  font-family: var(--font-sans);
+  letter-spacing: .1em;
+}
+
+/* 不喜欢动画的人：直接把过程砍掉 */
+@media (prefers-reduced-motion: reduce) {
+  .dy-diary-screen,
+  .dy-diary-book,
+  .dy-diary-cover { transition-duration: 0s; }
+  .dy-diary-book { opacity: 1; transform: none; }
+}
+
+/* 窄屏：一页纸排窄一点，字号跟着收 */
+@media (max-width: 760px) {
+  .dy-diary-book { width: 92vw; height: min(78vh, 640px); }
+  .dy-diary-page { padding: 24px 22px 26px; }
+  .dy-diary-title { font-size: 18px; }
+  .dy-diary-events { font-size: 14px; }
+  .dy-diary-note { font-size: 15px; }
+  .dy-clock { left: 14px; top: 72px; font-size: 13px; }
+}

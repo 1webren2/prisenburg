@@ -25,8 +25,10 @@ const uiApi = require(path.join(ROOT, 'act1', 'ui.js'));
 const story = require(path.join(ROOT, 'act1', 'story.json'));
 const story2 = require(path.join(ROOT, 'act2', 'story.json'));
 const story3 = require(path.join(ROOT, 'act3', 'story.json'));
-// 和浏览器里 boot() 一样：第一幕 + 顺着 meta.continues 读到的第二、第三幕
-const wholeStory = api.composeStories([story, story2, story3]);
+const dailyStory = require(path.join(ROOT, 'daily', 'story.json'));
+const huntStories = [4, 5, 6, 7, 8].map((n) => require(path.join(ROOT, 'hunt', `ch${n}.json`)));
+// 和浏览器里 boot() 一样：第一幕 + 顺着 meta.continues 读到的第二幕 / 第三幕 / 日常层 / 狩猎篇
+const wholeStory = api.composeStories([story, story2, story3, dailyStory, ...huntStories]);
 
 const { StoryEngine } = api;
 const { Act1UI, CONFIG, imageSrc } = uiApi;
@@ -277,9 +279,14 @@ const seenOutfits = [];
 let outfitGuard = 0;
 for (;;) {
   if (++outfitGuard > 5000) break;
-  const v = outfit.ui.view;
-  const bg = leftBG(outfit.ui);
-  if (seenOutfits[seenOutfits.length - 1] !== bg) seenOutfits.push(bg);
+  // 日常层的节点是奥布里视角（左槽是 chr_aubrey），它们夹在原著段之间。
+  // 这一段查的是**原著本身**换过几次衣裳，所以日常层整段跳过不记 ——
+  // 跳过之后原著那句「牧师服出现两段，各自连续」仍然原样成立。
+  const at = outfit.ui.engine.node && outfit.ui.engine.node.id;
+  if (!(at && at[0] === 'd')) {
+    const bg = leftBG(outfit.ui);
+    if (seenOutfits[seenOutfits.length - 1] !== bg) seenOutfits.push(bg);
+  }
   if (!autoStep(outfit.ui)) break;
 }
 t.ok(seenOutfits.includes('url("../images/chr_sibylla.webp")'), '第二幕前半段西比拉穿女仆装（chr_sibylla）');
@@ -465,8 +472,11 @@ t.eq(bridge.ui.els['end-continue'].textContent, '继续第二幕 ▶', '按钮�
 
 bridge.fire(bridge.ui.els['end-continue'], 'click');
 t.eq(bridge.engine.node.id, 'b1_room', '点一下接着演第二幕');
-// 刚跨进第二幕那一刻的数值，留到第二幕结尾去比（第二幕一个 effects 都没写）
+// 刚跨进第二幕那一刻的数值 —— 从前留到第二幕结尾去比（那会儿中间一个 effects 都没有）。
+// 现在第一夜与第 2 天之间夹着日常层，中间本来就要变，这条比法作废，
+// 「第二幕自己不碰数值」改在 engine.test.cjs 里直接盯着 b 开头节点上的变化查。
 const statsAtAct2 = Object.assign({}, bridge.engine.stats);
+t.ok(typeof statsAtAct2 === 'object', '跨进第二幕那一刻的数值取到了（具体比法见 engine.test.cjs）');
 t.eq(bridge.ui.view.type, 'line', '接上之后直接就是第二幕的第一句话');
 t.eq(bridge.ui.els['end-screen'].classList.contains('on'), false, '结局屏收掉了');
 t.eq(bridge.ui.els['dialogue-box'].classList.contains('collapsed'), false, '对话框又打开了');
@@ -484,25 +494,96 @@ t.eq(bridge.ui.view.type, 'end', '第二幕也能走到结局');
 t.eq(bridge.ui.view.node.id, 'b25_end', '停在第二幕的结局节点 b25_end');
 t.eq(bridge.ui.els['end-title'].textContent, '第二幕 · 完', '第二幕的结局标题跟着节点走');
 t.eq(bridge.ui.els['end-continue'].style.display, '', '第二幕后面还有第三幕，按钮照旧在');
-t.eq(bridge.ui.els['end-continue'].getAttribute('data-next'), 'c1_door', '按钮指向第三幕的开头');
-t.eq(bridge.ui.els['end-continue'].textContent, '继续第三幕 ▶', '按钮上写着第三幕');
-t.eq(bridge.engine.stats, statsAtAct2, '第二幕一个 effects 都没写，跨进第三幕时数值跟跨进第二幕时一模一样');
+// 第一幕改造后，b25_end 后面接的是日常层的第 3 天，不再是直接跳第三幕
+t.eq(bridge.ui.els['end-continue'].getAttribute('data-next'), 'dy_d3_mo_hub', '按钮指向日常层的第 3 天早晨');
+// 按钮上写的是「去哪一天」，不是「去哪儿」—— 日常层 hub 的标题是地点名，
+// 所以由节点自己写的 continueLabel 供给（ui.js 优先认它，标题只是兜底）
+t.eq(bridge.ui.els['end-continue'].textContent, '继续第 3 天 ▶', '按钮上写着日常层下一天');
+// 「第二幕一个 effects 都没写」这条在引擎那边改成直接盯 b 开头节点上的数值变化了 ——
+// 日常层夹在中间，从 b25_end 到 c1_door 中间本来就要变数值，两边对不上是应该的
 
-// 接着走进第三幕，一路走到第三幕的结局
+// 接着走进日常层的第一天
 bridge.fire(bridge.ui.els['end-continue'], 'click');
-t.eq(bridge.engine.node.id, 'c1_door', '点一下接着演第三幕');
-t.eq(bridge.engine.pov, '西比拉', '第三幕仍然是西比拉视角');
+t.eq(bridge.engine.node.id, 'dy_d3_mo_hub', '点一下接着演日常层的第 3 天早晨');
+t.eq(bridge.engine.pov, '奥布里', '日常层是奥布里视角');
+t.eq(bridge.engine.povSwitchInfo, null, '进日常层是静默切视角，不弹那行系统提示');
 t.eq(bridge.ui.els['end-screen'].classList.contains('on'), false, '结局屏又收掉了');
 
+// 第三幕之后还有狩猎篇五章（c27_end → h4_knock 是一根 next，不是 continueTo），
+// 所以要一路演到第一幕真正的收束点 h8_end 才算走完
 let g6 = 0;
-while (g6++ < 4000) {
-  if (bridge.ui.view.type === 'end' && bridge.ui.view.node.id === 'c27_end') break;
+while (g6++ < 6000) {
+  if (bridge.ui.view.type === 'end' && bridge.ui.view.node.id === 'h8_end') break;
   if (!autoStep(bridge.ui)) break;
 }
-t.eq(bridge.ui.view.type, 'end', '第三幕也能走到结局');
-t.eq(bridge.ui.view.node.id, 'c27_end', '停在第三幕的结局节点 c27_end');
-t.eq(bridge.ui.els['end-continue'].style.display, 'none', '第三幕是最后一幕，没有「继续下一幕」了');
-t.eq(bridge.ui.els['end-roam'].style.display, '', '第三幕的结局屏上照旧有「自由活动」的入口');
+t.eq(bridge.ui.view.type, 'end', '第三幕 + 狩猎篇五章也能走到结局');
+t.eq(bridge.ui.view.node.id, 'h8_end', '停在狩猎篇第八章末 —— 第一幕真正的收束点');
+t.eq(bridge.ui.els['end-continue'].style.display, 'none', 'h8_end 后面没有下一幕，没有「继续」按钮了');
+t.eq(bridge.ui.els['end-roam'].style.display, '', '第一幕的结局屏上照旧有「自由活动」的入口');
+
+/* ===================================================================
+ * 6b-2. 插画过场：第六章返营那个节点上的整屏插画
+ * =================================================================== */
+
+t.section('插画过场');
+
+// 先把剧本这一头钉住：全剧只有一处插画过场，而且它指向的素材真的在素材表里
+const cutNodes = wholeStory.nodes.filter((n) => n.cutscene);
+t.eq(cutNodes.length, 1, '全剧只有一处插画过场');
+t.eq(cutNodes[0].id, 'h6_ride', '过场插画落在第六章返营那个节点上');
+t.eq(cutNodes[0].cutscene.image, 'cut_hunt_return', '画的素材是 cut_hunt_return');
+const cutAsset = wholeStory.art.assets.cut_hunt_return;
+t.ok(!!cutAsset, 'cut_hunt_return 在合并后的素材表里');
+t.ok(/cut_hunt_return\.jpg$/.test((cutAsset || {}).src || ''), '它指的是那张 ASCII 名的 jpg（中文名原件没动）');
+t.ok((cutNodes[0].cutscene.title || '').length > 0, '过场插画配了标题');
+// 插画上那行字必须是这个节点原文里摘的原话 —— 过场也算台词，不许另编
+t.ok(
+  cutNodes[0].dialogues.some((d) => String(d.text).indexOf(cutNodes[0].cutscene.line) >= 0),
+  '插画上那一句是从本节点的原文里摘的，不是另编的'
+);
+
+const cut = bootUI(wholeStory);
+cut.ui.begin();
+let g7 = 0;
+while (cut.engine.node.id !== 'h6_ride' && g7++ < 6000) {
+  if (!autoStep(cut.ui)) break;
+}
+t.eq(cut.engine.node.id, 'h6_ride', '一路演到了挂插画的那个节点');
+t.ok(!/cut-screen/.test(HTML), 'index.html 里没有这一层 —— 整块是 ui.js 运行时造的');
+
+const cutHost = () => cut.doc.body.getElementsByClassName('cut-screen')[0];
+const cutOn = () => !!(cutHost() && cutHost().classList.contains('on'));
+t.ok(!!cutHost(), '过场插画那一层挂在 <body> 底下');
+t.eq(cutOn(), true, '到了这个节点，插画自己铺上来了');
+const cutSpec = cut.engine.node.cutscene;
+t.eq(cut.ui._cut.title.textContent, cutSpec.title, '标题用节点上写的那个');
+t.eq(cut.ui._cut.line.textContent, cutSpec.line, '那一句用节点上写的原文');
+t.eq(cut.ui._cut.hint.textContent, cutSpec.hint, '提示语也用节点上写的');
+t.ok(cut.ui._cut.image.style.backgroundImage.indexOf('cut_hunt_return.jpg') >= 0, '真图那一层铺的正是这张插画');
+t.eq(cut.ui._cut.grid.style.display, '', '图还没探到之前，像素占位先亮着');
+cut.runTimers();
+t.eq(cut.ui._cut.grid.style.display, 'none', '真图到位之后像素占位收起来');
+
+// 插画铺着的时候，这一下输入只用来关它 —— 不能一口气滑过两格
+const held = cut.ui.view;
+cut.fireKey(' ');
+t.eq(cut.ui.view, held, '插画铺着时按空格不推进，只是把它收掉');
+t.eq(cutOn(), false, '按一下空格，插画收掉');
+t.eq(cut.ui.cutsceneOpen, false, '收掉之后不再是「挡着输入」的状态');
+t.eq(cut.engine.node.id, 'h6_ride', '还停在同一节点上');
+
+// 收掉之后照常推进，而且同一节点上不会再铺第二遍
+const lineAfterCut = cut.ui.view.index;
+cut.fireKey(' ');
+t.eq(cut.ui.view.index, lineAfterCut + 1, '插画收掉之后，空格照常往前推一行');
+t.eq(cut.ui._cutShownNode, 'h6_ride', '记下这个节点的插画已经演过');
+t.eq(cut.ui.pendingCutscene(), null, '同一个节点上不会再铺第二遍');
+
+// 点画面任意处也能收（和对话框一样）
+cut.ui.showCutscene(cutSpec);
+t.eq(cutOn(), true, '再铺一次看看');
+cut.fire(cutHost(), 'click');
+t.eq(cutOn(), false, '点一下画面也能把插画收掉');
 
 /* ===================================================================
  * 6c. 选项框：点下去就该立刻消失
@@ -907,7 +988,7 @@ t.ok(stat.ui.els['stats-body'].children[0].className.includes('stat-hidden'), '�
 
 stat.fireKey('v');
 t.eq(stat.engine.showStats, true, '按 V 打开真实数值');
-t.eq(stat.ui.els['stats-body'].children.length, 13, '打开后有 13 行（第一章的四维数值＋线索＋关系）');
+t.eq(stat.ui.els['stats-body'].children.length, 4, '打开后有 4 行（只列西比拉的四项关系，其余数值隐藏）');
 t.eq(stat.ui.els['stats-toggle'].getAttribute('data-on'), '1', '按钮状态跟着变');
 t.eq(stat.ui.els['stats-panel'].classList.contains('revealed'), true, '面板展开');
 
@@ -1066,6 +1147,7 @@ t.eq(good.store.size(), 0, '探针键用完就删掉，不留垃圾');
     '#portrait-grid-host', '#portrait-image',
     '#portrait-grid-host-r', '#portrait-image-r',
     '#outfit-image',
+    '.cut-grid-host', '.cut-image',
   ];
   const boxy = [];
   for (const sel of BOXY) {
@@ -1156,6 +1238,24 @@ t.eq(good.store.size(), 0, '探针键用完就删掉，不留垃圾');
   t.eq(zOutfit, 10, '换装浮层的 z-index 是 10');
   if (zEnd !== null) t.ok(zOutfit > zEnd, `浮层压在结局卡片之上（${zOutfit} > ${zEnd}）`);
   t.ok(zOutfit < zTitle, `浮层还在开始界面之下（重开时不会露在标题上面：${zOutfit} < ${zTitle}）`);
+
+  /* ---------------- 插画过场 ---------------- */
+
+  const zCut = zOf('.cut-screen');
+  t.ok(zCut !== null && zCut > zHud, `过场插画在控制条之上（${zCut} > ${zHud}）`);
+  t.ok(zCut !== null && zCut < zTitle, `过场插画还在开始界面之下（${zCut} < ${zTitle}）`);
+  if (zBoot !== null) t.ok(zBoot > zCut, `加载失败提示仍然压在最上面（${zBoot} > ${zCut}）`);
+  const cutScreen = declsFor('.cut-screen');
+  t.ok(/fixed/.test(cutScreen.position || ''), '过场插画是全屏铺满的');
+  t.eq(cutScreen.opacity, '0', '没铺的时候整层是透明的');
+  t.eq(cutScreen['pointer-events'], 'none', '没铺的时候不挡点击');
+  t.ok(/hidden/.test(cutScreen.overflow || ''), '放大出来的那一圈裁在层内');
+  t.ok(/transform/.test(declsFor('.cut-frame').transition || ''), '画面有缓慢推进的过渡');
+  t.ok(/scale\(1\.0\d\)/.test(declsFor('.cut-screen.on .cut-frame').transform || ''), '推进是「极其缓慢地放大」那一下');
+  t.ok(/cover/.test(declsFor('.cut-image')['background-size'] || ''), '真图铺满整屏（cover）');
+  t.eq(declsFor('.cut-caption')['pointer-events'], 'none', '说明文字那一段不挡「点画面收掉」');
+  t.ok(/prefers-reduced-motion/.test(CSS), '系统设了「减少动画」时有对应的降级规则');
+  t.eq(declsFor('.cut-screen')['backdrop-filter'], undefined, '过场层没有用 backdrop-filter（背景模糊只留给换装浮层）');
 
   // 背景模糊只能加在浮层自己那一层上
   const veil = declsFor('#outfit-veil');

@@ -61,11 +61,30 @@ function makeEl(tag, doc) {
   el.classList = makeClassList(el);
 
   el.appendChild = (child) => { child.parentNode = el; el.children.push(child); return child; };
+  el.insertBefore = (child, ref) => {
+    const i = ref ? el.children.indexOf(ref) : -1;
+    child.parentNode = el;
+    if (i < 0) el.children.push(child); else el.children.splice(i, 0, child);
+    return child;
+  };
   el.removeChild = (child) => {
     const i = el.children.indexOf(child);
     if (i >= 0) el.children.splice(i, 1);
     child.parentNode = null;
     return child;
+  };
+  /** 后代里所有带这个类的元素（只按 _class 这一份账找，够 daily.js 用） */
+  el.getElementsByClassName = (cls) => {
+    const want = String(cls).trim();
+    const out = [];
+    const walk = (node) => {
+      for (const child of node.children) {
+        if (child._class && child._class.has(want)) out.push(child);
+        walk(child);
+      }
+    };
+    walk(el);
+    return out;
   };
   el.setAttribute = (k, v) => { el.attrs[k] = String(v); };
   el.getAttribute = (k) => (k in el.attrs ? el.attrs[k] : null);
@@ -88,7 +107,10 @@ function makeEl(tag, doc) {
   };
   /** 给测试用的派发器（真 DOM 里是浏览器干的） */
   el.dispatch = (type, ev) => {
-    const payload = Object.assign({ type, target: el, preventDefault() {}, stopPropagation() {} }, ev || {});
+    const payload = Object.assign({
+      type, target: el,
+      preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {},
+    }, ev || {});
     for (const fn of el.listeners[type] || []) fn(payload);
     return payload;
   };
@@ -104,13 +126,19 @@ function loadDom(htmlPath) {
   const byId = new Map();
   const docListeners = {};
 
+  /* document 上的监听按 {fn, capture} 记 —— 捕获阶段要先跑，而且
+     stopImmediatePropagation() 真的能截住后面的人（daily.js 就是靠这个
+     把空格/回车拦住，不让它漏到背后的对话上去的）。 */
   const doc = {
     createElement: (tag) => makeEl(tag, doc),
     getElementById: (id) => byId.get(id) || null,
-    addEventListener: (type, fn) => { (docListeners[type] || (docListeners[type] = [])).push(fn); },
+    addEventListener: (type, fn, opts) => {
+      const capture = !!(opts === true || (opts && opts.capture));
+      (docListeners[type] || (docListeners[type] = [])).push({ fn, capture });
+    },
     removeEventListener: (type, fn) => {
       const list = docListeners[type];
-      if (list) docListeners[type] = list.filter((f) => f !== fn);
+      if (list) docListeners[type] = list.filter((l) => l.fn !== fn);
     },
   };
 
@@ -152,6 +180,25 @@ function loadDom(htmlPath) {
     return probe;
   }
 
+  /* 假的 MutationObserver：只记下「谁在盯谁」，不会自己触发。
+     真浏览器是异步回调，测试里用 pokeObservers() 手摇 —— 等价于「页面换了一帧」。 */
+  const observers = [];
+  function FakeMutationObserver(cb) {
+    this.cb = cb;
+    this.targets = [];
+    observers.push(this);
+  }
+  FakeMutationObserver.prototype.observe = function (target, opts) {
+    this.targets.push({ target, opts });
+  };
+  FakeMutationObserver.prototype.disconnect = function () { this.targets.length = 0; };
+  FakeMutationObserver.prototype.takeRecords = function () { return []; };
+
+  /** 手摇所有观察者（daily.js 靠这个把 HUD 跟着剧情重画） */
+  function pokeObservers() {
+    for (const o of observers) o.cb([], o);
+  }
+
   const win = {
     // matches:true -> 引擎判定「系统设了减少动画」，打字机直接跳过，测试里文本一次到位
     matchMedia: () => ({ matches: true, addListener() {}, removeListener() {} }),
@@ -162,6 +209,7 @@ function loadDom(htmlPath) {
     addEventListener: () => {},
     console,
     Image: FakeImage,
+    MutationObserver: FakeMutationObserver,
     fetch: null,          // 测试按需覆盖
   };
 
@@ -182,7 +230,7 @@ function loadDom(htmlPath) {
     return el.dispatch(type, ev);
   }
 
-  /** 敲键盘（走 document 上的全局监听） */
+  /** 敲键盘（走 document 上的全局监听：先捕获，再冒泡） */
   function fireKey(key, opts) {
     const ev = Object.assign({
       key,
@@ -191,12 +239,20 @@ function loadDom(htmlPath) {
       target: doc.body,
       preventDefault() { ev.__prevented = true; },
       stopPropagation() {},
+      stopImmediatePropagation() { ev.__stopped = true; },
     }, opts || {});
-    for (const fn of docListeners.keydown || []) fn(ev);
+    const list = docListeners.keydown || [];
+    for (const phase of [true, false]) {
+      for (const l of list) {
+        if (!!l.capture !== phase) continue;
+        l.fn(ev);
+        if (ev.__stopped) return ev;      // 真 DOM：同一个节点上后面的监听器不再跑
+      }
+    }
     return ev;
   }
 
-  return { doc, win, fire, fireKey, runTimers, setImagesLoad, html };
+  return { doc, win, fire, fireKey, runTimers, setImagesLoad, pokeObservers, html };
 }
 
 module.exports = { loadDom, makeEl };

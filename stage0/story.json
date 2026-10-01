@@ -1,0 +1,2106 @@
+{
+  "meta": {
+    "title": "普里森堡 · 日常模式",
+    "act": "Stage 0 · 实验原型",
+    "version": "0.1.0-stage0",
+    "start": "d1_wake",
+    "continues": [],
+    "description": "Stage 0 实验原型：只做「正式日常模式开始后的第一天」。序章（马车 → 普里森堡 → 大厅初见）不在这里，仍然是 act1/act2/act3 里那份没有动过的正式剧本。这个文件是一份独立的实验剧本，不接正式主线，也不参与 tests/fidelity.cjs 的原文核对。",
+    "textSource": "教室那一幕（伊莎贝尔哭喊、奥布里进教室）取自 act2/source/普里森堡第二章.txt 第 50~64 行，台词逐字照抄；夜晚备课的场景骨架取自同文件第 24~27 行。其余地点（大厅、外院、书房、洗衣房、决斗、散步、日记）原文没有对应桥段，是 Stage 0 新写的临时文本。本文件不进 fidelity 核对，也不得被当成正式台词。",
+    "stage0": {
+      "temporary": true,
+      "unmodified": [
+        "act1/engine.js",
+        "act1/ui.js",
+        "act1/style.css",
+        "act1/index.html",
+        "act1/story.json",
+        "act2/story.json",
+        "act3/story.json",
+        "server.js",
+        "tests/*"
+      ]
+    }
+  },
+  "povs": {
+    "奥布里": {
+      "displayName": "奥布里 · 德 · 沃",
+      "mode": "actor",
+      "hint": "你现在是奥布里伯爵。今天怎么过，由你说了算。"
+    }
+  },
+  "characters": {
+    "旁白": {
+      "narration": true
+    },
+    "奥布里": {
+      "displayName": "奥布里",
+      "color": "#7a8aa8",
+      "portrait": "chr_aubrey"
+    },
+    "西比拉": {
+      "displayName": "西比拉",
+      "color": "#8aa87a",
+      "portrait": "chr_sibylla"
+    },
+    "西比拉老师": {
+      "displayName": "西比拉",
+      "color": "#8aa87a",
+      "portrait": "chr_sibylla_teacher"
+    },
+    "伊莎贝尔": {
+      "displayName": "伊莎贝尔",
+      "color": "#c98fa0",
+      "portrait": "chr_isabelle"
+    },
+    "海尔": {
+      "displayName": "海尔",
+      "color": "#8aa87a",
+      "portrait": "chr_haier"
+    },
+    "布朗": {
+      "displayName": "布朗管家",
+      "color": "#a07850",
+      "portrait": "chr_brown"
+    },
+    "士兵": {
+      "displayName": "门房佣兵",
+      "color": "#9a9a94",
+      "portrait": "chr_soldier"
+    },
+    "女仆": {
+      "displayName": "女仆",
+      "color": "#9a9a94",
+      "portrait": "chr_maid"
+    },
+    "西比拉的日记": {
+      "displayName": "西比拉的日记",
+      "color": "#b09ac0",
+      "noPortrait": true
+    }
+  },
+  "art": {
+    "note": "图统一在仓库根目录 images/ 下，页面在 /stage0/ 下，所以一律写 ../images/xxx.webp。",
+    "assets": {
+      "bg_carriage": {
+        "kind": "background",
+        "label": "马车车厢 · 雨（开始界面用）",
+        "src": "../images/bg_carriage.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_aubrey_room": {
+        "kind": "background",
+        "label": "奥布里 · 房间",
+        "src": "../images/bg_aubrey_room.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_corridor": {
+        "kind": "background",
+        "label": "三楼 · 走廊",
+        "src": "../images/bg_corridor.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_classroom": {
+        "kind": "background",
+        "label": "三楼 · 教室",
+        "src": "../images/bg_classroom.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_hall": {
+        "kind": "background",
+        "label": "一楼 · 大厅",
+        "src": "../images/bg_hall.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_courtyard": {
+        "kind": "background",
+        "label": "外庭院（暂时用城堡门口那张顶着）",
+        "src": "../images/bg_gate.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_laundry": {
+        "kind": "background",
+        "label": "一楼 · 洗衣房",
+        "src": "../images/bg_laundry.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_sibylla_room": {
+        "kind": "background",
+        "label": "三楼 · 西比拉的房间",
+        "src": "../images/bg_sibylla_room.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_meadow": {
+        "kind": "background",
+        "label": "府邸后坡 · 草地",
+        "src": "../images/bg_meadow.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_study": {
+        "kind": "background",
+        "label": "二楼 · 书房（还没有专门的图，暂时用走廊图顶着，有图了只改这一行 src）",
+        "src": "../images/bg_corridor.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_stable": {
+        "kind": "background",
+        "label": "外院 · 马厩（还没有专门的图，暂时用城堡门口那张顶着，有图了只改这一行 src）",
+        "src": "../images/bg_gate.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_office": {
+        "kind": "background",
+        "label": "一楼 · 账房（还没有专门的图，暂时用走廊图顶着，有图了只改这一行 src）",
+        "src": "../images/bg_corridor.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "bg_isabelle_room": {
+        "kind": "background",
+        "label": "三楼 · 伊莎贝尔的房间（还没有专门的图，暂时用西比拉房间那张顶着，有图了只改这一行 src）",
+        "src": "../images/bg_sibylla_room.webp",
+        "cols": 46,
+        "rows": 13
+      },
+      "chr_aubrey": {
+        "kind": "portrait",
+        "label": "奥布里 · 半身",
+        "src": "../images/chr_aubrey.webp",
+        "cols": 15,
+        "rows": 20
+      },
+      "chr_sibylla": {
+        "kind": "portrait",
+        "label": "西比拉 · 女仆装（半身）",
+        "src": "../images/chr_sibylla.webp",
+        "cols": 15,
+        "rows": 20
+      },
+      "chr_sibylla_teacher": {
+        "kind": "portrait",
+        "label": "西比拉 · 教师服（半身）",
+        "src": "../images/chr_sibylla_teacher.webp",
+        "cols": 15,
+        "rows": 20
+      },
+      "chr_isabelle": {
+        "kind": "portrait",
+        "label": "伊莎贝尔 · 半身",
+        "src": "../images/chr_isabelle.webp",
+        "cols": 15,
+        "rows": 20
+      },
+      "chr_haier": {
+        "kind": "portrait",
+        "label": "海尔 · 半身",
+        "src": "../images/chr_haier.webp",
+        "cols": 15,
+        "rows": 20
+      },
+      "chr_brown": {
+        "kind": "portrait",
+        "label": "布朗管家 · 半身",
+        "src": "../images/chr_brown.webp",
+        "cols": 15,
+        "rows": 20
+      },
+      "chr_soldier": {
+        "kind": "portrait",
+        "label": "门房佣兵 · 半身",
+        "src": "../images/chr_soldier.webp",
+        "cols": 15,
+        "rows": 20
+      },
+      "chr_maid": {
+        "kind": "portrait",
+        "label": "女仆 · 半身",
+        "src": "../images/chr_maid.webp",
+        "cols": 15,
+        "rows": 20
+      }
+    }
+  },
+  "config": {
+    "showStats": false,
+    "statOrder": [
+      "西比拉_好感",
+      "西比拉_健康",
+      "西比拉_埋怨",
+      "伊莎贝尔_礼仪成长",
+      "普里森堡_秩序",
+      "普里森堡_声誉"
+    ],
+    "statLabels": {
+      "西比拉_好感": "西比拉 · 好感",
+      "西比拉_健康": "西比拉 · 健康",
+      "西比拉_埋怨": "西比拉 · 埋怨",
+      "伊莎贝尔_礼仪成长": "伊莎贝尔 · 礼仪",
+      "普里森堡_秩序": "普里森堡 · 秩序",
+      "普里森堡_声誉": "普里森堡 · 声誉",
+      "西比拉_反抗": "西比拉 · 反抗",
+      "西比拉_恨意": "西比拉 · 恨意",
+      "西比拉_亲密": "西比拉 · 亲密",
+      "西比拉_尊敬": "西比拉 · 尊敬",
+      "仆人_尊敬": "仆人 · 尊敬",
+      "海尔_好感": "海尔 · 好感",
+      "伊莎贝尔_好感": "伊莎贝尔 · 好感",
+      "旗_今日停课": "记录 · 今天停了课",
+      "旗_去过洗衣房": "记录 · 今天去过洗衣房",
+      "旗_打断备课": "记录 · 今晚打断了备课",
+      "旗_课堂插曲": "记录 · 上午课上出了插曲",
+      "决斗_战绩": "记录 · 决斗次数"
+    },
+    "statRanges": {
+      "西比拉_好感": [
+        -100,
+        100
+      ],
+      "西比拉_健康": [
+        0,
+        100
+      ],
+      "西比拉_埋怨": [
+        -100,
+        100
+      ],
+      "伊莎贝尔_礼仪成长": [
+        0,
+        100
+      ],
+      "普里森堡_秩序": [
+        0,
+        100
+      ],
+      "普里森堡_声誉": [
+        0,
+        100
+      ],
+      "西比拉_反抗": [
+        -100,
+        100
+      ],
+      "西比拉_恨意": [
+        -100,
+        100
+      ],
+      "西比拉_亲密": [
+        -100,
+        100
+      ],
+      "西比拉_尊敬": [
+        -100,
+        100
+      ],
+      "仆人_尊敬": [
+        -100,
+        100
+      ],
+      "海尔_好感": [
+        -100,
+        100
+      ],
+      "伊莎贝尔_好感": [
+        -100,
+        100
+      ],
+      "旗_今日停课": [
+        0,
+        1
+      ],
+      "旗_去过洗衣房": [
+        0,
+        1
+      ],
+      "旗_打断备课": [
+        0,
+        1
+      ],
+      "旗_课堂插曲": [
+        0,
+        1
+      ],
+      "决斗_战绩": [
+        0,
+        99
+      ]
+    },
+    "statNotes": {
+      "西比拉_好感+": "她看你的眼神更加放松。",
+      "西比拉_好感-": "她脸色变了一些，又很快恢复。",
+      "西比拉_健康+": "西比拉的脸色红润了些。",
+      "西比拉_健康-": "西比拉好像没有精神。",
+      "西比拉_埋怨+": "西比拉小声嘀咕了什么。",
+      "西比拉_埋怨-": "西比拉办事更加麻利了。",
+      "伊莎贝尔_礼仪成长+": "伊莎贝尔的行礼像样了一点。",
+      "伊莎贝尔_礼仪成长-": "今天的伊莎贝尔好像比昨天差了一点。",
+      "普里森堡_秩序+": "门口的守卫认真了些。",
+      "普里森堡_秩序-": "门口的守卫又散漫起来。",
+      "普里森堡_声誉+": "府里的人说起你时，语气更加尊敬。",
+      "普里森堡_声誉-": "府里有人开始在背后散布着什么流言。",
+      "西比拉_亲密+": "西比拉呆在原地。",
+      "西比拉_亲密-": "西比拉往旁边挪开了一点。",
+      "西比拉_尊敬+": "西比拉看你的方式更加尊敬。",
+      "西比拉_尊敬-": "西比拉似乎会在背后用奇怪的眼神看你。",
+      "西比拉_反抗+": "西比拉眼神更加坚定。",
+      "西比拉_恨意+": "她垂下眼睛。",
+      "仆人_尊敬+": "下人们在你经过时把腰弯得更低了些。",
+      "仆人_尊敬-": "下人们在你背后对了个眼神。",
+      "海尔_好感+": "海尔看你的眼睛似乎有些崇拜。",
+      "海尔_好感-": "海尔抖了抖身体，没有说话。",
+      "伊莎贝尔_好感+": "伊莎贝尔朝你亲昵的笑了笑。",
+      "伊莎贝尔_好感-": "伊莎贝尔跺了跺脚，将脸扭向一旁。"
+    }
+  },
+  "initialStats": {
+    "西比拉_好感": 5,
+    "西比拉_健康": 60,
+    "西比拉_埋怨": 0,
+    "伊莎贝尔_礼仪成长": 3,
+    "普里森堡_秩序": 50,
+    "普里森堡_声誉": 50,
+    "西比拉_反抗": 20,
+    "西比拉_恨意": 10,
+    "西比拉_亲密": 0,
+    "西比拉_尊敬": 10,
+    "仆人_尊敬": 0,
+    "海尔_好感": 10,
+    "伊莎贝尔_好感": 10,
+    "旗_今日停课": 0,
+    "旗_去过洗衣房": 0,
+    "旗_打断备课": 0,
+    "旗_课堂插曲": 0,
+    "决斗_战绩": 0
+  },
+  "diary": {
+    "_note": "日记本的数据块。跟 act1 的 freeRoam 一样：引擎不认识这个键，也不报错，由界面层（stage0/diary.js）自己读。一页式手记（设计稿 §6）：标题 → 日期/天气 → 今日事件 → 分隔线 → 她写的。日期和天气写死在数据里，不引入随机 —— snapshot() 里没有天气字段，随机出来的天气重读存档就变了。",
+    "_events_note": "「今日事件」那几条**不在这里** —— 挪到各个选项的 diary 字段上了（v3 起）。理由见设计稿 §2.1：事件是玩家选出来的，选项本身就是判据，文本跟着选项走才不会两处打架。这一块现在只剩三样跟着剧本走、不随玩家变的东西：标题、日期、天气。「她写的」那一段也不是这里的数据，是 d1_diary 节点里那几条日记台词。",
+    "title": "西比拉手记",
+    "entries": [
+      {
+        "day": 1,
+        "date": "第X日",
+        "weather": "阴"
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "d1_wake",
+      "pov": "奥布里",
+      "title": "日常 · 奥布里房间",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "你醒得很早。窗纸上只有一点灰白的光。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "楼下已经有了动静——厨下的火，扫帚擦过石板，还有谁压着嗓子说话的声音。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "普里森堡的一天从这些声音里醒过来。你打算怎么度过今天？"
+        }
+      ],
+      "choices": [
+        {
+          "text": "叫布朗进来，问问今天的安排。",
+          "next": "d1_plan"
+        }
+      ]
+    },
+    {
+      "id": "d1_plan",
+      "pov": "奥布里",
+      "title": "日常 · 今日安排",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "布朗照例把一天的条陈放在了案上。"
+        },
+        {
+          "speaker": "布朗",
+          "text": "大人。西比拉小姐今日的安排是：早晨，为伊莎贝尔小姐讲授礼仪；午后，到一楼的洗衣房做工；夜里，在房中备明日的课。"
+        },
+        {
+          "speaker": "布朗",
+          "text": "其余各处，都照旧。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "——你要照这份安排过这一天吗？"
+        }
+      ],
+      "choices": [
+        {
+          "text": "照常。她该做什么就做什么。",
+          "hint": "不动她的日程",
+          "next": "h_morning",
+          "diary": "今日清晨，我换上教师的衣服，去叫伊莎贝尔小姐起床。礼仪课上了一上午。小姐坐不住，几回要跑出教室，我把她按住，把教典上的字一句一句教了下去。今日这一段，只算开了个头。",
+          "_note": "这条 effects 是**给日记用的钥匙**，不是给玩家看的：值写 0，跟旗_今日停课 现在的值一样，所以 applyEffects 算出来的 delta 是 0，note 被过滤掉，界面上一个字都不会出现（engine.js:516）。它存在的意义是让 diary.js 能判断「早晨这个时段记的是哪一条」—— 见 diary.js 的 collect()。",
+          "effects": [
+            {
+              "stat": "旗_今日停课",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "text": "把上午的课停了，让她先到我这里来。",
+          "hint": "挪走她今天的第一件事",
+          "next": "h_morning",
+          "diary": "上午没有为伊莎贝尔小姐授课。教典没有打开，我在房里候了一上午。",
+          "effects": [
+            {
+              "stat": "旗_今日停课",
+              "value": 1,
+              "note": "今天应你的命令，西比拉没有上课，或许可以到府里找找她。"
+            },
+            {
+              "stat": "西比拉_好感",
+              "value": 2
+            },
+            {
+              "stat": "西比拉_埋怨",
+              "value": 2
+            },
+            {
+              "stat": "西比拉_亲密",
+              "value": 1
+            },
+            {
+              "stat": "伊莎贝尔_礼仪成长",
+              "value": -1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h_morning",
+      "pov": "奥布里",
+      "title": "日常 · 早晨",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "【早晨】"
+        },
+        {
+          "speaker": "旁白",
+          "text": "你披上外衣，拄起拐杖。这个时候，府里的人各自都在自己的位置上。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "——你要去哪儿？"
+        }
+      ],
+      "choices": [
+        {
+          "text": "教室",
+          "hint": "伊莎贝尔的礼仪课",
+          "next": "f_classroom"
+        },
+        {
+          "text": "大厅",
+          "hint": "早上的杂务",
+          "next": "f_hall"
+        },
+        {
+          "text": "外院",
+          "hint": "门房与守卫",
+          "next": "f_yard"
+        }
+      ]
+    },
+    {
+      "id": "f_classroom",
+      "pov": "奥布里",
+      "title": "日常 · 三楼的走廊",
+      "art": {
+        "bg": "bg_corridor",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "你沿着走廊走去，还未靠近教室，便听见伊莎贝尔的哭喊。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "你沿着走廊走去。教室的门开着，里面没有一点声音。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 1
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "三楼的走廊稍显昏暗，窗外那棵大树把本该进来的阳光挡住了。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "进去看看。",
+          "next": "e_classroom"
+        },
+        {
+          "text": "返回。",
+          "hint": "不消耗时间",
+          "next": "h_morning"
+        }
+      ]
+    },
+    {
+      "id": "e_classroom",
+      "pov": "奥布里",
+      "title": "日常 · 教室",
+      "art": {
+        "bg": "bg_classroom",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "教室里空着。教典摊在桌上，翻开着，没人动过。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 1
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "窗边的椅子摆得整整齐齐。伊莎贝尔大概在别的什么地方玩呢。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 1
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "三楼的教室之中那叫喊声还未停止，伊莎贝尔拉着房门，脸上不断滑落豆大的眼泪。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "西比拉坏！我不要学了，那些东西太难了。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉拉着伊莎贝尔的手臂，想要将她带回到教室中，又害怕扯伤了她。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "西比拉老师",
+          "text": "伊莎贝尔小姐，在这间房间里你应该叫我西比拉老师或者西比拉小姐，这才符合一个贵族小姐的礼仪。而且，作为沃家的妹妹，你应该明白主的教义。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "不要不要不要不要！一直坐在座位上我的屁股都疼了！",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉也没了办法，只能将伊莎贝尔按住防止她逃走，嘴上一直劝说着，可是任凭西比拉磨破了嘴皮，伊莎贝尔根本不听西比拉的劝导，一味地叫喊哭泣，想要逃出去。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "僵持不知持续了多久，房间外，零零散散的有人远远围观，西比拉的脸色越发青黑。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "直到她的面前笼罩上一阵阴影，伊莎贝尔抬起头。奥布里穿着一件亚麻内衣，显然是刚刚起床，他杵着一支拐杖，面色苍白地低下头。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "奥布里",
+          "text": "小伊莎贝尔，大清早的哭什么呢？",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔见状连忙舍弃了门槛转而扑入奥布里的怀抱，西比拉的脊背瞬间僵直起来，她立刻放开伊莎贝尔，站起身来恭敬地向奥布里行礼。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "西比拉老师",
+          "text": "沃大人，我正在给小姐上礼仪课。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "奥布里",
+          "text": "西比拉小姐，从刚刚的画面来看我并没有看见一点礼仪呢。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉顿时低下头。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "西比拉老师",
+          "text": "很抱歉，沃大人，伊莎贝尔小姐不肯配合我。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "奥布里",
+          "text": "小伊莎贝尔，西比拉小姐说的是真的吗？",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "西比拉小姐是告状鬼。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "是西比拉小姐太严厉了！我感觉她随时准备打我。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "——你要怎么处理这件事？",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        }
+      ],
+      "choices": [
+        {
+          "text": "把伊莎贝尔交回西比拉手里，按她的规矩来。",
+          "hint": "课照常上完",
+          "next": "e_classroom_canon",
+          "diary": "授课过程中出现了一点小插曲，所幸沃大人出现解决了这件事。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          },
+          "lockedHint": "今天上午的课已经停了",
+          "effects": [
+            {
+              "stat": "西比拉_好感",
+              "value": 2
+            },
+            {
+              "stat": "西比拉_尊敬",
+              "value": 2,
+              "note": "她没想到你会站在她那边。"
+            },
+            {
+              "stat": "伊莎贝尔_好感",
+              "value": -1
+            },
+            {
+              "stat": "伊莎贝尔_礼仪成长",
+              "value": 2
+            },
+            {
+              "stat": "旗_课堂插曲",
+              "value": 1,
+              "note": "上午的课上出了点插曲。"
+            }
+          ]
+        },
+        {
+          "text": "今天先饶了她，课留到明天。",
+          "hint": "你有你的打算",
+          "next": "e_classroom_soft",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          },
+          "lockedHint": "今天上午的课已经停了",
+          "effects": [
+            {
+              "stat": "伊莎贝尔_好感",
+              "value": 2
+            },
+            {
+              "stat": "伊莎贝尔_礼仪成长",
+              "value": -1
+            },
+            {
+              "stat": "西比拉_好感",
+              "value": 1
+            },
+            {
+              "stat": "西比拉_埋怨",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "text": "把门带上，离开。",
+          "next": "h_noon"
+        }
+      ]
+    },
+    {
+      "id": "e_classroom_canon",
+      "pov": "奥布里",
+      "title": "日常 · 教室",
+      "art": {
+        "bg": "bg_classroom",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "奥布里",
+          "text": "小伊莎贝尔，西比拉小姐曾经是许多小姐们羡慕的对象呢，我想她的优秀离不开严厉的教导，来，继续上课。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "不等伊莎贝尔反驳，奥布里将怀中的伊莎贝尔递给西比拉。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "西比拉小姐，伊莎贝尔请你放心使用你的方法教导，只是我希望可以看见成效。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉将伊莎贝尔接过，手中暗暗用力，把伊莎贝尔死死抱住。"
+        },
+        {
+          "speaker": "西比拉老师",
+          "text": "遵命，沃大人。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "奥布里点点头，离开了教室门口，临走前，门被他顺便关上了。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "哥哥！哥——"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉打断了伊莎贝尔的叫喊。"
+        },
+        {
+          "speaker": "西比拉老师",
+          "text": "伊莎贝尔小姐，我们该开始了。"
+        }
+      ],
+      "next": "h_noon"
+    },
+    {
+      "id": "e_classroom_soft",
+      "pov": "奥布里",
+      "title": "日常 · 教室",
+      "art": {
+        "bg": "bg_classroom",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "奥布里",
+          "text": "今天就算了。伊莎贝尔，去把脸洗一洗。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔愣了一下，随即从你怀里挣出去，跑得比刚才哭得还快。走廊上传来她的脚步声，一路往楼下去了。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉站在原地，两只手垂在身侧。过了一会儿，她弯下腰，把那本摊开的教典合上了。"
+        },
+        {
+          "speaker": "西比拉老师",
+          "text": "……是，沃大人。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她没有看你。合上教典的动作很轻，轻得像怕吵到谁。"
+        }
+      ],
+      "next": "h_noon"
+    },
+    {
+      "id": "f_hall",
+      "pov": "奥布里",
+      "title": "日常 · 楼梯口",
+      "art": {
+        "bg": "bg_hall",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "你扶着栏杆一级一级下楼。这个时辰，大厅里已经有人了。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "擦洗的声音、拖桌子的声音，还有谁在低声数着数。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "走过去看看。",
+          "next": "e_hall"
+        },
+        {
+          "text": "返回。",
+          "hint": "不消耗时间",
+          "next": "h_morning"
+        }
+      ]
+    },
+    {
+      "id": "e_hall",
+      "pov": "奥布里",
+      "title": "日常 · 大厅",
+      "art": {
+        "bg": "bg_hall",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "布朗管家踩在矮凳上，正拿抹布一下一下地擦拉纳克·德·沃的画像。海尔举着水桶站在下面，手臂在抖。"
+        },
+        {
+          "speaker": "布朗",
+          "text": "大人。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "长桌摆得不齐，桌角还留着一层没擦净的灰。高台下面，两个女仆停下手里的活，不知道该不该继续。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "府里的日子过得松，从上到下都是。你一直知道这件事。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "把人都叫齐，当着他们的面说两句。",
+          "next": "h_noon",
+          "effects": [
+            {
+              "stat": "仆人_尊敬",
+              "value": 2,
+              "note": "下人们站得比刚才直。"
+            },
+            {
+              "stat": "普里森堡_声誉",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "text": "什么也不说，转身走开。",
+          "next": "h_noon",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "f_yard",
+      "pov": "奥布里",
+      "title": "日常 · 外庭院",
+      "art": {
+        "bg": "bg_courtyard",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "你拄着拐杖穿过外门。晨里的风还带着湿气，石板缝里积着昨夜的水。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "沿墙走一圈。",
+          "next": "e_yard"
+        },
+        {
+          "text": "返回。",
+          "hint": "不消耗时间",
+          "next": "h_morning"
+        }
+      ]
+    },
+    {
+      "id": "e_yard",
+      "pov": "奥布里",
+      "title": "日常 · 外庭院",
+      "art": {
+        "bg": "bg_courtyard",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "士兵",
+          "text": "大人！"
+        },
+        {
+          "speaker": "旁白",
+          "text": "门房的两个佣兵靠着墙说话，看见你，慌忙把身子扳直，手在裤缝上蹭了蹭。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "你沿着墙根走了一圈。箭垛下头的水洼没人扫，兵器架上的枪歪了一支，枪尾拖在泥里。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "他们跟在你身后半步远的地方，谁也不出声。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "叫人把水洼扫了，枪也扶正。",
+          "next": "h_noon",
+          "effects": [
+            {
+              "stat": "普里森堡_秩序",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "text": "算了，先记着。",
+          "next": "h_noon",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "h_noon",
+      "pov": "奥布里",
+      "title": "日常 · 中午",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "【中午】"
+        },
+        {
+          "speaker": "旁白",
+          "text": "你回到房里，坐下歇了一会儿。中午这段时间没有定数——府里各处都松着，谁在做什么，全看各人自己。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "书房",
+          "hint": "看看她昨夜留下的蜡版",
+          "next": "f_study"
+        },
+        {
+          "text": "后坡",
+          "hint": "叫她出来走走 · 占掉她自己的时间",
+          "next": "f_walk"
+        },
+        {
+          "text": "外庭院",
+          "hint": "叫她来练一场 · 会占掉中午",
+          "next": "e_duel_call"
+        }
+      ]
+    },
+    {
+      "id": "f_study",
+      "pov": "奥布里",
+      "title": "日常 · 二楼书房",
+      "art": {
+        "bg": "bg_study",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "二楼的书房朝北，这个时辰还没有点灯。推门进去，纸和墨的味道先扑过来。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "走到书案前。",
+          "next": "e_study"
+        },
+        {
+          "text": "返回。",
+          "hint": "不消耗时间",
+          "next": "h_noon"
+        }
+      ]
+    },
+    {
+      "id": "e_study",
+      "pov": "奥布里",
+      "title": "日常 · 二楼书房",
+      "art": {
+        "bg": "bg_study",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "书案上摊着几块蜡版，边角被磨得发亮。上面刻着字，笔画很深，是新的。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "——「教义与礼节」。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "这是她昨夜为今天的课准备的。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "这是她昨夜为今天的课准备的。而今天的课，没有上。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 1
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "这个时候，她手上没有非做不可的事。"
+        }
+      ],
+      "next": "h_afternoon"
+    },
+    {
+      "id": "f_walk",
+      "pov": "奥布里",
+      "title": "日常 · 后坡",
+      "art": {
+        "bg": "bg_meadow",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "你让人到楼下去传话。她来得很快，站在门口等着，没有问要去哪儿。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "出门，往坡上走。",
+          "next": "e_walk",
+          "effects": [
+            {
+              "stat": "西比拉_好感",
+              "value": 2
+            },
+            {
+              "stat": "西比拉_亲密",
+              "value": 2
+            },
+            {
+              "stat": "西比拉_埋怨",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "text": "返回。",
+          "hint": "不消耗时间",
+          "next": "h_noon"
+        }
+      ]
+    },
+    {
+      "id": "e_walk",
+      "pov": "奥布里",
+      "title": "日常 · 后坡",
+      "art": {
+        "bg": "bg_meadow",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "普里森堡后面有一片坡地，草长得很高。你走不快，她便也把步子放慢了，始终落后你半步。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "大人叫我来，是想问什么吗？"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "不想问什么。走走而已。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她没有再说话。风从坡下上来，把两个人的衣角往同一个方向吹。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "走到坡顶的时候，她忽然开口。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "……以前在克莱尔家，我也常走这样一段路。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "说完这句，她像是意识到什么，把嘴闭上了。剩下的路，她一句话都没有再说。"
+        }
+      ],
+      "next": "h_afternoon"
+    },
+    {
+      "id": "e_duel_call",
+      "pov": "奥布里",
+      "title": "日常 · 外庭院",
+      "art": {
+        "bg": "bg_courtyard",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "你让人到楼下去传话：请西比拉小姐到外庭院来一趟。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她来得很快，裙摆下缘还沾着水。她在你面前站定，行了个礼。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "大人叫我，是为了什么事？"
+        }
+      ],
+      "choices": [
+        {
+          "text": "「去取两把练习用的钝剑来。陪我走两招。」",
+          "next": "e_duel_fight"
+        },
+        {
+          "text": "「没什么。你回去吧。」",
+          "hint": "不消耗时间",
+          "next": "h_noon"
+        }
+      ]
+    },
+    {
+      "id": "e_duel_fight",
+      "pov": "奥布里",
+      "title": "日常 · 外庭院",
+      "art": {
+        "bg": "bg_courtyard",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "她愣了一下，还是去了。回来的时候手上提着两把钝剑，先把剑柄那一头递给你，自己退开三步，把裙摆掖进腰带里。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "大人，我先说好——我不会收手。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "你的手在抖。不是怕。是这具身体本来就撑不住这样的东西——你拄惯了拐杖，握剑的力气早在前几年的病里耗光了。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "三个回合。第一个回合你挡住了，第二个回合手腕被打偏，第三个回合，剑脱手落在石板地上，滚出去老远。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她收了剑，退开，垂着眼睛不说话。院子里只剩下你喘气的声音。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "……大人今天，就到这里吧。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "把剑捡起来，放回架上。",
+          "next": "h_afternoon",
+          "diary": "午间，沃大人传我到外庭院，命我取来两把练习用的钝剑，比了三合。用过之后，剑已经放回架上。",
+          "effects": [
+            {
+              "stat": "决斗_战绩",
+              "value": 1,
+              "note": "这一场，你输了。"
+            },
+            {
+              "stat": "西比拉_亲密",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "text": "「再来。」",
+          "next": "h_afternoon",
+          "effects": [
+            {
+              "stat": "决斗_战绩",
+              "value": 1,
+              "note": "这一场，你又输了。"
+            },
+            {
+              "stat": "西比拉_亲密",
+              "value": 1
+            },
+            {
+              "stat": "西比拉_埋怨",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h_afternoon",
+      "pov": "奥布里",
+      "title": "日常 · 午后",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "【午后】"
+        },
+        {
+          "speaker": "旁白",
+          "text": "下午的光比早上亮一些。府里的人各在各处，各自做着各自的事。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "洗衣房",
+          "hint": "她现在在那里",
+          "next": "f_laundry"
+        },
+        {
+          "text": "外院",
+          "hint": "伊莎贝尔和海尔在这个时辰的院子里",
+          "next": "f_yard_pm"
+        },
+        {
+          "text": "马厩",
+          "hint": "院子西头，这个时辰只有草料味",
+          "next": "f_stable"
+        }
+      ]
+    },
+    {
+      "id": "f_stable",
+      "pov": "奥布里",
+      "title": "日常 · 马厩",
+      "art": {
+        "bg": "bg_stable",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "马厩在院子西头，隔着老远就是草料和牲口的气味。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "进去看看。",
+          "next": "e_stable"
+        },
+        {
+          "text": "返回。",
+          "hint": "不消耗时间",
+          "next": "h_afternoon"
+        }
+      ]
+    },
+    {
+      "id": "e_stable",
+      "pov": "奥布里",
+      "title": "日常 · 马厩",
+      "art": {
+        "bg": "bg_stable",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "〔占位〕鞍具挂得歪歪斜斜，马夫见你进来，手忙脚乱地去扶。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "〔占位〕你没有说话，看了一圈就出来了。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "出来。",
+          "next": "h_night",
+          "effects": [
+            {
+              "stat": "普里森堡_秩序",
+              "value": 1,
+              "note": "马夫在你走后把鞍具重新挂了一遍。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f_laundry",
+      "pov": "奥布里",
+      "title": "日常 · 洗衣房外",
+      "art": {
+        "bg": "bg_laundry",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "一楼的洗衣房在一段矮廊尽头。还没走到门口，热气就先出来了。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "里面确实有人。你听得见水声，一下，又一下。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "走进去。",
+          "next": "e_laundry"
+        },
+        {
+          "text": "返回。",
+          "hint": "不消耗时间",
+          "next": "h_afternoon"
+        }
+      ]
+    },
+    {
+      "id": "e_laundry",
+      "pov": "奥布里",
+      "title": "日常 · 洗衣房",
+      "art": {
+        "bg": "bg_laundry",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "屋里蒸着一层白汽，碱水的味道贴着墙。西比拉挽着袖子站在木盆前，手背被水泡得发白。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她洗得很慢，但很认真。旁边几个女仆围坐成一圈，谁也没抬头。"
+        },
+        {
+          "speaker": "女仆",
+          "text": "大、大人？"
+        },
+        {
+          "speaker": "旁白",
+          "text": "女仆们慌忙站起来行礼。西比拉也直起身，把手在围裙上擦了擦。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "大人怎么到这种地方来了。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "「今天你别洗了。让别人来。」",
+          "hint": "把她的活挪走",
+          "next": "e_laundry_stop",
+          "diary": "午后，我在一楼的洗衣房做工，沃大人来了，承蒙他的恩惠，免了我这一日的劳作。只是我自己的衣物，还是希望由我自己来洗。",
+          "effects": [
+            {
+              "stat": "旗_去过洗衣房",
+              "value": 1,
+              "note": "今天洗衣房的活，换了人做。"
+            },
+            {
+              "stat": "普里森堡_声誉",
+              "value": -2
+            },
+            {
+              "stat": "西比拉_好感",
+              "value": 1
+            },
+            {
+              "stat": "西比拉_亲密",
+              "value": 1
+            },
+            {
+              "stat": "西比拉_埋怨",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "text": "「没什么。路过。」",
+          "next": "h_night",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "e_laundry_stop",
+      "pov": "奥布里",
+      "title": "日常 · 洗衣房",
+      "art": {
+        "bg": "bg_laundry",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "西比拉",
+          "text": "……这是我该做的。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她看了看那盆水，又看了看你，最后把围裙解了下来，叠好放在凳子上。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "接手的是个年纪大些的女仆。她挽起袖子的时候脸上没有什么表情——府里的活计总归要有人做，只是换了一双手。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉跟着你走出洗衣房。一路上她都没有说话。"
+        }
+      ],
+      "next": "h_night"
+    },
+    {
+      "id": "f_yard_pm",
+      "pov": "奥布里",
+      "title": "日常 · 外庭院",
+      "art": {
+        "bg": "bg_courtyard",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "下午的外庭院有光。墙根底下有两个小小的影子。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "走过去看看。",
+          "next": "e_yard_pm"
+        },
+        {
+          "text": "返回。",
+          "hint": "不消耗时间",
+          "next": "h_afternoon"
+        }
+      ]
+    },
+    {
+      "id": "e_yard_pm",
+      "pov": "奥布里",
+      "title": "日常 · 外庭院",
+      "art": {
+        "bg": "bg_courtyard",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔和海尔蹲在墙根下，用石子在地上画着什么。海尔先看见了你，慌忙站起来，手里的石子滚了出去。"
+        },
+        {
+          "speaker": "海尔",
+          "text": "大、大人。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "哥哥！你看——我画的马！"
+        },
+        {
+          "speaker": "旁白",
+          "text": "地上是一团谁也看不懂的线条。伊莎贝尔仰着脸等你说话，海尔站在她身后，手指绞在一起。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "「伊莎贝尔，跟我回去。」",
+          "hint": "打断她们",
+          "next": "h_night",
+          "effects": [
+            {
+              "stat": "伊莎贝尔_好感",
+              "value": -1
+            },
+            {
+              "stat": "海尔_好感",
+              "value": -1
+            }
+          ]
+        },
+        {
+          "text": "「你们玩吧。」",
+          "next": "h_night",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "h_night",
+      "pov": "奥布里",
+      "title": "日常 · 夜晚",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "【夜晚】"
+        },
+        {
+          "speaker": "旁白",
+          "text": "天黑得很快。府里的灯一盏一盏亮起来，又一处一处灭下去。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "三楼最里面那间屋子还亮着。那是她的房间。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "西比拉的房间",
+          "hint": "她还在备明天的课",
+          "next": "f_sibylla_room"
+        },
+        {
+          "text": "账房",
+          "hint": "府里今天的账还摊着",
+          "next": "f_office"
+        },
+        {
+          "text": "伊莎贝尔的房间",
+          "hint": "看看那孩子睡了没有",
+          "next": "f_isabelle_room"
+        },
+        {
+          "text": "回房睡下",
+          "hint": "这一天就到这里",
+          "next": "d1_sleep"
+        }
+      ]
+    },
+    {
+      "id": "f_office",
+      "pov": "奥布里",
+      "title": "日常 · 账房",
+      "art": {
+        "bg": "bg_office",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "一楼拐角的账房还点着灯。这个时辰不该有人在这里。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "推门进去。",
+          "next": "e_office"
+        },
+        {
+          "text": "返回。",
+          "hint": "不消耗时间",
+          "next": "h_night"
+        }
+      ]
+    },
+    {
+      "id": "e_office",
+      "pov": "奥布里",
+      "title": "日常 · 账房",
+      "art": {
+        "bg": "bg_office",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "〔占位〕账本摊在桌上，最近几页记得潦草，墨也淡。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "〔占位〕你翻了两页，合上，把灯吹熄了。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "出来，带上门。",
+          "next": "d1_sleep",
+          "effects": [
+            {
+              "stat": "普里森堡_秩序",
+              "value": 1,
+              "note": "账房那盏灯，今晚是大人亲手熄的。"
+            },
+            {
+              "stat": "普里森堡_声誉",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f_isabelle_room",
+      "pov": "奥布里",
+      "title": "日常 · 伊莎贝尔的房间",
+      "art": {
+        "bg": "bg_isabelle_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "三楼另一头那间屋子门缝里没有光。你在门口站了一会儿。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "推门看看。",
+          "next": "e_isabelle_room"
+        },
+        {
+          "text": "返回。",
+          "hint": "不消耗时间",
+          "next": "h_night"
+        }
+      ]
+    },
+    {
+      "id": "e_isabelle_room",
+      "pov": "奥布里",
+      "title": "日常 · 伊莎贝尔的房间",
+      "art": {
+        "bg": "bg_isabelle_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "〔占位〕伊莎贝尔睡着了，被子踢开了一角，脸上还挂着没擦干的一道痕。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "〔占位〕你把被角掖回去，退出来，没有发出声音。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "把门带上。",
+          "next": "d1_sleep",
+          "effects": [
+            {
+              "stat": "伊莎贝尔_好感",
+              "value": 1,
+              "note": "那孩子明天不会知道你来过。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f_sibylla_room",
+      "pov": "奥布里",
+      "title": "日常 · 三楼最里面",
+      "art": {
+        "bg": "bg_corridor",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "这一段的走廊比别处暗。门缝底下透出一条光。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "你在门外站了一会儿。里面很安静，只有尖笔刮过蜡版的声音，一下，隔一会儿，又一下。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "推门进去。",
+          "next": "e_sibylla_room"
+        },
+        {
+          "text": "返回。",
+          "hint": "不消耗时间",
+          "next": "h_night"
+        }
+      ]
+    },
+    {
+      "id": "e_sibylla_room",
+      "pov": "奥布里",
+      "title": "日常 · 西比拉的房间",
+      "art": {
+        "bg": "bg_sibylla_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "蜡灯点着，火苗忽明忽暗。她坐在桌前，一本教典摊在左手边，右手捏着尖笔，正在一块蜡版上刻字。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "听见门响，她抬起头，随即站起来行礼。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "大人。我正在备明日的课。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "蜡版上已经刻了几行。字很小，很深。"
+        }
+      ],
+      "choices": [
+        {
+          "text": "打断她——今晚别备课了，陪我说说话。",
+          "hint": "占掉她今晚的活",
+          "next": "e_night_talk",
+          "diary": "夜里，沃大人到我房里来，问我这一日都做了些什么。我一条一条答了。明日的课没有备完，案上那块蜡版，只刻了一半。顺便一提，基于今早叫伊莎贝尔上课时的表现，我发现伊莎贝尔小姐的生活自理能力较为糟糕，今后我会在此方面进行教导。",
+          "effects": [
+            {
+              "stat": "旗_打断备课",
+              "value": 1,
+              "note": "今晚，案上的蜡版只刻了一半。"
+            },
+            {
+              "stat": "西比拉_埋怨",
+              "value": 3
+            },
+            {
+              "stat": "西比拉_好感",
+              "value": 1
+            },
+            {
+              "stat": "西比拉_亲密",
+              "value": 1
+            },
+            {
+              "stat": "伊莎贝尔_礼仪成长",
+              "value": -1
+            }
+          ]
+        },
+        {
+          "text": "不打扰她，替她把门掩上。",
+          "next": "d1_sleep",
+          "effects": [
+            {
+              "stat": "西比拉_尊敬",
+              "value": 1,
+              "note": "她大概没想到你会退出去。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e_night_talk",
+      "pov": "奥布里",
+      "title": "日常 · 西比拉的房间",
+      "art": {
+        "bg": "bg_sibylla_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "你把蜡灯拨亮了一些，在书桌对面的椅子上坐下。她迟疑了一下，还是坐回了桌边，手里仍旧捏着那支尖笔。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "你问她今天都做了什么。她一条一条地答，答得很整齐，像在向管家回话。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "早晨备课。午后去了洗衣房。夜里……本来要备明日的课。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "说到最后一句，她停了一下。尖笔在指间转了半圈。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "大人要是还有别的事，我可以明天再备课。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她说完就等着，脸上什么也没有。蜡版上的字，停在半截。"
+        }
+      ],
+      "next": "d1_sleep"
+    },
+    {
+      "id": "d1_sleep",
+      "pov": "奥布里",
+      "title": "日常 · 就寝前",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "你回到自己的房间。夜里很静，楼下早就没有人走动了。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "你让人把西比拉叫来。"
+        }
+      ],
+      "next": "d1_diary_intro"
+    },
+    {
+      "id": "d1_diary_intro",
+      "pov": "奥布里",
+      "title": "日常 · 交代",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "_note": "第一天的日记是**剧情带出来的**，不是玩家点开的：他交代 → 她退下 → 十几分钟后带着写好的册子敲门。只在第一天出现，之后不再重复（第二天起改由 HUD 上的【日记】按钮打开，那是 Stage 1 的事，见日记系统设计.md §4/§5.2）。\n\nstage0.js 在**这个节点最后一句播完之后**才把书摊开 —— 一进节点就摊开会把「敲门」那几句盖住，人还没进来书先开了。\n\n下面那个 choices 是**兜底选项**，存在的唯一目的是让脱链的 d1_diary 有节点指向它，好让 --validate 别报「走不到」。`any: []` 恒为假（永远锁着），而本节点有 next，advance() 里 next 排在 choices 前面（engine.js:620-628），所以它**根本不会被画出来**。两层保险，玩家一辈子看不见它。",
+      "dialogues": [
+        {
+          "speaker": "奥布里",
+          "text": "西比拉。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "西比拉小姐，希望在普里森堡的日子里你能每日写一篇日记交予我。请放心，这绝不是要窥探你的隐私，只是为了了解西比拉小姐的一些习惯生活。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "……是。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她退了下去。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "过了十几分钟，门又被敲响了。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "你开了门。她站在门外，把一本册子递了上来。"
+        }
+      ],
+      "next": "d1_end",
+      "choices": [
+        {
+          "text": "（兜底，不展示）",
+          "next": "d1_diary",
+          "if": { "any": [] },
+          "lockedHint": "兜底用，永不亮"
+        }
+      ]
+    },
+    {
+      "id": "d1_diary",
+      "pov": "奥布里",
+      "title": "日常 · 她写的这一页",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "_note": "日记节点：严格只有一条台词，就是她那本册子上的这一页。旁白框架不写在这里 —— 翻开这本册子的是日记本界面（stage0.js），不是对话框。walkthrough.cjs 有一道核对盯着「这个数组的长度恒为 1」。\n\n**它已经脱链了**（v3.1 §2.4）：不再是自动弹出的触发点，只当「她实际写下的日记文本来源」被日记本界面读。所以 next 必须留着 —— 没有 next 又没有 choices 的节点会被 validate() 算成**结局节点**，那样 endings 就变成两个，walkthrough 的核对会红。\n\n这一条是**她的开场白**（v3.1 §11 甲案）：第一次动笔，先交代自己怎么进的府、被安顿在哪。序章的抵达在 Stage 0 剧本里没有对应节点，所以它只出现在这里。**它不随玩家的选择变** —— 玩家改的是「今日事件」那几条（在各选项的 diary 字段上）。",
+      "dialogues": [
+        {
+          "speaker": "西比拉的日记",
+          "text": "我被安置在三楼，伊莎贝尔小姐隔壁那间屋子，窄是窄了些，书桌、床和镜子都齐备。今日起，每日写一份日记，夜里送上去。\n西比拉，第X日，记，天气，阴。"
+        }
+      ],
+      "next": "d1_end"
+    },
+    {
+      "id": "d1_end",
+      "pov": "奥布里",
+      "title": "日常 · 第一日结束",
+      "art": {
+        "bg": "bg_aubrey_room",
+        "portrait": "chr_aubrey"
+      },
+      "ending": true,
+      "endSub": "这一天就这样过去了。西比拉的那本册子还摊在案上，明天会多出新的一页。",
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "——今天这一天："
+        },
+        {
+          "speaker": "旁白",
+          "text": "上午的礼仪课停掉了。伊莎贝尔在走廊上跑了整整一个上午。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 1
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "上午的礼仪课照常。你隔着门听了一会儿——伊莎贝尔哭过，后来安静了。",
+          "if": {
+            "stat": "旗_今日停课",
+            "op": "==",
+            "value": 0
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "午后，洗衣房的活换了人做。府里有人把这件事记在了心里。",
+          "if": {
+            "stat": "旗_去过洗衣房",
+            "op": "==",
+            "value": 1
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "夜里，你留她说了话。案上那块蜡版，只刻了一半。",
+          "if": {
+            "stat": "旗_打断备课",
+            "op": "==",
+            "value": 1
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "外庭院兵器架上那两把钝剑，被你放回了原位。",
+          "if": {
+            "stat": "决斗_战绩",
+            "op": ">=",
+            "value": 1
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "你吹灭了灯。"
+        }
+      ]
+    }
+  ]
+}

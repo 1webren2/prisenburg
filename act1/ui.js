@@ -220,6 +220,9 @@
       this._loadingTimer = null;    // 「加载中…」的延迟器
       this._loadingEl = null;
       this._prefetched = null;      // 已经提前拉过的 url，不重复拉
+      this._cut = null;             // 过场插画那一层的元素（运行时造，见 buildCutscene）
+      this._cutOpen = false;        // 铺着的时候不放行推进
+      this._cutShownNode = null;    // 已经演过插画的节点 id：一个节点只演一次
     }
 
     /* ---------------- 挂载 ---------------- */
@@ -252,6 +255,7 @@
       this.engine.on('node', () => { this.showPovBanner(this.engine.povSwitchInfo); });
 
       this.bindInput();
+      this.buildCutscene();
       return this;
     }
 
@@ -714,6 +718,105 @@
       return this;
     }
 
+    /* ---------------- 插画过场 ---------------- */
+
+    /**
+     * 过场插画整屏铺一层：一幅图 + 一句原文 + 一行提示，按空格关掉。
+     *
+     * **DOM 是运行时造的，不带 id** —— `tests/dom-stub.cjs` 是按 index.html 里的
+     * `id="..."` 建元素的，往那儿加东西就得同步 mount() 清单和 ui.test 的计数；
+     * 而这一层本来也不参与 #app 的栅格，索性整块挂在 <body> 底下。
+     */
+    buildCutscene() {
+      const doc = this.doc;
+      if (!doc.body) return this;               // 替身 DOM 没有 body 就跳过，不动主流程
+
+      if (this._cut) doc.body.removeChild(this._cut.host);   // mount() 调两次也不重复铺
+
+      const host = el(doc, 'div', 'cut-screen');
+      const frame = el(doc, 'div', 'cut-frame');
+      const grid = el(doc, 'div', 'cut-grid-host');
+      const image = el(doc, 'div', 'cut-image');
+      frame.appendChild(grid);
+      frame.appendChild(image);
+
+      const caption = el(doc, 'div', 'cut-caption');
+      const title = el(doc, 'div', 'cut-title');
+      const line = el(doc, 'div', 'cut-line');
+      const hint = el(doc, 'div', 'cut-hint', '按空格继续');
+      caption.appendChild(title);
+      caption.appendChild(line);
+      caption.appendChild(hint);
+
+      host.appendChild(frame);
+      host.appendChild(caption);
+      // 点画面上任何一处也收 —— 和对话框一样，不必非按空格
+      host.addEventListener('click', () => this.dismissCutscene());
+      doc.body.appendChild(host);
+
+      this._cut = { host, grid, image, title, line, hint };
+      return this;
+    }
+
+    get cutsceneOpen() { return !!this._cutOpen; }
+
+    /** 当前节点身上有没有「还没演过」的插画 */
+    pendingCutscene() {
+      const node = this.engine.node;
+      const spec = node && node.cutscene;
+      if (!this._cut || !spec || !spec.image) return null;
+      if (this._cutShownNode === node.id) return null;      // 演过就不再铺第二次
+      return spec;
+    }
+
+    /**
+     * 铺上插画。台词那边照常往下走（进这个节点时它已经取了第一句），
+     * 只是输入被挡住 —— 玩家关掉插画才看得见第一句话。
+     */
+    showCutscene(spec) {
+      const box = this._cut;
+      if (!box || !spec) return this;
+
+      box.title.textContent = spec.title || '';
+      box.line.textContent = spec.line || '';
+      box.hint.textContent = spec.hint || '按空格继续';
+
+      // 和别处一样两层：真图盖在像素占位上面，图到了再把占位收掉
+      const asset = this.engine.assets[spec.image] || null;
+      box.grid.style.display = '';
+      setChildren(box.grid, buildPixelGrid(this.engine, spec.image, this.doc));
+      this.applyImageLayer(box.image, box.grid, spec.image, asset);
+
+      box.host.classList.add('on');
+      this._cutOpen = true;
+      this._cutShownNode = this.engine.node && this.engine.node.id;
+      return this;
+    }
+
+    /** 收掉插画。玩家关它的那一下输入只用来关它，不顺手再往前推一格 */
+    dismissCutscene() {
+      if (!this._cutOpen) return false;
+      if (this._cut) this._cut.host.classList.remove('on');
+      this._cutOpen = false;
+      return true;
+    }
+
+    hideCutscene() {
+      if (this._cut) this._cut.host.classList.remove('on');
+      this._cutOpen = false;
+      return this;
+    }
+
+    /**
+     * render() 的一个尾巴：这一格要是落在一个挂了 cutscene 的节点上，先把画铺上。
+     * 只认 line 视图 —— 节点第一句一画出来就铺，铺完就记下 id 不再重铺。
+     */
+    renderCutscene(view) {
+      if (this._cutOpen || !view || view.type !== 'line') return;
+      const spec = this.pendingCutscene();
+      if (spec) this.showCutscene(spec);
+    }
+
     /* ---------------- 结局 ---------------- */
 
     showEnd(view) {
@@ -731,8 +834,12 @@
       const cont = this.els['end-continue'];
       cont.style.display = next ? '' : 'none';
       cont.setAttribute('data-next', next || '');
+      // 按钮上写的是**去哪一幕/哪一天**，所以优先认节点自己写的 continueLabel。
+      // 日常层的 hub 标题现在是地点名（「奥布里的房间」），拿它去拼就会变成
+      // 「继续奥布里的房间 ▶」—— 幕间跨的是时间，不是地方。
+      const target = (next && this.engine.nodes[next]) || {};
       cont.textContent = next
-        ? ('继续' + ((this.engine.nodes[next] || {}).title || '下一幕').split(' · ')[0] + ' ▶')
+        ? ('继续' + (target.continueLabel || (target.title || '下一幕').split(' · ')[0]) + ' ▶')
         : '继续下一幕 ▶';
 
       // 「自由活动 ▶」：这个结局之后有没有安排自由活动，由剧本里的
@@ -891,6 +998,7 @@
         this.setDialogueOpen(false);
         this.showEnd(view);
       }
+      this.renderCutscene(view);
       this.syncPauseBtn(view);
       // 画完这一格，顺手把下一格要用的图悄悄拉下来（拉哪几张由引擎说了算）
       this.prefetch(this.engine.upcomingAssets(CONFIG.prefetchLimit));
@@ -944,6 +1052,7 @@
 
     /** 推进一格。打字没完成时，先把当前这行补全 */
     step() {
+      if (this._cutOpen) { this.dismissCutscene(); return; }   // 先关插画，这一下不往前推
       if (this.locked) {
         this.finishTyping(this._pending && this._pending.view);
         return;
@@ -964,6 +1073,7 @@
       this.stopTyping();
       this.locked = false;
       this.hideEnd();
+      this.hideCutscene();
       this.start();
       // 重来一次 -> 退回开始界面（story 已经 reset 到开头，点「开始游戏」就继续）
       this.showTitleScreen();
@@ -975,6 +1085,7 @@
     }
 
     choose(index) {
+      if (this._cutOpen) { this.dismissCutscene(); return false; }   // 插画挡着，选不了
       const res = this.engine.choose(index);
       if (!res.ok) {
         this.showToast(res.reason === 'locked' ? '还不能选：' + res.lockedHint : '选不了这个选项');
@@ -1045,6 +1156,12 @@
       // 开始界面开着的时候只认「开始」这一件事，免得空格把第一句跳过去
       if (this.titleOpen) {
         if (key === ' ' || key === 'Enter') { ev.preventDefault(); this.begin(); }
+        return;
+      }
+
+      // 插画铺着的时候，这一下输入只用来关它 —— 否则空格会一口气滑过两格
+      if (this._cutOpen) {
+        if (key === ' ' || key === 'Enter' || key === 'Escape') { ev.preventDefault(); this.dismissCutscene(); }
         return;
       }
 
@@ -1134,8 +1251,11 @@
       this.stopTyping();
       this.locked = false;
       this.hideEnd();
+      this.hideCutscene();
       this.hideTitleScreen();       // 读档直接进场，不要停在开始界面
       this.engine.restore(snap);
+      // 存档正好落在过场插画那个节点上时，别再让玩家看一遍 —— 他已经看过了
+      this._cutShownNode = snap.nodeId;
       this.renderStats();
       this.render(this.engine.advance());
       this.setSaveState(true);

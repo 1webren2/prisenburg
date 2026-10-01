@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>第一幕 · 沃伯爵的府邸</title>
 <link rel="stylesheet" href="style.css">
+<!-- 日常层的样式（HUD 时间显示 / 【日记】按钮 / 日记本）。只增不改，
+     全部挂在 dy- 前缀的类上，撞不到 style.css 里的任何一条 -->
+<link rel="stylesheet" href="../daily/daily.css">
 </head>
 <body>
 
@@ -130,5 +133,11 @@
 <script src="engine.js"></script>
 <!-- 渲染层（把引擎数据画成上面的 DOM） -->
 <script src="ui.js"></script>
+<!-- 日记本的规则：一天记哪几条、现在第几天什么时辰。纯逻辑，不碰 DOM；
+     tests/daily.test.cjs 跑的是同一份 -->
+<script src="../daily/diary.js"></script>
+<!-- 日常层的界面层：HUD 左上角的时间显示 + HUD 上的【日记】按钮 + 摊开的册子。
+     排在 ui.js 后面，DOM 全是运行时 createElement 造的，不往这个页面加新 id -->
+<script src="../daily/daily.js"></script>
 </body>
 </html>

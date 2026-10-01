@@ -3,11 +3,12 @@
  * =====================================================================
  *   node tests/run.cjs
  *
- * 四道：
+ * 五道：
  *   engine    —— 剧本站不站得住，216 条分支是不是都能走通
  *   ui        —— 开始界面、立绘亮暗、背景、选项、存档（无头，不用开浏览器）
  *   server    —— 存档接口和静态文件（会真起一个服务器）
  *   fidelity  —— 每句话是不是都出自小说原文（不许自己编，也不许漏）
+ *   daily     —— 日常层：时段菜单、日记记得对不对、HUD 接得上（无头）
  *
  * 单独的跑法： node tests/engine.test.cjs
  */
@@ -20,6 +21,7 @@ const SUITES = [
   ['ui', 'tests/ui.test.cjs', '渲染层（开始界面 / 立绘 / 背景 / 选项）'],
   ['server', 'tests/server.test.cjs', '存档服务器'],
   ['fidelity', 'tests/fidelity.cjs', '原文核对'],
+  ['daily', 'tests/daily.test.cjs', '日常层（时段 / 日记 / HUD）'],
 ];
 
 const ROOT = path.join(__dirname, '..');

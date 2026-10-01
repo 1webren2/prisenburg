@@ -77,6 +77,33 @@ const ACTS = [
     skipFrom: /^【第一章 · 数值结算】/,
     tagSpeakers: true,
   },
+
+  /* ---- 狩猎篇（第一幕的后半段）：一章一文件，与 store/第N章.txt 一一对应 ---- */
+  {
+    name: '第四章',
+    source: path.join(ROOT, 'store', '第四章.txt'),
+    story: require(path.join(ROOT, 'hunt', 'ch4.json')),
+  },
+  {
+    name: '第五章',
+    source: path.join(ROOT, 'store', '第五章.txt'),
+    story: require(path.join(ROOT, 'hunt', 'ch5.json')),
+  },
+  {
+    name: '第六章',
+    source: path.join(ROOT, 'store', '第六章.txt'),
+    story: require(path.join(ROOT, 'hunt', 'ch6.json')),
+  },
+  {
+    name: '第七章',
+    source: path.join(ROOT, 'store', '第七章.txt'),
+    story: require(path.join(ROOT, 'hunt', 'ch7.json')),
+  },
+  {
+    name: '第八章',
+    source: path.join(ROOT, 'store', '第八章.txt'),
+    story: require(path.join(ROOT, 'hunt', 'ch8.json')),
+  },
 ];
 
 const t = suite('原文核对');
@@ -106,13 +133,25 @@ const bare = (s) => String(s).replace(SHELL, '').replace(/[\s　]/g, '');
  * 说话人归属
  * =================================================================== */
 
-const NAMES = ['西比拉', '布朗', '奥布里', '伊莎贝尔', '海尔', '士兵', '约翰'];
+/* 认得出归属的人名表。狩猎篇（第四～八章）新登场的几位要在这里挂上号 ——
+   不挂的话，他们那 90 句台词全都落进「认不出说话人」，这道检查在他们身上
+   就等于空转（第六章一度只剩 5 句可核对，就是这么来的）。 */
+const NAMES = [
+  '西比拉', '布朗', '奥布里', '伊莎贝尔', '海尔', '士兵', '约翰',
+  '阿黛拉', '玛格丽特', '雷蒙德', '德罗戈', '亨利',
+];
 const SPEECH = '(?:说道|问道|答道|笑道|叫道|喊道|骂道|应道|叹道|道|说|问|答|叫|喊)';
 // 人名和动词之间通常还夹着一段动作描写，可能带一个逗号：
 //   「布朗管家皱着脸，没好气地说道：「…」」
 // 但不许跨句号/问号/叹号，否则就窜到别的话里去了
 const GAP = '[^。：；！？]{0,6}(?:，[^。：；！？]{0,6})?';
-const SENT_END = /[。！？\n]/;
+/* 上一句到哪儿为止。除了句末标点和换行，**收尾的引号也算** ——
+   原文里常有一行连着两个引号的写法：
+       “……”伊莎贝尔仰起头，向奥布里问道：“……”
+   前一个引号收尾之前没有句号，只认句末标点的话，往后一退就退到很远的一句上，
+   归属句整个被淹掉。收尾引号是这句引语的边界，把它算上，认出来的就是紧跟着的
+   那一句归属 —— 判定规则一个字没改，只是「句子从哪儿开始」这一刀切得更准。 */
+const SENT_END = /[。！？\n”」]/;
 
 /**
  * 认出「这句话是谁说的」。宁可认不出来（返回 null），也不乱猜——
@@ -305,7 +344,13 @@ for (const act of ACTS) {
   }
 
   t.empty(suspicious, '每句台词的说话人和原文紧挨着的名字对得上（没有把话安到别人头上）');
-  t.ok(checked >= 8, `能直接认出说话人的句子够多（${checked} 句），这道检查不是空转`);
+  // 「认得出说话人」的句子要够多，这道检查才不是空转。门槛统一 8 句，八幕现在都过。
+  // ACTS 记录上还留着一个 minChecked 的口子（只调这道守卫的数目，不动上面的判定规则）——
+  // 第六章曾经靠它压到 5，后来是把新登场的人名补进 NAMES、再把收尾引号算作句子边界
+  // 修好的（5 → 12），所以现在没有哪一幕用到它。留着是给以后碰上同样风格的原文兜底，
+  // **用之前先问一句：是原文真认不出来，还是判定规则漏了一条能安全补上的**。
+  t.ok(checked >= (act.minChecked || 8), `能直接认出说话人的句子够多（${checked} 句），这道检查不是空转`);
+  act.checkedCount = checked;
   totalChecked += checked;
 }
 
@@ -335,5 +380,7 @@ t.eq(tagSpeakerOf('这是句假话。你从学习走路开始', draft.tagSource)
 t.eq(tagSpeakerOf('西比拉小姐，作为奥布里大人新买下的仆人，你对于路途延期似乎很不在意呢。', draft.tagSource), '布朗', '【布朗管家】——人名后面跟个身份后缀也算数');
 t.eq(tagSpeakerOf('伊莎贝尔，再坚持一会儿，老师还没来呢。', draft.tagSource), '奥布里', '标签后面跟着批注（【奥布里】（这里是…））也照样算数');
 console.log(`  · 各幕合计认出 ${totalChecked} 句的说话人，逐句核对了归属（认不出的不下结论）`);
+// 逐幕记一笔：哪一幕的原文风格让这道检查使不上劲，一眼就能看见
+console.log('  · 逐幕认出的句数：' + ACTS.map((a) => `${a.name} ${a.checkedCount || 0}`).join(' / '));
 
 t.done();

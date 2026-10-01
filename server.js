@@ -98,7 +98,13 @@ const BLOCKED_PATHS = new Set([
 ]);
 
 // 小说原文不是游戏资源，不该能被直接下载
-const BLOCKED_PREFIXES = ['/node_modules', '/.', '/act1/source', '/act2/source'];
+// 小说原文不是游戏资源，一律挡住直链下载。store/ 是第四～十一章的原文
+// （狩猎篇的取材来源），行数和前三幕一样，漏一个就等于把整本小说挂出去。
+const BLOCKED_PREFIXES = [
+  '/node_modules', '/.',
+  '/act1/source', '/act2/source', '/act3/source',
+  '/store',
+];
 
 app.use((req, res, next) => {
   const p = req.path;

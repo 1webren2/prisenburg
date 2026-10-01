@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stage 0 · 日常模式（实验原型）</title>
+<!-- 页面骨架照抄 act1/index.html：ui.js 的 mount() 要点名要这些 id。
+     下面三个资源都指向 act1/ 里那份**没有改动**的引擎、渲染层和样式。 -->
+<link rel="stylesheet" href="../act1/style.css">
+<!-- Stage 0 自己的覆盖层，必须排在 act1/style.css 后面才盖得住。
+     里面只有对话框上沿那一条修正，见 stage0.css 顶上的注记 -->
+<link rel="stylesheet" href="stage0.css">
+</head>
+<body>
+
+<pre id="boot-error"></pre>
+
+<div id="app">
+
+  <div id="stage">
+
+    <div id="bg-layer">
+      <div id="bg-grid-host"></div>
+      <div id="bg-image" data-src="../images/bg_aubrey_room.webp"></div>
+    </div>
+    <div id="bg-veil"></div>
+
+    <div id="pov-banner"></div>
+
+    <div id="title-bar" data-pov=""></div>
+
+    <div id="portrait-layer" class="portrait-slot">
+      <div id="portrait-grid-host"></div>
+      <div id="portrait-image" data-src="../images/chr_aubrey.webp"></div>
+    </div>
+    <div id="portrait-layer-r" class="portrait-slot portrait-slot--right">
+      <div id="portrait-grid-host-r"></div>
+      <div id="portrait-image-r" data-src="../images/chr_aubrey.webp"></div>
+    </div>
+
+    <div id="dialogue-box">
+      <div id="speaker-plate"></div>
+      <p id="dialogue-text"></p>
+      <div id="next-hint"></div>
+    </div>
+
+    <div id="choices"></div>
+
+    <!-- 时段提示那行小字（「早晨 · 选择去向」）。它是 fixed 定位的，
+         放在哪儿都不影响布局；stage0.js 负责填字和显示 / 隐藏。
+         没有它的时候（别的节点）这一行是空的、透明的。 -->
+    <div id="s0-slot-label"></div>
+
+    <!-- 日记本。d1_diary_intro 最后一句播完之后，stage0.js 会把它摊开。
+         内容是 stage0/diary.js 从 story.json 现算的，这里只有空壳。
+
+         **一页式**（设计稿 §6）：标题 → 日期/天气 → 今日事件 → 分隔线 → 她写的。
+         上面那一条线以上是「系统记录的今天」，以下是「她选择让你看到的」。 -->
+    <div id="diary-screen">
+      <div id="diary-veil"></div>
+
+      <div class="diary-book">
+        <div class="diary-cover"></div>          <!-- 会翻开的那片封面 -->
+
+        <div class="diary-page">
+          <div class="diary-title" id="diary-title"></div>
+
+          <div class="diary-meta">
+            <span class="diary-day" id="diary-day"></span>
+            <span class="diary-meta-sep">·</span>
+            <span class="diary-weather" id="diary-weather"></span>
+          </div>
+          <div class="diary-rule"></div>
+
+          <ul class="diary-events" id="diary-events"></ul>
+
+          <div class="diary-rule diary-rule--soft"></div>
+          <p class="diary-note" id="diary-note"></p>
+        </div>
+      </div>
+
+      <button id="diary-close" class="hud-btn">合上，睡下</button>
+    </div>
+  </div>
+
+  <!-- HUD 左上角的时间显示（设计稿 §5.1）。全天都在，不只在日记里。
+       天数先按 diary.js 的 DAY_PLACEHOLDER 占位，接上真正的时间系统时换掉。 -->
+  <div id="s0-clock"></div>
+
+  <aside id="stats-panel">
+    <h2>内心</h2>
+    <div id="stats-body"></div>
+    <p class="stats-foot">剧情里只会给「感觉」，真实数字要自己按 V 看</p>
+  </aside>
+
+  <div id="hud">
+    <button id="stats-toggle" class="hud-btn" data-on="0">查看数值 (V)</button>
+    <button id="pause-btn" class="hud-btn" style="display:none">暂停 (P)</button>
+    <button id="save-btn" class="hud-btn">保存进度</button>
+    <button id="load-btn" class="hud-btn">读取进度</button>
+    <button id="restart-btn" class="hud-btn">重新开始</button>
+    <span id="server-dot" class="server-dot">正在连接存档服务器…</span>
+    <span class="hud-keys">空格/回车 继续 · 1-9 选择 · V 数值 · Ctrl+S 保存 · Ctrl+L 读取 · R 重来</span>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="title-screen" class="on">
+    <div id="title-bg"></div>
+    <div id="title-veil"></div>
+    <div class="title-card">
+      <h1 class="title-name">普里森堡</h1>
+      <p class="title-sub">Stage 0 · 日常模式实验原型</p>
+      <button id="title-start" class="hud-btn title-start-btn">开始游戏</button>
+      <p class="title-hint">空格 / 回车 也可以开始</p>
+    </div>
+  </div>
+
+  <div id="end-screen">
+    <div class="end-card">
+      <h2 id="end-title">完</h2>
+      <p class="end-sub" id="end-sub"></p>
+      <div id="end-stats"></div>
+      <button id="end-continue" class="hud-btn end-continue-btn">继续下一幕 ▶</button>
+      <button id="end-roam" class="hud-btn end-continue-btn">自由活动 ▶</button>
+      <button id="end-restart" class="hud-btn" onclick="window.act1 && window.act1.ui.restart()">重新开始</button>
+    </div>
+  </div>
+
+  <div id="outfit-screen">
+    <div id="outfit-veil"></div>
+    <div class="outfit-card">
+      <div class="outfit-heading">换装</div>
+      <div id="outfit-portrait">
+        <div id="outfit-grid-host"></div>
+        <div id="outfit-image"></div>
+      </div>
+      <div id="outfit-line"></div>
+      <div id="outfit-choices"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 引擎：act1/engine.js 原样加载，一个字都没改 -->
+<script src="../act1/engine.js"></script>
+<!-- 渲染层：act1/ui.js 原样加载。它在浏览器里会自动 fetch 同目录的 story.json，
+     所以这个页面读的是 stage0/story.json，不是 act1/story.json -->
+<script src="../act1/ui.js"></script>
+<!-- 日记本的规则：决定日记上写什么。纯逻辑，不碰 DOM，
+     walkthrough.cjs require 的是同一份（见 diary.js 顶上的注记） -->
+<script src="diary.js"></script>
+<!-- Stage 0 自己的渲染层：右下角的时段菜单 + 到 d1_diary 时摊开的日记本。
+     排在 ui.js 后面，只做装饰，不接管 ui.js 的点击（见 stage0.js 顶上的注记） -->
+<script src="stage0.js"></script>
+</body>
+</html>

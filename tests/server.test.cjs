@@ -95,13 +95,35 @@ async function main() {
     t.eq(health.status, 200, '/api/health 返回 200');
     t.eq(hb.ok, true, '/api/health 里 ok=true');
     t.ok(hb.act1 && hb.act1.loaded !== false, '服务器启动时载入了 act1/story.json');
-    t.eq(hb.act1.nodes, 105, '三幕的节点并进了同一张表（30 + 42 + 33，自由活动锚点和报仇结局都在第二幕那张表里）');
+    t.eq(hb.act1.nodes, 285, '八份剧本的节点并进了同一张表（30 + 42 + 33 + 日常层 53 + 狩猎篇 127，自由活动锚点和报仇结局都在第二幕那张表里）');
     t.eq(
       hb.act1.stats,
       ['西比拉_好感', '西比拉_警惕', '西比拉_亲密', '西比拉_力量', '西比拉_压力', '西比拉_自主性',
         '佣兵_纪律', '伊莎贝尔_好感', '伊莎贝尔_礼仪成长', '海尔_好感', '布朗_好感',
-        '线索_克莱尔旧事', '线索_观察西比拉', '线索_初夜观察', '线索_路上表现'],
-      '数值表跟着第一幕走（第一章那 15 项）'
+        '线索_克莱尔旧事', '线索_观察西比拉', '线索_初夜观察', '线索_路上表现',
+        '西比拉_健康', '西比拉_尊敬', '西比拉_埋怨', '西比拉_反抗', '西比拉_恨意',
+        '普里森堡_秩序', '普里森堡_声誉', '仆人_尊敬',
+        // 最后这 32 面是日常层的「记录旗」，不是数值：0/1 的记事标记，
+        // 日记靠它们判断今天记不记得这一笔（daily/diary.js）。它们在
+        // statLabels 里、不在 initialStats 里 —— getStat() 读不到就是 0。
+        // 两个主线日按**时段**记（一天一旗就够了）；自由日按**时段 + 地点**记：
+        // 一个时段的旗是 0/1，「选了另一处」和「选了后一个做法」长得一模一样，
+        // 第二天的回响台词要靠地点这一维才分得清她去的是哪儿。
+        '旗_第2天早晨', '旗_第2天中午', '旗_第2天午后', '旗_第2天夜晚',
+        '旗_第3天早晨_大厅', '旗_第3天早晨_洗衣房',
+        '旗_第3天中午_教室', '旗_第3天中午_书房',
+        '旗_第3天午后_外院', '旗_第3天午后_后坡',
+        '旗_第3天夜晚_走廊', '旗_第3天夜晚_马厩',
+        '旗_第4天早晨_大厅', '旗_第4天早晨_洗衣房',
+        '旗_第4天中午_教室', '旗_第4天中午_书房',
+        '旗_第4天午后_外院', '旗_第4天午后_后坡',
+        '旗_第4天夜晚_走廊', '旗_第4天夜晚_马厩',
+        '旗_第5天早晨_大厅', '旗_第5天早晨_洗衣房',
+        '旗_第5天中午_教室', '旗_第5天中午_书房',
+        '旗_第5天午后_外院', '旗_第5天午后_后坡',
+        '旗_第5天夜晚_走廊', '旗_第5天夜晚_马厩',
+        '旗_第6天早晨', '旗_第6天中午', '旗_第6天午后', '旗_第6天夜晚'],
+      '数值表跟着第一幕走（原有 15 项 + 新增 8 项 + 记录旗 32 面；警惕仍在表里，只是不上面板）'
     );
 
     /* ---------- 静态页面 ---------- */
@@ -194,10 +216,16 @@ async function main() {
     const story3Body = await story3Res.json();
     t.eq(story3Res.status, 200, 'GET /act3/story.json 返回 200');
     t.eq(story3Body.nodes.length, 33, '第三幕的剧本是 33 个节点（27 段主线 + 3 个决定点各岔出的两条）');
-    t.eq(story3Body.meta.continues, undefined, '第三幕是最后一幕，不写 continues');
-    t.eq(story2Body.nodes.find((n) => n.id === 'b25_end').continueTo, story3Body.nodes[0].id,
-      '第二幕结局的 continueTo 就是第三幕的第一个节点');
-    t.ok(story3Body.nodes.some((n) => n.id === 'c27_end' && n.ending), '第三幕也有自己的结局节点');
+    t.eq(story3Body.meta.continues, ['../daily/story.json'], '第三幕的 continues 指向日常层');
+    // 第三幕自己已经没有结局节点了：第一幕的收束点挪到了狩猎篇第八章末
+    t.eq(story3Body.nodes.filter((n) => n.ending).length, 0, '第三幕不再自己收场（c27_end 改成一根 next 接狩猎篇）');
+    t.eq(story3Body.nodes.find((n) => n.id === 'c27_end').next, 'h4_knock', 'c27_end 接着狩猎篇第一章的首节点');
+
+    // 狩猎篇：一章一文件，也得能取到，而且第八章末尾才是收束
+    const huntCh8 = await (await get('/hunt/ch8.json')).json();
+    t.eq(huntCh8.nodes.filter((n) => n.ending).map((n) => n.id), ['h8_end'], '狩猎篇第八章末是第一幕的收束点');
+    const huntCh4 = await (await get('/hunt/ch4.json')).json();
+    t.eq(huntCh4.meta.continues, ['ch5.json'], '狩猎篇的加载链从第四章接第五章');
 
     // story.json 里写了 src 的素材，路径要真能对上。
     // 用 new URL(src, 这一幕的目录) 来拼 —— src 是「../images/...」，
@@ -285,10 +313,14 @@ async function main() {
       t.eq(r.status, 403, `${p} 被挡在 403`);
     }
 
-    // 小说原文不是游戏资源，不该能被直接下载（两幕的 source/ 都要挡住）
+    // 小说原文不是游戏资源，不该能被直接下载：三幕的 source/ 加上 store/
+    // （第四～十一章原文，狩猎篇的取材来源）都要挡住。
     const sources = [
       '/act1/source/' + encodeURIComponent('第一幕原文.txt'),
       '/act2/source/' + encodeURIComponent('普里森堡第二章.txt'),
+      '/act3/source/' + encodeURIComponent('第三章.txt'),
+      '/store/' + encodeURIComponent('第五章.txt'),
+      '/store/' + encodeURIComponent('第八章.txt'),
     ];
     for (const p of sources) {
       const r = await get(p);

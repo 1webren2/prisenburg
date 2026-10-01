@@ -581,7 +581,8 @@
           "text": "在接受女仆教育的这半年里，西比拉将曾经在克莱尔家中枕过的那个柔软枕头的触感忘得一干二净，如今这个羊毛枕头总算让她找回了些曾经的感觉，西比拉睡得很端正，闭上眼睛后几乎没有再动弹，等再次睁眼时已经是第二天了。"
         }
       ],
-      "next": "b12_morning"
+      "_note": "第一夜到此为止（末句「等再次睁眼时已经是第二天了」）。next 指向日记的剧情入口 dy_d2_mo_intro —— 那是接在第一夜之后、第 2 天早晨之前的独立一场（原著正文一字不动），走完才进 dy_d2_mo_hub。",
+      "next": "dy_d2_mo_intro"
     },
     {
       "id": "b12_morning",
@@ -737,7 +738,7 @@
           "text": "很显然，她还不知道自己会遭受什么样的严苛教导。"
         }
       ],
-      "next": "b16_montage"
+      "next": "dy_d2_mo_r"
     },
     {
       "id": "b16_montage",
@@ -1001,7 +1002,7 @@
           "text": "以前是。"
         }
       ],
-      "next": "b21_haier_calls"
+      "next": "dy_d2_nn_r"
     },
     {
       "id": "b21_haier_calls",
@@ -1065,7 +1066,7 @@
           "text": "西比拉站在门前，手中抱着教典和蜡版，眼角不知什么时候渗出一点眼泪，西比拉抬起手将泪水擦去，不禁有些耻笑自己，为什么要哭呢？"
         }
       ],
-      "next": "b23_corridor"
+      "next": "dy_d2_af_r"
     },
     {
       "id": "b23_corridor",
@@ -1097,7 +1098,7 @@
           "text": "她走入房间，很快将牧师服换下，穿上一件黑白相间的女仆服装。"
         }
       ],
-      "next": "b25_end"
+      "next": "dy_d2_ni_r"
     },
     {
       "id": "b25_end",
@@ -1109,7 +1110,7 @@
       },
       "dialogues": [],
       "ending": true,
-      "continueTo": "c1_door",
+      "continueTo": "dy_d3_mo_hub",
       "endSub": "牧师服换下了，她重新穿上了那身黑白相间的女仆装。"
     },
     {
@@ -1377,7 +1378,7 @@
         "endNode": "fr_the_end"
       },
       "fr_act3_hub": {
-        "after": "c27_end",
+        "after": "h8_end",
         "lines": [
           {
             "speaker": "旁白",
