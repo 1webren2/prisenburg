@@ -484,30 +484,18 @@ t.eq(bridge.engine.pov, '西比拉', '第二幕是西比拉视角');
 t.eq(bridge.ui.els['title-bar'].getAttribute('data-pov'), '西比拉 · 德 · 克莱尔（观察者）', '右上角的视角标签跟着换');
 t.eq(leftBG(bridge.ui), 'url("../images/chr_sibylla.webp")', '左槽换成第二幕主视角的西比拉');
 
-// 从结局屏一路走下去，能走到第二幕的结局
+// 第二幕这一段演完之后，**不再弹结算屏**：b25_end 是一段零台词的过场，
+// 一路走下去直接落进日常层第 3 天早晨那张活动卡菜单
 let g5 = 0;
 while (g5++ < 4000) {
-  if (bridge.ui.view.type === 'end' && bridge.ui.view.node.id === 'b25_end') break;
+  if (bridge.engine.node.id === 'dy_d3_mo_hub' && bridge.ui.view.type === 'choices') break;
   if (!autoStep(bridge.ui)) break;
 }
-t.eq(bridge.ui.view.type, 'end', '第二幕也能走到结局');
-t.eq(bridge.ui.view.node.id, 'b25_end', '停在第二幕的结局节点 b25_end');
-t.eq(bridge.ui.els['end-title'].textContent, '第二幕 · 完', '第二幕的结局标题跟着节点走');
-t.eq(bridge.ui.els['end-continue'].style.display, '', '第二幕后面还有第三幕，按钮照旧在');
-// 第一幕改造后，b25_end 后面接的是日常层的第 3 天，不再是直接跳第三幕
-t.eq(bridge.ui.els['end-continue'].getAttribute('data-next'), 'dy_d3_mo_hub', '按钮指向日常层的第 3 天早晨');
-// 按钮上写的是「去哪一天」，不是「去哪儿」—— 日常层 hub 的标题是地点名，
-// 所以由节点自己写的 continueLabel 供给（ui.js 优先认它，标题只是兜底）
-t.eq(bridge.ui.els['end-continue'].textContent, '继续第 3 天 ▶', '按钮上写着日常层下一天');
-// 「第二幕一个 effects 都没写」这条在引擎那边改成直接盯 b 开头节点上的数值变化了 ——
-// 日常层夹在中间，从 b25_end 到 c1_door 中间本来就要变数值，两边对不上是应该的
-
-// 接着走进日常层的第一天
-bridge.fire(bridge.ui.els['end-continue'], 'click');
-t.eq(bridge.engine.node.id, 'dy_d3_mo_hub', '点一下接着演日常层的第 3 天早晨');
+t.eq(bridge.engine.node.id, 'dy_d3_mo_hub', '第二幕演完直接接日常层的第 3 天早晨（中途没有结算屏）');
+t.eq(bridge.ui.view.type, 'choices', '停在第 3 天早晨的活动菜单上');
+t.eq(bridge.ui.els['end-screen'].classList.contains('on'), false, '全程没有弹出过结局屏');
 t.eq(bridge.engine.pov, '奥布里', '日常层是奥布里视角');
 t.eq(bridge.engine.povSwitchInfo, null, '进日常层是静默切视角，不弹那行系统提示');
-t.eq(bridge.ui.els['end-screen'].classList.contains('on'), false, '结局屏又收掉了');
 
 // 第三幕之后还有狩猎篇五章（c27_end → h4_knock 是一根 next，不是 continueTo），
 // 所以要一路演到第一幕真正的收束点 h8_end 才算走完
@@ -887,14 +875,15 @@ t.eq(specialEnd.type, 'choices', '播完留在原地，还是房间菜单');
 t.ok(findText(fr.ui.view.choices, '换装') >= 0, '换装照旧在');
 t.eq(fr.engine.getStat('西比拉_亲密'), 2, '特殊剧情加的是亲密值');
 
-// ---- 第二幕之后的自由活动：没有「进入下一幕」，但有「结束游戏」 ----
+// ---- 最后一个 hub（狩猎篇之后）：没有「进入下一幕」，但有「结束游戏」 ----
+// b25_end 这一轮退出了结算屏身份，变成通往第 3 天的过场 —— 它不再有「自由活动 ▶」。
 const fr2 = bootUI(wholeStory);
 fr2.ui.begin();
-playTo(fr2.ui, 'b25_end');
-t.eq(fr2.ui.els['end-roam'].style.display, '', '第二幕结局卡片上也有「自由活动 ▶」');
-t.eq(fr2.ui.els['end-roam'].getAttribute('data-anchor'), 'fr_end_hub', '进的是第二个 hub');
+playTo(fr2.ui, 'h8_end');
+t.eq(fr2.ui.els['end-roam'].style.display, '', '狩猎篇收束的结局卡片上有「自由活动 ▶」');
+t.eq(fr2.ui.els['end-roam'].getAttribute('data-anchor'), 'fr_act3_hub', '进的是最后那个 hub');
 fr2.fire(fr2.ui.els['end-roam'], 'click');
-t.eq(fr2.engine.node.id, 'fr_end_hub', '进了第二幕之后的自由活动');
+t.eq(fr2.engine.node.id, 'fr_act3_hub', '进了狩猎篇之后的自由活动');
 toMenu(fr2.ui);
 t.eq(findText(fr2.ui.view.choices, '进入下一幕'), -1, '已经是最后一幕，不显示「进入下一幕」');
 t.ok(findText(fr2.ui.view.choices, '结束游戏') >= 0, '只留「结束游戏」');
@@ -960,7 +949,7 @@ t.eq(pz.ui.els['end-screen'].classList.contains('on'), false, '没有误弹结�
 // 结局屏上按不动
 const pzEnd = bootUI(wholeStory);
 pzEnd.ui.begin();
-playTo(pzEnd.ui, 'b25_end');
+playTo(pzEnd.ui, 'o4_end');
 t.eq(pzEnd.ui.els['pause-btn'].style.display, 'none', '结局屏上没有暂停按钮');
 
 // 从结局卡片进的自由活动也没有可回的地方

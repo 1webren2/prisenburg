@@ -23,7 +23,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const OUT_DIR = path.join(__dirname, 'shots');
@@ -53,7 +53,9 @@ const TARGETS = [
   { name: '08-第二幕选项点', node: 'b2_haier_knock', mode: 'choices' },
   { name: '11-双立绘-西比拉与奥布里', node: 'b19_aubrey', mode: 'first', speaker: '奥布里' },
   { name: '09-第一幕结局屏', node: 'o4_end', mode: 'end' },
-  { name: '10-第二幕结局屏', node: 'b25_end', mode: 'end' },
+  // b25_end 不再有结算屏（它退成了通往第 3 天的零台词过场），
+  // 第一幕真正的收束屏在 h8_end 那一格
+  { name: '10-第一幕收束屏', node: 'h8_end', mode: 'end' },
   // 幕间自由活动：hub 的菜单、房间里的双立绘（右槽是她此刻那套）
   { name: '12-自由活动-hub', mode: 'roam', roam: 'fr_hub' },
   { name: '13-自由活动-西比拉房间', mode: 'roam', roam: 'fr_sib_riding' },
@@ -70,6 +72,12 @@ const TARGETS = [
   // 多一颗按钮会不会把这一排挤出去，只有真量一遍才知道（设计稿 §5.2 要求量）。
   { name: '20-日常层-HUD与日记按钮', mode: 'daily', node: 'dy_d2_mo_hub' },
   { name: '21-日记本摊开', mode: 'daily', node: 'dy_d2_mo_hub', openDiary: true },
+  // 时段菜单本身：右下角三张活动卡（Stage0 那一套）。停在菜单上不往下走，
+  // 量的是三张卡的大小、位置、图标颗数与那行「早晨 · 选择去向」。
+  { name: '26-时段菜单-三张活动卡', mode: 'daily', node: 'dy_d3_mo_hub', stayHub: true, closeBook: true },
+  { name: '27-时段菜单-主线日', mode: 'daily', node: 'dy_d2_nn_hub', stayHub: true },
+  { name: '28-进第3天-先弹上一日总结', mode: 'daily', node: 'dy_d3_mo_hub', stayHub: true,
+    wantBook: /第 2 日总结/ },
   // 第一天那场册子（设计稿 §4）：末句「你开了门。她站在门外，把一本册子递了上来。」
   // 播完之后摊开，摊开的是第 1 日那一页 —— 那天一件记事都没有，整页只有她自己的字。
   { name: '22-第一天-她敲门递上册子', mode: 'intro', node: 'dy_d2_mo_intro' },
@@ -88,6 +96,19 @@ const TARGETS = [
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (...a) => console.log(...a);
+
+/** 连孩子一起收掉。Windows 上 child.kill() 只打死启动器那一个进程，
+    Edge 自己还会生一窝（渲染进程、GPU 进程……）留在后台吃 CPU ——
+    攒上几轮，下一轮拍照就会拍到超时。taskkill /T 才是整棵树。 */
+function killTree(child) {
+  if (!child || child.killed) return;
+  try { child.kill(); } catch (err) { /* 已经没了 */ }
+  if (process.platform === 'win32' && child.pid) {
+    try {
+      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    } catch (err) { /* 进程早退了，无所谓 */ }
+  }
+}
 
 /** 起存档服务器（只为把页面和剧本发出来） */
 function startServer() {
@@ -126,14 +147,14 @@ class CDP {
     });
   }
 
-  send(method, params) {
+  send(method, params, timeout) {
     const id = ++this.id;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
       this.ws.send(JSON.stringify({ id, method, params: params || {} }));
       setTimeout(() => {
         if (this.pending.has(id)) { this.pending.delete(id); reject(new Error(method + ' 超时')); }
-      }, 30000);
+      }, timeout || 30000);
     });
   }
 
@@ -144,9 +165,24 @@ class CDP {
     return r.result.value;
   }
 
+  /** 拍照。headless Edge 偶尔会卡住不回帧（超时不是页面坏了，多半是合成器睡着了）。
+      卡住的时候同一张再要也没用 —— 请求排在原来那条后头一起卡着。所以每次重试之前
+      先 bringToFront 把渲染进程叫醒，再等一小会儿；三次都要不到才算真挂了。 */
   async shot(file) {
-    const r = await this.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-    fs.writeFileSync(file, Buffer.from(r.data, 'base64'));
+    let last = null;
+    for (let i = 0; i < 3; i++) {
+      if (i) {
+        await sleep(600 * i);
+        try { await this.send('Page.bringToFront', {}); } catch (err) { /* 叫不醒就硬试 */ }
+      }
+      try {
+        const r = await this.send('Page.captureScreenshot',
+          { format: 'png', captureBeyondViewport: false }, 45000);
+        fs.writeFileSync(file, Buffer.from(r.data, 'base64'));
+        return;
+      } catch (err) { last = err; }
+    }
+    throw new Error(`截不到图（${path.basename(file)}）：${last && last.message}`);
   }
 }
 
@@ -199,12 +235,24 @@ function jumpExpr(target) {
     // 量不出「亮起来这一排挤不挤」）。openDiary 再把那本册子摊开。
     lines.push('ui.begin();');
     lines.push(`e.enterNode(${JSON.stringify(target.node)});`);
-    lines.push('e.choose(0);');
-    lines.push('let v = e.advance();');
-    lines.push('for (let i = 0; i < 300 && v.type !== "choices"; i++) v = e.advance();');
-    lines.push('e.choose(0);');
-    lines.push('v = e.advance();');
-    lines.push('for (let i = 0; i < 80 && v.type !== "choices"; i++) v = e.advance();');
+    if (target.stayHub) {
+      // 就停在时段菜单上：三张活动卡是这一轮要看的画面本身
+      lines.push('let v = e.advance();');
+      lines.push('for (let i = 0; i < 80 && v.type !== "choices"; i++) v = e.advance();');
+      // 进第 3 天头一个菜单时，上一日的总结会**自己**摊开盖住菜单（先看总结、
+      // 合上才看得见今天的活动）。这一张要的是底下那排卡，所以先把书合上 ——
+      // 书开着的样子另有一张（28）。
+      if (target.closeBook) {
+        lines.push('if (window.DailyUI.isOpen()) window.DailyUI.closeDiary();');
+      }
+    } else {
+      lines.push('e.choose(0);');
+      lines.push('let v = e.advance();');
+      lines.push('for (let i = 0; i < 300 && v.type !== "choices"; i++) v = e.advance();');
+      lines.push('e.choose(0);');
+      lines.push('v = e.advance();');
+      lines.push('for (let i = 0; i < 80 && v.type !== "choices"; i++) v = e.advance();');
+    }
     lines.push('ui.renderStats(); ui.render(v);');
     // 关系推高之后翻同一页：四档正文是四份不一样的字，得亲眼看过一遍
     // （档位由 diary.js 的 tierOf 当天算，界面上一个字都不显示）。
@@ -303,6 +351,47 @@ const MEASURE = `(() => {
     diaryPage: rect('.dy-diary-page'),
     diaryOpen: !!(document.querySelector('.dy-diary-screen') || {}).classList
       && document.querySelector('.dy-diary-screen').classList.contains('on'),
+    /* 时段菜单：右下角那三张活动卡（Stage0 那一套）。
+       没挂 dy-cards 的节点（处理选择 _r、进入/返回）量到 null，不参与判定。 */
+    dyCards: (() => {
+      const box = document.getElementById('choices');
+      if (!box || !box.classList.contains('dy-cards')) return null;
+      const list = [].slice.call(box.querySelectorAll('.choice-btn'));
+      if (!list.length) return null;
+      const rs = list.map((el) => el.getBoundingClientRect());
+      const pick = (f, how) => +how.apply(null, rs.map(f)).toFixed(1);
+      const byTop = rs.slice().sort((a, b) => a.top - b.top);
+      let rows = 1;
+      let bandBottom = byTop[0].bottom;
+      for (const r of byTop.slice(1)) {
+        if (r.top >= bandBottom - 0.5) { rows += 1; bandBottom = r.bottom; }
+        else bandBottom = Math.max(bandBottom, r.bottom);
+      }
+      const label = document.getElementById('dy-slot-label');
+      return {
+        n: list.length,
+        rows,
+        cards: rs.map((r) => [+r.left.toFixed(1), +r.top.toFixed(1), +r.width.toFixed(1), +r.height.toFixed(1)]),
+        left: pick((r) => r.left, Math.min),
+        right: pick((r) => r.right, Math.max),
+        top: pick((r) => r.top, Math.min),
+        bottom: pick((r) => r.bottom, Math.max),
+        // 每张卡顶上那枚图标（daily.js 注进去的 .dy-icon，第一个子节点）
+        icons: list.filter((el) => el.firstChild && el.firstChild.className
+          && String(el.firstChild.className).indexOf('dy-icon') >= 0).length,
+        texts: list.map((el) => {
+          const t = el.querySelector ? el.querySelector('.choice-text') : null;
+          return (t && t.textContent) || '';
+        }),
+        keys: list.filter((el) => {
+          const k = el.querySelector ? el.querySelector('.choice-key') : null;
+          return !!(k && getComputedStyle(k).display !== 'none');
+        }).length,
+        label: label ? (label.textContent || '') : '',
+        labelOn: !!(label && label.classList.contains('on')),
+        labelRect: label ? (() => { const r = label.getBoundingClientRect(); return { left: +r.left.toFixed(1), top: +r.top.toFixed(1), w: +r.width.toFixed(1), h: +r.height.toFixed(1) }; })() : null,
+      };
+    })(),
     /* #hud 是 flex-wrap: nowrap —— 这一排自己不折，但**每一颗按钮的标签会在自己的框里折**：
        宽度被压掉 1px，两个汉字就分成两行。所以按按钮量一遍：
        藏起来的按钮 rect 是 0×0，先滤掉，再逐颗记下框宽和标签行数。 */
@@ -412,7 +501,8 @@ const MEASURE = `(() => {
  * 量出来的数字 -> 结论
  * =================================================================== */
 
-function inspect(label, m) {
+function inspect(label, m, target) {
+  target = target || {};
   const bad = [];
   const notes = [];
   const { vw, vh, left, right, title, dlg, choice0, text, endCard } = m;
@@ -446,7 +536,9 @@ function inspect(label, m) {
   if (dlgTop) notes.push(`对话框上沿 ${dlgTop}${dlg.opacity === '0' ? '（收起）' : ''}`);
   if (m.choicesJump !== null) notes.push(`收起前后选项位移 ${m.choicesJump}px`);
 
-  if (choice0 && text) {
+  // 时段菜单那三张卡是**故意**钉在右下角的（#choices.dy-cards 把整排摘出文档流），
+  // 所以它跟对话框正文不对齐是设计如此 —— 那一条只对普通竖排列表成立。
+  if (choice0 && text && !m.dyCards) {
     const dx = Math.abs(choice0.left - text.left);
     if (dx > 1) bad.push(`选项和正文没对齐（选项 left ${choice0.left}，正文 left ${text.left}，差 ${dx.toFixed(1)}px）`);
     notes.push(`选项/正文左边距差 ${dx.toFixed(1)}px`);
@@ -553,6 +645,32 @@ function inspect(label, m) {
     if (db.left < -0.5 || db.right > vw + 0.5) bad.push(`【日记】按钮左右出画（${db.left} ~ ${db.right}）`);
     notes.push(`【日记】按钮 ${db.w}×${db.h}${Number(db.opacity) < 0.9 ? '（暗着：今天还没记下什么）' : '（亮的）'}`);
   }
+  /* 时段菜单那三张活动卡（Stage0 那一套）：三张、一行、不出画，
+     每张顶上都有图标，编号（1/2/3）是藏起来的，上面还挂着那行时段提示。 */
+  const dc = m.dyCards;
+  if (dc) {
+    if (dc.n !== 3) bad.push(`时段菜单是 ${dc.n} 张卡，该是 3 张`);
+    if (dc.rows !== 1) bad.push(`三张活动卡折成了 ${dc.rows} 行`);
+    if (dc.left < -0.5 || dc.right > vw + 0.5) bad.push(`活动卡左右出画（${dc.left} ~ ${dc.right}，窗口宽 ${vw}）`);
+    if (dc.top < -0.5 || dc.bottom > vh + 0.5) bad.push(`活动卡上下出画（${dc.top} ~ ${dc.bottom}，窗口高 ${vh}）`);
+    if (dc.icons !== dc.n) bad.push(`只有 ${dc.icons}/${dc.n} 张卡顶上画了图标`);
+    if (dc.keys !== 0) bad.push(`活动卡上露出了 ${dc.keys} 个编号（编号该藏起来）`);
+    if (!dc.labelOn) bad.push('时段提示那行没亮起来（「早晨 · 选择去向」）');
+    if (dc.labelRect && (dc.labelRect.left < -0.5 || dc.labelRect.left + dc.labelRect.w > vw + 0.5)) {
+      bad.push(`时段提示左右出画（${dc.labelRect.left} ~ ${dc.labelRect.left + dc.labelRect.w}）`);
+    }
+    // 每张卡都在视口里，且互相不叠（三张的矩形两两不相交）
+    const rs = dc.cards || [];
+    for (let i = 0; i < rs.length; i++) {
+      for (let j = i + 1; j < rs.length; j++) {
+        const a = rs[i]; const b = rs[j];
+        const dx = Math.min(a[0] + a[2], b[0] + b[2]) - Math.max(a[0], b[0]);
+        const dy = Math.min(a[1] + a[3], b[1] + b[3]) - Math.max(a[1], b[1]);
+        if (dx > 0.5 && dy > 0.5) bad.push(`第 ${i + 1} 张和第 ${j + 1} 张活动卡叠上了`);
+      }
+    }
+    notes.push(`活动卡 ${dc.n} 张·${dc.rows} 行 @ (${dc.left}~${dc.right}, ${dc.top}~${dc.bottom}) · 图标 ${dc.icons} · 「${dc.label}」`);
+  }
   if (m.diaryOpen) {
     const bk = m.diaryBook;
     if (!bk || bk.w <= 0) {
@@ -563,6 +681,18 @@ function inspect(label, m) {
       notes.push(`日记本 ${bk.w}×${bk.h} @ (${bk.left}, ${bk.top})`);
     }
     if (!m.diaryPage || m.diaryPage.w <= 0) bad.push('日记本里那页纸没铺开');
+  }
+  /* 这一张要不要求册子摊着 / 合上：进第 3 天头一个菜单时，上一日的总结会自己弹出来
+     盖住菜单（规矩如此）。所以 26 号那张得先合上才看得见底下那排卡，
+     28 号那张要的就是摊着的这本 —— 两件事都得真量一遍，不能只写在名字里。 */
+  if (target.wantBook || target.closeBook) {
+    const wb = m.wantBook || {};
+    if (target.closeBook && wb.on) bad.push('册子还摊着 —— 它盖住了底下那排活动卡');
+    if (target.wantBook) {
+      if (!wb.on) bad.push('册子该自己摊开（进新一天先看上一日总结），实际没开');
+      else if (!target.wantBook.test(wb.title)) bad.push(`摊开的那本写着「${wb.title}」，不是 ${target.wantBook}`);
+      else notes.push(`册子摊着：「${wb.title}」`);
+    }
   }
 
   const head = bad.length ? '✗' : '✓';
@@ -598,10 +728,37 @@ const PLAY_JS = `(() => {
       stats: eng().stats, portrait: eng().currentArt().portrait,
       // 日记本这会儿是不是摊开的（第一天那一场要在这一条路上真的开过一次）
       diary: !!(window.DailyUI && window.DailyUI.isOpen()),
+      // 时段菜单：站着的这一格是不是三张活动卡，卡上是几项
+      cards: (() => {
+        const box = document.getElementById('choices');
+        return {
+          on: !!(box && box.classList.contains('dy-cards')),
+          n: box ? box.querySelectorAll('.choice-btn').length : 0,
+          icons: box ? [].slice.call(box.querySelectorAll('.choice-btn')).filter((el) => el.firstChild
+            && String(el.firstChild.className).indexOf('dy-icon') >= 0).length : 0,
+        };
+      })(),
+      // 摊开的那本书上写着什么（第 2 日的总结要在进第 3 天时自己弹出来）
+      book: (() => {
+        const t = document.querySelector('.dy-diary-title');
+        const d = document.querySelector('.dy-diary-day');
+        return {
+          on: !!(document.querySelector('.dy-diary-screen') || {}).classList
+            && document.querySelector('.dy-diary-screen').classList.contains('on'),
+          title: t ? (t.textContent || '') : '',
+          day: d ? (d.textContent || '') : '',
+        };
+      })(),
       // 插画过场铺着没有（第六章返营那一格要在这一条路上真的铺过一次）
       cut: !!ui().cutsceneOpen,
     }),
     step: () => {
+      // 册子摊着的时候它是模态的：日/月/数字键都被 daily.js 在捕获阶段吞掉。
+      // 玩家这时会按 Esc（或空格）把它合上 —— 脚本也走同一条路。
+      if (window.DailyUI && window.DailyUI.isOpen()) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return 'ok';
+      }
       const v = ui().view;
       if (v.type === 'line') {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
@@ -636,7 +793,7 @@ async function endToEnd(cdp) {
   log(`  · boot() 自己读进来的剧本：${loaded.nodes} 个节点，第二幕${loaded.hasAct2 ? '在' : '不在'}，第三幕${loaded.hasAct3 ? '在' : '不在'}`);
   if (!loaded.hasAct2) bad.push('boot() 没把第二幕读进来（meta.continues 的路径解错了）');
   if (!loaded.hasAct3) bad.push('boot() 没把第三幕读进来（meta.continues 的路径解错了）');
-  if (loaded.nodes !== 285) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 285（三幕 + 日常层 + 狩猎篇五章合起来）`);
+  if (loaded.nodes !== 364) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 364（三幕 + 日常层 + 狩猎篇五章合起来）`);
 
   await cdp.eval(PLAY_JS);
 
@@ -650,17 +807,35 @@ async function endToEnd(cdp) {
   let savedPortrait = null;
   let crossedAct = false;
   let guard = 0;
-  let diaryAt = null;                 // 日记本在哪个节点上摊开过
+  const diaryNodes = [];              // 日记本在哪些节点上摊开过（按先后去重）
   let diarySteps = 0;
   let cutAt = null;                   // 插画过场在哪个节点上铺开过
+  const cardHubs = [];                // 走过的时段菜单（该拿着三张活动卡）
+  const cardBad = [];                 // 卡不对的时段菜单
+  let summaryAt = null;               // 上一天总结在第几天的第一个菜单上弹出来
+  let summaryTitle = '';
   for (;;) {
     // 狩猎篇五章比前面加起来还长，步子放宽到 9000
     if (++guard > 9000) { bad.push('走了 9000 步还没到头，剧情可能成环了'); break; }
     const s = await cdp.eval('window.__e2e.peek()');
     if (walked[walked.length - 1] !== s.node) walked.push(s.node);
     seenPov.add(s.pov);
-    if (s.diary) { diaryAt = s.node; diarySteps++; }
+    if (s.diary) {
+      diarySteps++;
+      if (!diaryNodes.includes(s.node)) diaryNodes.push(s.node);
+    }
     if (s.cut) cutAt = s.node;
+    if (s.cards && s.cards.on && !cardHubs.includes(s.node)) {
+      // 同一格会 peek 好几次（合上总结的那一下不动剧情），按节点去重
+      cardHubs.push(s.node);
+      if (s.cards.n !== 3 || s.cards.icons !== 3) {
+        cardBad.push(`${s.node}（${s.cards.n} 项 / ${s.cards.icons} 个图标）`);
+      }
+    }
+    if (s.book && s.book.on && !summaryAt && /总结/.test(s.book.title)) {
+      summaryAt = s.node;
+      summaryTitle = s.book.title + ' / ' + s.book.day;
+    }
 
     // 刚进第二幕：存一份，待会儿读回来
     if (!crossedAct && s.node.charAt(0) === 'b') {
@@ -680,10 +855,22 @@ async function endToEnd(cdp) {
   if (!walked.includes('b1_room')) bad.push('全程没有进过第二幕');
   if (!walked.includes('b12_morning')) bad.push('全程没有走到换牧师服那一天');
   // 第一天那本册子：走空格走到底，它得在引入场那一格自己摊开（daily.js 的捕获阶段），
-  // 摊开之后再按一下就合上、接着往下走 —— 既不漏开，也不能把人卡在最后一句上
-  log(`  · 日记本在第 ${diaryAt} 个节点（${diarySteps} 次停顿里）摊开过`);
-  if (diaryAt !== 'dy_d2_mo_intro') bad.push(`日记本该在第一夜之后那场（dy_d2_mo_intro）摊开，实际在 ${diaryAt}`);
+  // 摊开之后再按一下就合上、接着往下走 —— 既不漏开，也不能把人卡在最后一句上。
+  // （摊开过的**不止**这一格：往后每天头一个菜单上还会弹上一日总结，所以看的是
+  //   「这一格在不在名单里」，不是「最后摊开的是哪一格」。）
+  log(`  · 日记本在 ${diaryNodes.length} 处摊开过（${diaryNodes.join('、')}），共 ${diarySteps} 次停顿`);
+  if (!diaryNodes.includes('dy_d2_mo_intro')) {
+    bad.push(`第一天的册子该在 dy_d2_mo_intro（第一夜之后那一场）摊开，实际只在 ${diaryNodes.join('、')} 摊开过`);
+  }
   if (!walked.includes('dy_d2_mo_hub')) bad.push('全程没有走进第 2 天早晨的菜单（册子合上之后接不上）');
+  // 时段菜单：走过 20 个，每一个都得是「三张活动卡 + 三个图标」
+  log(`  · 一路走过 ${cardHubs.length} 个时段菜单，都是三张活动卡`);
+  if (cardHubs.length !== 20) bad.push(`走过了 ${cardHubs.length} 个时段菜单，该是 20 个`);
+  if (cardBad.length) bad.push(`有 ${cardBad.length} 个时段菜单不是三张卡：${cardBad.join('、')}`);
+  // 进第 3 天的第一个菜单时，上一日（第 2 日）的总结要自己摊开
+  log(`  · 上一日总结在 ${summaryAt} 上弹出来（${summaryTitle}）`);
+  if (summaryAt !== 'dy_d3_mo_hub') bad.push(`第 2 日总结该在 dy_d3_mo_hub 上自己摊开，实际在 ${summaryAt}`);
+  if (summaryAt && !/第 2 日总结/.test(summaryTitle)) bad.push(`摊开的那本标题是「${summaryTitle}」，该是「第 2 日总结」`);
   if (!walked.includes('c1_door')) bad.push('全程没有进过第三幕（第二幕结局的 continueTo 没接上）');
   // 狩猎篇：第三幕末尾摘掉结局之后要接得上，五章一章节一节地走到底
   if (!walked.includes('h4_knock')) bad.push('全程没有进过狩猎篇第四章（c27_end 的 next 没接上）');
@@ -830,15 +1017,26 @@ async function main() {
         await sleep(120);                       // 让样式落定（reduced-motion 下过渡是 0.001ms）
         const m = await cdp.eval(MEASURE);
         m.__view = viewType;
-        problems += inspect(`${target.name}（${viewType}）`, m).length;
+        if (target.wantBook || target.closeBook) {
+          // 摊开的那本书上写着什么（第 28 张要的是「第 2 日总结」那一页）
+          m.wantBook = await cdp.eval(`(() => {
+            const s = document.querySelector('.dy-diary-screen');
+            const t = document.querySelector('.dy-diary-title');
+            return {
+              on: !!(s && s.classList.contains('on')),
+              title: t ? (t.textContent || '').trim() : '',
+            };
+          })()`);
+        }
+        problems += inspect(`${target.name}（${viewType}）`, m, target).length;
         await cdp.shot(path.join(OUT_DIR, `${target.name}_${res.name}.png`));
       }
     }
 
     problems += await probeChoicesVanish(cdp);
   } finally {
-    edge.kill();
-    server.kill();
+    killTree(edge);
+    killTree(server);
     try { fs.rmSync(profile, { recursive: true, force: true }); } catch (err) { /* Windows 上偶尔删不掉，无所谓 */ }
   }
 

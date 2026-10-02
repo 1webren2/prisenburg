@@ -1102,30 +1102,21 @@
     },
     {
       "id": "b25_end",
-      "pov": "西比拉",
-      "title": "第二幕 · 完",
-      "art": {
-        "bg": "bg_sibylla_room",
-        "portrait": "chr_sibylla"
-      },
-      "dialogues": [],
-      "ending": true,
-      "continueTo": "dy_d3_mo_hub",
-      "endSub": "牧师服换下了，她重新穿上了那身黑白相间的女仆装。"
-    },
-    {
-      "id": "fr_hub",
+      "_note": "过场节点，不再是第二幕的结算屏：没有 ending、没有 continueTo、没有台词，advance() 直接穿过它进第 3 天。视角写奥布里而不是西比拉，是因为上一个节点（b24_change）是西比拉 —— 这里的 pov 只为不误触发视角横幅，玩家看不见这个节点。",
       "pov": "奥布里",
-      "freeRoam": true,
-      "title": "自由活动 · 奥布里的房间",
+      "povSwitch": {
+        "silent": true
+      },
+      "title": "奥布里的房间",
       "art": {
         "bg": "bg_aubrey_room",
         "portrait": "chr_aubrey"
       },
-      "dialogues": []
+      "dialogues": [],
+      "next": "dy_d3_mo_hub"
     },
     {
-      "id": "fr_end_hub",
+      "id": "fr_hub",
       "pov": "奥布里",
       "freeRoam": true,
       "title": "自由活动 · 奥布里的房间",
@@ -1341,7 +1332,6 @@
     },
     "anchors": [
       "fr_hub",
-      "fr_end_hub",
       "fr_act3_hub",
       "fr_sib_maid",
       "fr_sib_teacher",
@@ -1365,16 +1355,6 @@
           }
         ],
         "nextAct": "b1_room",
-        "endNode": "fr_the_end"
-      },
-      "fr_end_hub": {
-        "after": "b25_end",
-        "lines": [
-          {
-            "speaker": "旁白",
-            "text": "[一切都说完了。]"
-          }
-        ],
         "endNode": "fr_the_end"
       },
       "fr_act3_hub": {

@@ -695,8 +695,58 @@
       if (!item.enabled) return { ok: false, reason: 'locked', lockedHint: item.lockedHint };
 
       const effects = this.applyEffects(item.choice.effects);
+      // 选这一项 = 这一段原著没有亲历（日常层的另一处活动占了这个时段）。
+      // 原著照样发生过，所以沿「默认走法」把该落的数值落掉 —— 见 applySegmentDefaults。
+      if (item.choice.skip) this.applySegmentDefaults(item.choice.skip);
       this.enterNode(item.choice.next);
       return { ok: true, choice: item, effects, node: this.node, notes: effects.map((e) => e.note).filter(Boolean) };
+    }
+
+    /**
+     * 走一段**没有亲历**的剧情，把它的默认结果落进数值。
+     *
+     * 为什么要有这个：日常层允许玩家把某个时段花在别处（第 2 / 6 天的原著段
+     * 因此可能整段被跳过）。原著不会因为没人看就不发生 —— 它照常发生，
+     * 只是**没有亲历**。数值必须跟亲历那一遍完全一样，否则「看没看」会变成
+     * 一条隐藏的强弱路线。
+     *
+     * 单一数据来源就在这里：默认走法**不另写一份效果**，而是
+     *   · 决定点（原著里的两选）读它自己的 `defaultPick`，
+     *   · 日常层那个「处理选择」节点（dy_…_r）也读它自己的 `defaultPick`。
+     * 于是「亲历 + 按 defaultPick 选」与「跳过」两条路走出来的数值逐项相同 ——
+     * tests/daily.test.cjs 里有一条端到端断言钉着这一点。
+     *
+     * 走法：从入口节点出发，有 choices 就按 defaultPick（没写就是 0）拐，
+     * 没有就顺着 next；**撞到日常层节点（dy_…）就把它当这一段的一部分，
+     * 落完它的 defaultPick 后停**（它的 next 已经是下一时段了，不再往下走）。
+     */
+    applySegmentDefaults(entryId) {
+      const applied = [];
+      const seen = new Set();
+      const pickOf = (node) => {
+        if (!node || !node.choices || !node.choices.length) return null;
+        const i = Number.isInteger(node.defaultPick) ? node.defaultPick : 0;
+        return node.choices[i] || null;
+      };
+      let id = entryId;
+      while (id && !seen.has(id)) {
+        seen.add(id);                       // 剧本写岔了也不会转不出来
+        const node = this.nodes[id];
+        if (!node) break;
+        const c = pickOf(node);
+        if (c) {
+          applied.push(...this.applyEffects(c.effects));
+          id = c.next;
+        } else {
+          id = node.next;
+        }
+        if (id && id.indexOf('dy_') === 0) {
+          const c2 = pickOf(this.nodes[id]);
+          if (c2) applied.push(...this.applyEffects(c2.effects));
+          break;
+        }
+      }
+      return applied;
     }
 
     /* ==================================================================

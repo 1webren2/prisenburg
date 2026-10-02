@@ -199,6 +199,8 @@
     },
     {
       "id": "c5_lesson",
+      "_note": "defaultPick：这个决定点是日常层可能整段没亲历的一段，没亲历时按 defaultPick 走 —— 见 act1/engine.js 的 applySegmentDefaults。选 0（先问功课）是照旧的那一支：老师掌着课，与原著的常态一致。",
+      "defaultPick": 0,
       "pov": "西比拉",
       "title": "第三幕 · 教典与蜡版",
       "art": {
@@ -362,6 +364,8 @@
     },
     {
       "id": "c6_first",
+      "_note": "defaultPick：没亲历时按 1（笑着退开）走 —— 不插手的那一支。",
+      "defaultPick": 1,
       "pov": "西比拉",
       "title": "第三幕 · 一棵大树",
       "art": {
@@ -1101,6 +1105,8 @@
     },
     {
       "id": "c26_invite",
+      "_note": "defaultPick：没亲历时按 1（静听）走 —— 顺从而不是推辞的那一支。",
+      "defaultPick": 1,
       "pov": "西比拉",
       "title": "第三幕 · 狩猎的邀请",
       "art": {

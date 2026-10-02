@@ -90,9 +90,40 @@
     return RECORD_PREFIXES.some((p) => String(name).indexOf(p) === 0);
   }
 
-  /** 节点 id → { day, slot, key }；既不是日常层、也不是狩猎篇的就给 null。 */
-  function stampOf(nodeId) {
-    const id = String(nodeId || '');
+  /** 节点自己写的 stamp（20 个 hub 与那个 intro 上都有）。没有就给 null。 */
+  function explicitStamp(node) {
+    const s = node && node.stamp;
+    if (!s || !s.day || !SLOT_LABEL[s.slot]) return null;
+    return { day: Number(s.day), slot: SLOT_LABEL[s.slot], key: s.slot };
+  }
+
+  function nodeById(story, id) {
+    const list = (story && story.nodes) || [];
+    for (let i = 0; i < list.length; i++) if (list[i] && list[i].id === id) return list[i];
+    return null;
+  }
+
+  /**
+   * 节点（或节点 id）→ { day, slot, key }。
+   *
+   * 三条路，按可信度排：
+   *   1. **节点自己写的 `stamp`** —— 显式的，不靠任何猜。hub 与 intro 上有。
+   *   2. **id 的形状** —— dy_d{天}_{时段}_…，日常层每个节点都带着。
+   *   3. **HUNT_STAMP 那张表** —— 狩猎篇五章，日子是小说原文自己写的。
+   * 三条都落空（第 1 天的序章与第一夜）就给 null。
+   *
+   * 第一个参数既可以是一个节点对象，也可以是 id 字符串；字符串要查第 1 条
+   * 就得把 story 传进来。
+   */
+  function stampOf(nodeOrId, story) {
+    if (nodeOrId && typeof nodeOrId === 'object') {
+      return explicitStamp(nodeOrId) || stampOf(nodeOrId.id);
+    }
+    const id = String(nodeOrId || '');
+    if (story) {
+      const s = explicitStamp(nodeById(story, id));
+      if (s) return s;
+    }
     const m = NODE_RE.exec(id);
     if (m) {
       const key = m[2];
@@ -114,10 +145,10 @@
    * 找不到（第 1 天：序章和第一夜都还没有日常层）就是 null —— 界面上不显示
    * 时间牌子，【日记】按钮也不出现。这就是「日常模式从第二天开始」这条口径。
    */
-  function stampFromHistory(history) {
+  function stampFromHistory(history, story) {
     const list = history || [];
     for (let i = list.length - 1; i >= 0; i--) {
-      const s = stampOf(list[i]);
+      const s = stampOf(list[i], story);
       if (s) return s;
     }
     return null;
@@ -125,7 +156,7 @@
 
   function blockOf(story) {
     const d = (story && story.diary) || {};
-    return { title: d.title || '日记', entries: d.entries || [] };
+    return { title: d.title || '日记', entries: d.entries || [], offstage: d.offstage || {} };
   }
 
   function entryFor(story, day) {
@@ -216,6 +247,10 @@
    *
    * 顺序取引擎的 visited（Set，迭代顺序就是进入顺序，也存了档），
    * 拿不到的时候退回剧本里的先后（Array#sort 是稳定的）。
+   *
+   * **没有亲历的原著段另算一类**：条件不是旗，而是「那个段落的入口没进过
+   * visited」—— 亲历没亲历，visited 说了算，比旗可靠（旗是 0/1，没做过也是 0）。
+   * 再加上「那个时段已经过去」，就是 diary.offstage 收进来的全部条件。
    */
   function collect(story, engine, day) {
     const rank = {};
@@ -235,9 +270,16 @@
     /* 她此刻站在哪儿。站在某个节点的选项上 = 这一步还没走 —— 见上面 ④ */
     const standingOn = (engine && engine.node && engine.node.id) || null;
 
+    /* 她此刻走到哪一刻了。用来判「那个没亲历的时段过去了没有」——
+       同一天里，还没到的时段不该提前出现在日记上。 */
+    const here = (engine && engine.node && stampOf(engine.node, story)) ||
+      stampFromHistory(engine && engine.history, story) || null;
+    const rankOf = (s) => (s ? s.day * 10 + rank[s.slot] : -1);
+    const hereRank = rankOf(here);
+
     const out = [];
     for (const node of story.nodes || []) {
-      const stamp = stampOf(node.id);
+      const stamp = stampOf(node, story);
       if (!stamp) continue;                       // 原著段的选项不记日记
       if (day !== undefined && stamp.day !== day) continue;
       if (!went(node.id)) continue;               // ③ 还没走到这个时段
@@ -251,14 +293,36 @@
 
         const hit = keys.every((e) =>
           engine.checkCondition({ stat: e.stat, op: '==', value: e.value }));
-        if (hit) out.push({ day: stamp.day, slot: stamp.slot, node: node.id, text: c.diary });
+        if (hit) out.push({ day: stamp.day, slot: stamp.slot, node: node.id, text: c.diary, ord: orderKey(node.id) });
       }
     }
+
+    /* 没有亲历的原著段：原著不会因为没人看就不发生。那一整段照常演完
+       （数值沿默认走法落，见 act1/engine.js 的 applySegmentDefaults），
+       只是她这边要自己把它记下来 —— diary.offstage 就是那份补记。
+       收进来的两个条件：
+         · 那个段落的入口**没进过** visited（亲历了就轮不到补记，除非她正好
+           站在入口上还没迈步 —— 那也还没亲历，但更不该现在写，所以一并排除）
+         · 那个时段**已经过去**（同一天里，还没到的时段不许提前写）
+       排序的序号给 -1：同一时段里，原著段总是发生在那处活动之前。 */
+    const off = blockOf(story).offstage;
+    for (const entryId of Object.keys(off)) {
+      const rec = off[entryId];
+      if (!rec || !rec.text || !SLOT_LABEL[rec.slot]) continue;
+      if (day !== undefined && Number(rec.day) !== day) continue;
+      if (went(entryId) || entryId === standingOn) continue;
+      if (rankOf({ day: Number(rec.day), slot: SLOT_LABEL[rec.slot] }) >= hereRank) continue;
+      out.push({
+        day: Number(rec.day), slot: SLOT_LABEL[rec.slot], node: entryId,
+        text: rec.text, ord: -1, offstage: true,
+      });
+    }
+
     // 先按天，再按时段，同一时段里按她走过的先后
     out.sort((a, b) =>
       (a.day - b.day) ||
       (rank[a.slot] - rank[b.slot]) ||
-      (orderKey(a.node) - orderKey(b.node)));
+      (a.ord - b.ord));
     return out;
   }
 
@@ -266,9 +330,14 @@
     return collect(story, engine, day).map((x) => x.text);
   }
 
+  /** 这一天里哪几段是「没有亲历、由她自己补记」的。给测试和界面用。 */
+  function offstageFor(story, engine, day) {
+    return collect(story, engine, day).filter((x) => x.offstage);
+  }
+
   return {
     SLOTS, NODE_RE, RECORD_PREFIXES, HATE_LINE,
     isRecordStat, stampOf, stampFromHistory, blockOf, entryFor,
-    tierOf, bodyFor, collect, eventTexts, atLastLine,
+    tierOf, bodyFor, collect, eventTexts, atLastLine, offstageFor,
   };
 });

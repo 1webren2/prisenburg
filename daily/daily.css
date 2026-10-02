@@ -245,6 +245,195 @@
   .dy-diary-book { opacity: 1; transform: none; }
 }
 
+/* 这一页还什么都没有（今天刚开头）。只在她今天还没记下任何东西、
+   而这一页的正文也还没到露面的时候出现 */
+.dy-diary-empty {
+  margin: 18px 0 0;
+  font-size: 14px;
+  letter-spacing: .06em;
+  color: var(--ink-dim);
+}
+
+/* =====================================================================
+   四、翻页（第 1 天 ←→ 当前这天）
+   ---------------------------------------------------------------------
+   压在纸的下沿外面一点，z-index 压在封面(2)之上 —— 掀封面那 0.85 秒里
+   也不该被盖住。只有一天可看的时候整条不画（daily.js 里的 renderNav）。
+   ===================================================================== */
+
+.dy-diary-nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -46px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  pointer-events: auto;
+}
+
+.dy-diary-navbtn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--panel-edge);
+  background: rgba(12, 10, 8, 0.9);
+  color: var(--parchment);
+  font-family: var(--font-serif);
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dy-diary-navbtn:hover:not(:disabled),
+.dy-diary-navbtn:focus-visible:not(:disabled) {
+  color: var(--gold);
+  border-color: var(--gold-soft);
+}
+
+.dy-diary-navbtn:disabled { opacity: .3; cursor: default; }
+
+.dy-diary-pageno {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  letter-spacing: .14em;
+  color: var(--parchment-dim);
+}
+
+/* =====================================================================
+   五、时段菜单：右下角三张活动卡（从 stage0.css 的 #choices.s0-locations 移植）
+   ---------------------------------------------------------------------
+   只对 #choices.dy-cards 生效（daily.js 在 20 个 hub 上挂的类）。
+   其余节点的选项 —— 进入 / 返回 / 怎么处理 —— 还是 act1/style.css 里原来
+   那套竖排列表，一个字都没动。
+
+   按钮本身仍然是 ui.js 画的 <button class="choice-btn" data-index=N>，
+   点击走的还是 ui.js 挂在 #choices 上的事件代理，所以这里不用写交互。
+   ===================================================================== */
+
+:root {
+  --dy-edge: 30px;   /* 这一排离屏幕右边缘的距离 */
+  --dy-lift: 70px;   /* 离屏幕下边缘的距离（= #app 的 padding-bottom，让开 HUD） */
+  --dy-gap: 14px;    /* 方块之间的缝 */
+  --dy-tile: 96px;   /* 方块高度。改这里，时段提示那行会自己跟着挪 */
+}
+
+#choices.dy-cards {
+  /* 从 #stage 的 flex 流里摘出来，钉在右下角。
+     祖先上没有 filter / transform，fixed 仍然是相对视口定位。 */
+  position: fixed;
+  right: var(--dy-edge);
+  /* 和 #app 的 padding-bottom 对齐：让开底部那条 HUD */
+  bottom: var(--dy-lift);
+  left: auto;
+  margin: 0;
+  padding: 0;
+  flex-direction: row;
+  align-items: stretch;      /* 三个方块一样高，图标齐平 */
+  gap: var(--dy-gap);
+  z-index: 6;                /* 压过 HUD(5)，仍在结局层(8)之下 */
+  pointer-events: none;      /* 方块之间的缝不挡点击 */
+}
+
+#choices.dy-cards .choice-btn {
+  pointer-events: auto;
+  position: relative;
+  flex: 0 0 auto;
+  /* 104 是照着最长的那个场景名（「伊莎贝尔的房间」，7 个字 ×12px）留的，
+     再窄就会折成两行、三个方块高低不齐 */
+  width: 104px;
+  min-height: var(--dy-tile);
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 12px 8px 10px;
+  text-align: center;
+  border-radius: 14px;
+  border-color: rgba(201, 160, 90, 0.36);
+  background: linear-gradient(180deg, rgba(30, 25, 18, 0.88), rgba(12, 10, 8, 0.94));
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.45);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 编号去掉：位置本身就是提示，右下角这一排不需要「1 2 3」 */
+#choices.dy-cards .choice-key { display: none; }
+
+#choices.dy-cards .choice-text {
+  flex: none;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+  word-break: break-word;
+}
+
+#choices.dy-cards .choice-btn:hover:not(:disabled),
+#choices.dy-cards .choice-btn:focus-visible:not(:disabled) {
+  background: linear-gradient(180deg, rgba(52, 42, 28, 0.94), rgba(24, 19, 14, 0.96));
+  border-color: var(--gold);
+  transform: translateY(-4px);
+}
+
+#choices.dy-cards .dy-icon {
+  display: block;
+  width: 32px;
+  height: 32px;
+  color: var(--gold);
+}
+
+#choices.dy-cards .dy-icon svg { display: block; width: 100%; height: 100%; }
+
+/* 地点说明做成 tooltip：平时藏起来，悬停 / 键盘聚焦才浮出来。
+
+   往左弹，不居中：右边缘和方块右边缘齐平，文字往左长。居中的话最右边那块
+   的长提示会顶出屏幕右沿。宽度要用 max-content，不然会撑满方块那 104px
+   反而更高。 */
+#choices.dy-cards .choice-hint {
+  position: absolute;
+  right: 0;
+  left: auto;
+  bottom: calc(100% + 10px);
+  width: max-content;
+  max-width: 220px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(12, 10, 8, 0.95);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--parchment);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+#choices.dy-cards .choice-btn:hover .choice-hint,
+#choices.dy-cards .choice-btn:focus-visible .choice-hint { opacity: 1; }
+
+/* 时段提示：菜单正上方一行小字（「早晨 · 选择去向」）。
+   选项一亮出来对话框就整个收起来了，所以这时候屏幕上看不见「早晨」
+   那几个字 —— 这一行是补回「现在是几点」的。 */
+#dy-slot-label {
+  position: fixed;
+  right: var(--dy-edge);
+  /* 贴着图标排的上沿：离底 = 排的底 + 方块高 + 8px 缝。 */
+  bottom: calc(var(--dy-lift) + var(--dy-tile) + 8px);
+  z-index: 6;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+
+#dy-slot-label.on { opacity: 1; }
+
 /* 窄屏：一页纸排窄一点，字号跟着收 */
 @media (max-width: 760px) {
   .dy-diary-book { width: 92vw; height: min(78vh, 640px); }
@@ -253,4 +442,7 @@
   .dy-diary-events { font-size: 14px; }
   .dy-diary-note { font-size: 15px; }
   .dy-clock { left: 14px; top: 72px; font-size: 13px; }
+  .dy-diary-nav { bottom: -42px; }
+  #choices.dy-cards { --dy-edge: 14px; --dy-gap: 8px; }
+  #choices.dy-cards .choice-btn { width: 88px; font-size: 11px; }
 }
