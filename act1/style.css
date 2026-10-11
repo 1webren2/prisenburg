@@ -507,6 +507,9 @@ body:not(.ready) #app { opacity: 0; }
 /* 占右栏的第 1 行，顶部对齐 —— 不再是 fixed，所以它是「真有地方待着」的，
    不会盖到左栏的选项上 */
 #stats-panel {
+  /* 默认整块收起来：不占视线、也不占剧情空间。
+     玩家按「状态」或 V 才展开（.revealed 由 ui.js 的 renderStats() 挂）。 */
+  display: none;
   grid-column: 2;
   grid-row: 1;
   align-self: start;
@@ -567,8 +570,8 @@ body:not(.ready) #app { opacity: 0; }
   padding: 2px 0 6px;
 }
 
-/* 未展开时把面板压低存在感，展开后才亮起来 */
-#stats-panel:not(.revealed) { opacity: 0.72; }
+/* 展开 */
+#stats-panel.revealed { display: block; }
 
 .stats-foot {
   margin: 12px 0 0;
@@ -1102,6 +1105,91 @@ body:not(.ready) #app { opacity: 0; }
   #stats-panel { margin: 14px 14px 0 0; padding: 12px 14px; }
   #hud { left: 14px; max-width: calc(100% - var(--panel-w) - 28px); }
   .hud-keys { display: none; }
+}
+
+/* =====================================================================
+   系统菜单（Esc）
+   ===================================================================== */
+
+#sys-menu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  transition: opacity 0.22s ease;
+}
+#sys-menu:not(.on) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#sys-menu-veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(6, 5, 4, 0.42) 0%, rgba(6, 5, 4, 0.86) 100%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.sys-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 240px;
+  max-height: calc(100vh - var(--hud-h) - 48px);
+  overflow-y: auto;
+  padding: 22px 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-edge);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.sys-heading {
+  margin-bottom: 6px;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  color: var(--gold);
+  text-align: center;
+}
+
+.sys-item { text-align: left; }
+
+/* 快捷键那张表：键名在左、说明在右，两列对齐 */
+#sys-keys-panel { display: none; }
+#sys-keys-panel.on {
+  display: block;
+  margin: 2px 0 6px;
+  padding: 10px 2px;
+  border-top: 1px solid rgba(201, 160, 90, 0.14);
+  border-bottom: 1px solid rgba(201, 160, 90, 0.14);
+}
+.sys-key-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 3px 0;
+  font-size: 11.5px;
+}
+.sys-key-name {
+  flex: none;
+  width: 108px;
+  color: var(--parchment);
+  font-family: var(--font-sans);
+}
+.sys-key-desc { color: var(--parchment-dim); line-height: 1.5; }
+
+/* ↑↓ 选中的那一项。和 hover 同一套观感，所以玩家一眼就知道「按回车就是它」 */
+.choice-btn.keyed:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--parchment);
+  background: rgba(32, 26, 20, 0.92);
+  transform: translateX(3px);
 }
 
 /* 系统开了「减少动画」就全部关掉，避免有人看着晕 */

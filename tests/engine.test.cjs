@@ -23,13 +23,14 @@ const act1 = require(path.join(__dirname, '..', 'act1', 'story.json'));
 const act2 = require(path.join(__dirname, '..', 'act2', 'story.json'));
 const act3 = require(path.join(__dirname, '..', 'act3', 'story.json'));
 const daily = require(path.join(__dirname, '..', 'daily', 'story.json'));
-// 狩猎篇：一章一文件，加载链排在日常层之后（剧情上接在第三幕的尾巴上）
+// 狩猎篇：一章一文件，加载链排在日常层之后（首轮回填后第八章接第九章；第三幕的旧链留档不再进入主线）
 const hunt = [4, 5, 6, 7, 8].map((n) => require(path.join(__dirname, '..', 'hunt', `ch${n}.json`)));
+const ch9 = require(path.join(__dirname, '..', 'hunt', 'ch9.json'));
 
 // 一幕一个 story.json，引擎只认一个 —— 和浏览器里 boot() 一样先拼起来。
 // 第一幕改造后多了一层日常层（daily/story.json），它的加载位置排在第三幕之后，
 // 但剧情上的位置在第二幕与第三幕之间 —— 加载链与导航是两回事，见各文件 meta。
-const story = api.composeStories([act1, act2, act3, daily, ...hunt]);
+const story = api.composeStories([act1, act2, act3, daily, ...hunt, ch9]);
 
 const { StoryEngine } = api;
 const t = suite('引擎');
@@ -40,6 +41,13 @@ const t = suite('引擎');
 
 const nodeById = new Map(story.nodes.map((n) => [n.id, n]));
 const choicesOf = (id) => (nodeById.get(id).choices || []);
+
+/** 谁指向它（含 route 条件路由的候选边） */
+const preds = (id) => story.nodes.filter((n) => {
+  if (n.next === id || n.continueTo === id) return true;
+  if ((n.route || []).some((r) => r.next === id)) return true;
+  return (n.choices || []).some((c) => c.next === id);
+}).map((n) => n.id);
 
 /**
  * 枚举一条线上的分支组合，返回 [{ picks, end }]。
@@ -189,23 +197,25 @@ const spread = (arr, n) => {
 };
 const SAMPLE1 = spread(ACT1_PATHS, 24);
 
+/* 第二幕的 'b' 类选择序列：第一夜的 3 个（b2/b4/b8）+ 第二天的授课方式 b19（普通）。
+   首轮回填后 b19 是 'b' 区里的第 4 个决定点，序列短了会在它那里被拒。 */
+const A2_PICKS = ACT2_NIGHT_PATHS.map((p) => p.picks.concat([1]));
+
 const CROSS_PATHS = [];
-// A. 第一幕每条分支各配一组「第二幕夜里的走法 + 第三幕走法 + 日常层路线」（轮流取端点），
-//    保证每一条第一幕分支都真走完了全程
+// A. 第一幕每条分支各配一组「第二幕夜里的走法 + 日常层路线」（轮流取端点），
+//    保证每一条第一幕分支都真走完了全程（旧第三幕已脱链，不再参与跨幕枚举）
 const ENDS = [];
-for (const a2 of ACT2_NIGHT_PATHS) {
-  for (const a3 of [ACT3_PICKS[0], ACT3_PICKS[ACT3_PICKS.length - 1]]) {
-    for (const plan of DAILY_PLANS) ENDS.push({ a2: a2.picks, a3, plan });
-  }
+for (const a2 of A2_PICKS) {
+  for (const plan of DAILY_PLANS) ENDS.push({ a2, plan });
 }
 ACT1_PATHS.forEach((a1, k) => {
   const e = ENDS[k % ENDS.length];
-  CROSS_PATHS.push({ a1: a1.picks, a2: e.a2, a3: e.a3, plan: e.plan });
+  CROSS_PATHS.push({ a1: a1.picks, a2: e.a2, plan: e.plan });
 });
-// B. 均匀抽 24 条第一幕代表，配满第二幕夜里 8 × 第三幕 8 × 日常层 2，保证每个组合都有人走过
+// B. 均匀抽 24 条第一幕代表，配满第二幕夜里 8 × 日常层 3，保证每个组合都有人走过
 for (const a1 of SAMPLE1) {
-  for (const a2 of ACT2_NIGHT_PATHS) for (const a3 of ACT3_PICKS) for (const plan of DAILY_PLANS) {
-    CROSS_PATHS.push({ a1: a1.picks, a2: a2.picks, a3, plan });
+  for (const a2 of A2_PICKS) for (const plan of DAILY_PLANS) {
+    CROSS_PATHS.push({ a1: a1.picks, a2, plan });
   }
 }
 
@@ -218,26 +228,31 @@ t.section('剧本结构');
 const report = new StoryEngine(story).validate();
 
 t.empty(report.errors, '自检没有 error');
-t.empty(report.warnings, '自检也没有 warning');
+// 旧稿留档的四个入口没有入边 —— 是登记的「脱链」，不是接漏了（见「走得到的节点」）
+t.eq(
+  report.warnings,
+  ['b12_morning 没有任何节点指向它，走不到', 'b16_montage 没有任何节点指向它，走不到',
+    'b23_corridor 没有任何节点指向它，走不到', 'c1_door 没有任何节点指向它，走不到'],
+  '自检的 warning 只剩四条「旧链入口走不到」的登记'
+);
 t.eq(act1.nodes.length, 30, '第一幕 30 个节点（西比拉 12 + 奥布里 18）');
 t.eq(act2.nodes.length, 41, '第二幕 41 个节点（27 段剧情 + 13 个自由活动锚点 + 报仇结局 fr_revenge —— fr_end_hub 已删）');
 t.eq(act3.nodes.length, 33, '第三幕 33 个节点（27 段主线 + 3 个决定点各岔出的 2 条支线）');
-t.eq(daily.nodes.length, 133,
-  '日常层 133 个节点：1 个日记引入场 + 20 个时段 hub '
-  + '+ 每处活动一对「事件 _e / 处理选择 _r」（52 处活动 → 52 个 _e + 52 个 _r）'
-  + '+ 8 个主线日原著段自己的处理选择 _r = 1 + 20 + 104 + 8');
+t.eq(daily.nodes.length, 89,
+  '日常层 89 个节点（首轮回填后的第 2~6 天：28 + 16 + 18 + 13 + 12，含取消线第 7、8 天各一个占位节点）');
 t.eq(hunt.map((h) => h.nodes.length), [22, 26, 28, 33, 18], '狩猎篇五章各 22 / 26 / 28 / 33 / 18 个节点（store 第四～第八章，一章一文件）');
 t.eq(
   hunt.map((h) => h.meta.continues),
-  [['ch5.json'], ['ch6.json'], ['ch7.json'], ['ch8.json'], undefined],
-  '狩猎篇的加载链一章接一章，第八章是链尾'
+  [['ch5.json'], ['ch6.json'], ['ch7.json'], ['ch8.json'], ['ch9.json']],
+  '狩猎篇的加载链一章接一章，第八章接上第九章'
 );
-t.eq(report.stats.nodes, 364, '拼起来是 364 个节点');
+t.eq(ch9.meta.start, 'h9_start', '第九章从 h9_start 开始（清晨，西比拉视角）');
+t.eq(report.stats.nodes, 328, '拼起来是 328 个节点（30 + 41 + 33 + 89 + 127 + 8）');
 t.eq(
   report.stats.endings,
-  ['o4_end', 'fr_the_end', 'fr_revenge', 'h8_end'],
-  '四个结局：第一幕收束 o4_end + 自由活动的「结束游戏」与报仇 + 狩猎篇末尾 h8_end'
-  + '（b25_end 已经退出结局名单 —— 它现在只是个过场）'
+  ['o4_end', 'fr_the_end', 'fr_revenge', 'h9_end'],
+  '四个结局：第一幕收束 o4_end + 自由活动的「结束游戏」与报仇 + 第九章末尾 h9_end'
+  + '（h8_end 已经退出结局名单 —— 它现在只是一根 next，第一幕的收束挪到了 h9_end）'
 );
 t.eq(Object.keys(story.povs), ['西比拉', '奥布里'], '两个视角：西比拉 / 奥布里');
 t.eq(story.meta.start, 's1_rain', '起点是 s1_rain（马车里，西比拉视角）');
@@ -249,13 +264,18 @@ t.eq(act3.meta.continues, ['../daily/story.json'], '第三幕的 meta.continues 
 // 加载链与剧情顺序故意不同：daily 排在 act3 之后加载，剧情上却插在 act2 与 act3 中间。
 // 这一条盯的就是「两边都别写串」。
 t.eq(daily.meta.continues, ['../hunt/ch4.json'], '日常层的 continues 接上狩猎篇第一章');
-// 狩猎篇的入口：c27_end 摘掉临时的 ending，改成一根 next 指过去（不再有 endSub）
-t.eq(act3.nodes.find((n) => n.ending), undefined, '第三幕自己不再有结局节点 —— 第一幕的收束点交给狩猎篇末尾');
+// 旧第三幕（c1～c27）整条链留档：正文一字不动，但新时间线不再从它进来（详见「走得到的节点」）
+t.eq(act3.nodes.find((n) => n.ending), undefined, '第三幕自己不再有结局节点 —— 第一幕的收束点交给第九章末尾');
 t.eq(act3.nodes.filter((n) => n.endSub).length, 0, '第三幕的临时 endSub 也一起摘干净了');
-t.eq(act3.nodes.find((n) => n.id === 'c27_end').next, 'h4_knock', '第三幕演完直接落进狩猎篇第一章的首节点');
-t.eq(hunt[0].meta.start, 'h4_knock', '狩猎篇第一章的入口就是 c27_end 指向的那个节点');
-t.ok(hunt[4].nodes.find((n) => n.id === 'h8_end').ending && !hunt[4].nodes.find((n) => n.id === 'h8_end').continueTo,
-  '第八章末 h8_end 才是第一幕真正的收束（ending，无 continueTo）');
+t.eq(act3.nodes.find((n) => n.id === 'c27_end').next, 'h4_knock', '第三幕的旧收束链保留原样（c27_end → h4_knock 还在，供旧稿追溯）');
+t.eq(hunt[0].meta.start, 'h4_knock', '狩猎篇第一章的起始节点还是 h4_knock（旧整章入口；新入口见跨幕一节）');
+t.ok(!hunt[4].nodes.find((n) => n.id === 'h8_end').ending
+  && hunt[4].nodes.find((n) => n.id === 'h8_end').next === 'h9_start'
+  && hunt[4].nodes.find((n) => n.id === 'h8_end').endSub === undefined,
+  'h8_end 不再弹结局屏：只留一根 next 接第九章（不显示「第一幕尾声」一类提示）');
+t.ok(ch9.nodes.find((n) => n.id === 'h9_end').ending && !ch9.nodes.find((n) => n.id === 'h9_end').continueTo,
+  '第九章末尾 h9_end 才是第一幕真正的收束（ending，无 continueTo）');
+t.eq(ch9.nodes.find((n) => n.id === 'h9_end').title, undefined, 'h9_end 不写标题 —— 结局屏上不出现「第一幕结束」一类大字');
 t.empty(
   hunt.flatMap((h) => h.nodes.filter((n) => !/^h[45678]_/.test(n.id)).map((n) => n.id)),
   '狩猎篇的节点 id 全部符合 h{章}_…'
@@ -265,112 +285,132 @@ t.eq(act2.nodes.find((n) => n.id === 'b11_sleep').next, 'dy_d2_mo_intro', '第�
 t.ok(ACT2_NIGHT_PATHS.length === 8, '第二幕第一夜 8 条分支');
 
 t.section('日常层骨架');
-// 第 2 天与第 6 天各四个时段，共 8 个主线 hub；第 3~5 天各四个，共 12 个自由日 hub
-const hubIds = daily.nodes.filter((n) => /^dy_d\d_(mo|nn|af|ni)_hub$/.test(n.id)).map((n) => n.id);
-t.eq(hubIds.length, 20, '日常层一共 20 个时段 hub（主线日 8 + 自由日 12）');
+// 时段：早晨 / 中午 / 午后 /（傍晚）/ 夜晚；不是每天都有全部时段。
+// 时段菜单（带选项的 hub）；第 3~5 天的煎药夜是「收束 hub」：没有选项、一根 next 收尾
+const hubIds = daily.nodes.filter((n) => /^dy_d\d_(mo|nn|af|ev|ni)_hub$/.test(n.id)).map((n) => n.id);
+t.eq(hubIds.length, 17, '日常层一共 17 个 _hub 节点（第 2 天 4 + 第 3 天 4 + 第 4 天 4 + 第 5 天 3 + 第 6 天 2）');
 t.eq(
-  daily.nodes.filter((n) => /^dy_d\d_(mo|nn|af|ni)_r$/.test(n.id)).map((n) => n.id),
-  ['dy_d2_mo_r', 'dy_d2_nn_r', 'dy_d2_af_r', 'dy_d2_ni_r', 'dy_d6_mo_r', 'dy_d6_nn_r', 'dy_d6_af_r', 'dy_d6_ni_r'],
-  '两个主线日各四个幕尾反应节点 —— 每个时段都落一次处理选择'
+  daily.nodes.filter((n) => /^dy_d\d+_(mo|nn|af|ev|ni)(_[a-z0-9]+)*_r$/.test(n.id)).map((n) => n.id),
+  ['dy_d2_mo_r', 'dy_d2_mo_doc_r', 'dy_d2_mo_stable_r', 'dy_d2_nn_hl_r', 'dy_d2_nn_guest_r',
+    'dy_d2_nn_account_r', 'dy_d2_af_hil_r', 'dy_d2_af_archive_r', 'dy_d2_af_wall_r', 'dy_d2_ni_paper_r',
+    'dy_d3_nn_hall_r', 'dy_d4_nn_meal_r', 'dy_d4_ev_hill_r', 'dy_d5_nn_meal_r'],
+  '处理选择 _r 只在作者写了「选择：」的地方落 —— 一共 14 个（不再每个活动一个）'
 );
 t.empty(
-  daily.nodes.filter((n) => !/^dy_d\d_(mo|nn|af|ni)_/.test(n.id)).map((n) => n.id),
-  '日常层的节点 id 全部符合 dy_d{天}_{时段}_…'
+  daily.nodes.filter((n) => !/^dy_d\d+_(mo|nn|af|ev|ni)(_[a-z0-9]+)*_(hub|arr|e|r|intro)$/.test(n.id)).map((n) => n.id),
+  '日常层的节点 id 全部符合 dy_d{天}_{时段}[_{地点}]_{类型} 的形状（时段含 ev 傍晚）'
 );
-// 第 3~5 天是正式的自由日：12 个时段，每个时段一个菜单 + 三处活动各一对 _e / _r
-const freeIds = daily.nodes.filter((n) => /^dy_d[345]_/.test(n.id)).map((n) => n.id);
-t.eq(freeIds.length, 84, '第 3~5 天共 84 个节点（12 个时段 × （1 个菜单 + 3 处活动 × 2））');
-t.eq(freeIds.filter((id) => /_hub$/.test(id)).length, 12, '自由日 12 个时段菜单');
-t.eq(freeIds.filter((id) => /_e$/.test(id)).length, 36, '自由日每个时段三处活动，各有一个事件节点');
-t.eq(freeIds.filter((id) => /_r$/.test(id)).length, 36, '每处活动都有它自己的处理选择');
 t.empty(daily.nodes.filter((n) => n._scaffold).map((n) => n.id),
   '脚手架一个不剩 —— _scaffold 只该存在于它被替换掉之前');
 
-/* 这一轮的核心改动：**每个菜单固定 3 个真选项**。
-   禁止 lockedHint、禁止恒假 if —— 三个地点都必须进得去、走得完。 */
+/* 菜单（有选项的 hub）：每一项都必须真的点得动；选项数目按当天稿子走，不再强求三选一。 */
+const MENU_COUNTS = {
+  dy_d2_mo_hub: 3, dy_d2_nn_hub: 3, dy_d2_af_hub: 3, dy_d2_ni_hub: 2,
+  dy_d3_mo_hub: 2, dy_d3_nn_hub: 3, dy_d3_ev_hub: 2,
+  dy_d4_mo_hub: 2, dy_d4_nn_hub: 3, dy_d4_ev_hub: 2,
+  dy_d5_mo_hub: 2, dy_d5_nn_hub: 3,
+  dy_d6_mo_hub: 2, dy_d6_nn_hub: 3,
+};
+const badMenus = [];
+for (const [id, n] of Object.entries(MENU_COUNTS)) {
+  const hub = nodeById.get(id);
+  if (!hub) { badMenus.push(`${id} 不存在`); continue; }
+  if (!hub.choices || hub.choices.length !== n) badMenus.push(`${id} 有 ${(hub.choices || []).length} 个选项，应当 ${n}`);
+  if (hub.next) badMenus.push(`${id} 是菜单却写了 next —— 写了就再也回不到菜单`);
+  for (const c of hub.choices || []) {
+    if (c.if || c.lockedHint) badMenus.push(`${id}「${c.text}」带着 if / lockedHint —— 菜单项必须永远可点`);
+    if (!nodeById.get(c.next)) badMenus.push(`${id}「${c.text}」指向不存在的 ${c.next}`);
+  }
+  const dests = (hub.choices || []).map((c) => c.next);
+  if (new Set(dests).size !== dests.length) badMenus.push(`${id} 有两个选项通向同一处`);
+}
+t.empty(badMenus, '14 张时段菜单：选项数目按稿子、永远可点、各去各的地方');
 t.empty(daily.nodes.flatMap((n) => (n.choices || [])
   .filter((c) => c.lockedHint).map((c) => `${n.id}「${c.text}」`)),
   '日常层一块 lockedHint 都没有 —— 没有灰着的选项');
-t.empty(daily.nodes.filter((n) => /_hub$/.test(n.id) && (n.choices || []).length !== 3).map((n) => n.id),
-  '每个时段菜单都是三选一');
-t.empty(hubIds.flatMap((id) => (nodeById.get(id).choices || [])
-  .filter((c) => c.if).map((c) => `${id}「${c.text}」`)),
-  '菜单上的三项都没有 if —— 永远都点得动');
+t.empty(
+  daily.nodes.filter((n) => /_hub$/.test(n.id) && !(n.choices || []).length && !n.next).map((n) => n.id),
+  '没有选项的收束 hub 都要写 next（煎药完就该进下一天）'
+);
 
-// 主线日每个 hub 里，主线地点排在第一位，另外两处是「她在别处」的时刻
-const mainlineHubOpens = [
-  ['dy_d2_mo_hub', 'b12_morning'], ['dy_d2_nn_hub', 'b16_montage'],
-  ['dy_d2_af_hub', 'b21_haier_calls'], ['dy_d2_ni_hub', 'b23_corridor'],
-  ['dy_d6_mo_hub', 'c1_door'], ['dy_d6_nn_hub', 'c8_stairs'],
-  ['dy_d6_af_hub', 'c13_out'], ['dy_d6_ni_hub', 'c23_front'],
-];
-const badHubs = [];
-for (const [hubId, entry] of mainlineHubOpens) {
-  const hub = nodeById.get(hubId);
-  if (!hub) { badHubs.push(`${hubId} 不存在`); continue; }
-  if (hub.choices.length !== 3) badHubs.push(`${hubId} 有 ${hub.choices.length} 个选项，应该是 3`);
-  else if (hub.choices[0].next !== entry) badHubs.push(`${hubId} 的第一项指向 ${hub.choices[0].next}，应该是 ${entry}`);
-  /* 另外两处是同一个时段里「她在别处」的时刻 —— 原著那一段照样发生，
-     只是没亲历，所以它们必须把跳过的那一段标出来（engine 的 applySegmentDefaults）。 */
-  for (const c of hub.choices.slice(1)) {
-    if (c.skip !== entry) badHubs.push(`${hubId}「${c.text}」没写 skip: ${entry}`);
-    if (!/_e$/.test(c.next || '')) badHubs.push(`${hubId}「${c.text}」应当先落进一处活动（_e）`);
-  }
-  if (!hub.povSwitch || !hub.povSwitch.silent) badHubs.push(`${hubId} 没写 povSwitch.silent，每个时段都会弹一行视角提示`);
+/* 第 2 天早晨：主线是原著授课线（b17～b22），另两处标「没亲历」再走默认结算 */
+const d2hub = nodeById.get('dy_d2_mo_hub');
+const d2bad = [];
+if (d2hub.choices[0].next !== 'b17_scream') d2bad.push('第一项应当直接进原著授课线 b17_scream');
+for (const c of d2hub.choices.slice(1)) {
+  if (c.skip !== 'b17_scream') d2bad.push(`「${c.text}」没写 skip: b17_scream`);
 }
-t.empty(badHubs, '八个主线 hub 各三项：第一项直接进原著段，另两项标出「这一段落没亲历」再进自己的活动');
+t.empty(d2bad, '第 2 天早晨：第一项进授课线，另两项把这一段标成默认结算（applySegmentDefaults）');
+t.eq(nodeById.get('b20_lesson').next, 'b21_haier_calls', '授课线在 b19 的三选一之后接回原著：b20 → b21');
+t.eq(nodeById.get('b22_after').next, 'dy_d2_mo_r', '原著整段演完，才落到本时段的处理选择');
 
-// 原著段的入口入度恒为 1，且那条入边就是本时段的 hub —— 这是「主线跳不过去」的真正保证
-const preds = (id) => story.nodes.filter((n) => {
-  if (n.next === id || n.continueTo === id) return true;
-  return (n.choices || []).some((c) => c.next === id);
-}).map((n) => n.id);
-const badEntries = [];
-for (const [hubId, entry] of mainlineHubOpens) {
-  const ps = preds(entry);
-  if (ps.length !== 1 || ps[0] !== hubId) badEntries.push(`${entry} 的入边是 [${ps}]，应该只有 ${hubId}`);
-}
-t.empty(badEntries, '八段原著剧情的入口入度恒为 1，且唯一那条入边来自它所属时段的菜单（主线跳不过去）');
+/* 周六夜：route（条件路由）分流 —— 继续进狩猎、取消走占位链。在玩家眼里不是一次选择。 */
+const night = nodeById.get('dy_d6_ni_night_e');
+t.ok(night && !(night.choices || []).length && !night.next && Array.isArray(night.route),
+  '周六夜是 route 分流节点：没有台词、没有选项、没有 next');
+t.eq((night.route || []).map((r) => r.next), ['dy_d6_ni_hunt_e', 'dy_d6_ni_cancel_e'],
+  '第一条规定继续线去交付骑装，最后一条兜底走取消线');
+t.eq(night.route[night.route.length - 1].if, undefined, 'route 的最后一条不留条件 —— 永远有出口');
+t.eq(preds('dy_d6_ni_hunt_e'), ['dy_d6_ni_night_e'], '继续线只从周六夜的分流节点进来（没有旁路）');
+t.eq(preds('dy_d6_ni_cancel_e'), ['dy_d6_ni_night_e'], '取消线也只从周六夜的分流节点进来');
 
-// 两个「时段终点」：第 2 天夜晚通向 b25_end（第 3 天），第 6 天夜晚通向 c27_end（狩猎篇）。
-// 它们收的是**本时段全部三处活动**的边 —— 无论今晚去了哪儿，天都会亮。
-t.eq(preds('b25_end').sort(),
-  ['dy_d2_ni_cls_r', 'dy_d2_ni_r', 'dy_d2_ni_sib_r'],
-  '第 2 天夜晚三处活动都通向 b25_end（去房间/洗衣房/账房，天都照常亮）');
-t.eq(preds('c27_end').sort(),
-  ['dy_d6_ni_acc_r', 'dy_d6_ni_r', 'dy_d6_ni_sib_r'],
-  '第 6 天夜晚三处活动都通向 c27_end');
-t.eq(preds('b25_end').filter((id) => id === 'dy_d2_ni_r').length, 1,
-  '其中「亲历原著」那条边只此一条 —— b25_end 不另开旁路');
-// 狩猎篇的第一章也是同理：入度恒为 1，唯一那条入边来自第三幕的收束节点。
-// 它是「原著 → 原著」的一根 next（不是 continueTo），所以不能交给上面那张表
-// （那张表比的是 hub 的 id），单独钉一条。
-t.eq(preds('h4_knock'), ['c27_end'], '狩猎篇的入口只从 c27_end 进来，没有旁路');
+// 原著段的入口入度恒为 1，且那条入边就是本时段的菜单 —— 这是「主线跳不过去」的真正保证
+// （b16_montage 那条是脱链旧链的留档回边，活的节点里只有菜单这一条）
+t.eq(preds('b17_scream').sort(), ['b16_montage', 'dy_d2_mo_hub'],
+  '授课线唯一的**活**入边来自本时段的菜单（主线跳不过去）');
+t.eq(preds('h4_request').sort(), ['dy_d6_ni_hunt_e', 'h4_habit'],
+  '狩猎的实质入口是周六夜的交付场景（h4_habit 那条是旧链的回边，旧链整条已脱链）');
+
+// 第 2 天日终：新链一根 next（dy_d2_ni_end_e），旧「日终背景」链保留在文件里
+t.eq(preds('b25_end').sort(), ['b24_change', 'dy_d2_ni_end_e'],
+  '第 2 天日终接 b25_end：新链一条 + 旧「日终背景」链存档的一条');
+// 旧第三幕链：内部接回，两个岔口都收在 c27_end（不再有日常层入口）
+t.eq(preds('c27_end').sort(), ['c26a_refuse', 'c26b_meet'],
+  '第三幕的旧链内部接回：c26 的两个岔口都收在 c27_end');
+t.eq(preds('h4_knock'), ['c27_end'], '狩猎篇的旧整章入口只从 c27_end 进来（新时间线不走它）');
 t.eq(preds('h5_dawn').length >= 1, true, '狩猎篇各章之间也接得上（第五章有入口）');
+
+/* 每一天走一遍：从早晨菜单进，随便怎么选，最后都收在当天的收束处。
+   第 2 天收 b25_end（穿过它进第 3 天开场）；第 3~5 天收第二天的早晨菜单；
+   第 6 天收在夜晚分流节点（继续/取消从那里再分两头）。 */
+const DAY_TERMINAL = { 2: 'b25_end', 3: 'dy_d4_mo_hub', 4: 'dy_d5_mo_hub', 5: 'dy_d6_mo_hub', 6: 'dy_d6_ni_night_e' };
+const dayProblems = [];
+for (const [day, terminal] of Object.entries(DAY_TERMINAL)) {
+  const startId = day === '2' ? 'dy_d2_mo_intro' : `dy_d${day}_mo_hub`;
+  const walk = (nodeId, depth) => {
+    if (depth > 60) { dayProblems.push(`第 ${day} 天从 ${nodeId} 越走越深（成环？）`); return; }
+    if (nodeId === terminal) return;
+    const n = nodeById.get(nodeId);
+    if (!n) { dayProblems.push(`第 ${day} 天走到不存在的 ${nodeId}`); return; }
+    if (n.choices && n.choices.length) { for (const c of n.choices) walk(c.next, depth + 1); return; }
+    if (n.route && n.route.length) { for (const r of n.route) walk(r.next, depth + 1); return; }
+    if (n.next) { walk(n.next, depth + 1); return; }
+    dayProblems.push(`第 ${day} 天走到 ${nodeId} 就断了（既不是收束 ${terminal}，也没有出口）`);
+  };
+  walk(startId, 0);
+}
+t.empty([...new Set(dayProblems)],
+  '五天各走一遍：从早晨菜单进、随便怎么选，最后都收在当天的收束处（第 6 天收在夜晚分流节点）');
 
 // 上面那条是结构性保证，这条是运行时的另一半：三项都真的点得动
 const gate = new StoryEngine(story);
 gate.enterNode('dy_d2_mo_hub');
 const gateChoices = gate.availableChoices();
 t.eq(gateChoices.map((c) => c.enabled), [true, true, true], '第 2 天早晨三项全能点 —— 没有锁着的选项');
-t.eq(gate.choose(0).ok, true, '点主线地点放行');
-t.eq(gate.node.id, 'b12_morning', '选了地点就直接落进原著段');
+t.eq(gate.choose(0).ok, true, '点课程线放行');
+t.eq(gate.node.id, 'b17_scream', '选了地点就直接落进原著授课线（从 b17 起，不再从 b12 起播）');
+t.eq(gate.povSwitchInfo, null, '授课线现在整条都在奥布里视角里 —— 不再弹「奥布里>西比拉」那行横幅');
 
 // 另外两处：先落进那个时段的活动，同时把没亲历的原著段按默认走法结掉
 // （「跳过的那一段用的是同一份数据」在 daily.test.cjs 里有逐项核对）
 const aside = new StoryEngine(story);
 aside.enterNode('dy_d2_mo_hub');
 t.eq(aside.choose(1).ok, true, '第 2 天早晨的第二项也点得动');
-t.eq(aside.node.id, 'dy_d2_mo_hl_e', '没亲历的时候直接落在本时段那处活动的**事件**节点上（不是处理选择）');
+t.eq(aside.node.id, 'dy_d2_mo_doc_e', '没亲历的时候直接落在本时段那处活动的**事件**节点上（不是处理选择）');
 t.eq(aside.node.choices, undefined, '事件节点没有选项 —— 先演事件，再谈怎么处理');
+t.eq(aside.getStat('旗_第2天早晨'), 1, '没亲历授课线时，默认走法（不插手）已经替她把这一段落结掉了');
 
-// 已知的观感债（阶段 5 还）：日常节点带 silent，原著段入口**不带**，
-// 于是每进一段原著都会吃一行默认提示「奥布里 视角结束 —— 西比拉 视角开始」。
-// 这里把它钉成「现状」而不是「期望」——改了就该有人来看一眼是不是换成 povSwitch.line 了。
-t.ok(gate.povSwitchInfo, '进原著段仍然会出一行视角提示（默认文案，待阶段 5 换成场景提示）');
-t.eq(gate.povSwitchInfo && gate.povSwitchInfo.line, '奥布里 视角结束 —— 西比拉 视角开始', '而且是那句默认文案——这条红了说明有人动了视角提示，回来看一眼');
-
-// 一个时段的五拍：选地点 → 原著段完整演完 → 一次处理选择 → 自动落到下一时段的 hub
+// 一个时段的几拍：选地点 → 段子整段演完 → 一次处理选择 → 自动落到下一时段的菜单
 const nextChoicePoint = (startId, pick) => {
   const e = new StoryEngine(story);
   e.enterNode(startId);
@@ -382,10 +422,13 @@ const nextChoicePoint = (startId, pick) => {
   }
   throw new Error(`${startId} 之后走不到下一个决定点`);
 };
-t.eq(nextChoicePoint('dy_d2_mo_hub', 0), 'dy_d2_mo_r', '第 2 天早晨：原著段整段演完之后，才是本时段那一次处理选择');
-t.eq(nextChoicePoint('dy_d2_mo_r', 0), 'dy_d2_nn_hub', '处理选择做完，自动推进到下一时段的 hub');
-t.eq(nextChoicePoint('dy_d3_mo_hub', 1), 'dy_d3_mo_lau_r', '自由日的第 2 个地点也真的通：事件(_e)整段演完才落到处理选择(_r)');
-t.eq(nextChoicePoint('dy_d3_mo_lau_r', 1), 'dy_d3_nn_hub', '处理选择做完，照样推进到下一时段');
+t.eq(nextChoicePoint('dy_d2_mo_hub', 0), 'b19_aubrey', '第 2 天早晨：原著授课线从中段起有一个三选一（b19）');
+t.eq(nextChoicePoint('b19_aubrey', 1), 'dy_d2_mo_r', 'b19 选完（普通方式）继续演到段尾，才落到本时段的处理选择');
+t.eq(nextChoicePoint('dy_d2_mo_r', 1), 'dy_d2_nn_hub', '处理选择做完，自动推进到下一时段的菜单');
+t.eq(nextChoicePoint('dy_d2_mo_hub', 1), 'dy_d2_mo_doc_r', '书房活动：事件(_e)整段演完才落到处理选择(_r)');
+t.eq(nextChoicePoint('dy_d2_mo_doc_r', 1), 'dy_d2_nn_hub', '处理选择做完，照样推进到下一时段的菜单');
+t.eq(nextChoicePoint('dy_d3_nn_hub', 0), 'dy_d3_nn_hall_r', '第 3 天唯一一处处理选择在午餐后的大厅（洗衣房与外院没有选择，顺流而过）');
+t.eq(nextChoicePoint('dy_d3_nn_hall_r', 1), 'dy_d3_ev_hub', '处理选择之后先走午后的固定账目，再落到傍晚菜单');
 
 
 t.section('走得到的节点');
@@ -436,7 +479,7 @@ const roamEdges = (id) => {
   return out;
 };
 
-// 从起点能不能走到每一个节点（防「写了个节点忘了接上」）
+// 从起点能不能走到每一个节点（防「写了个节点忘了接上」）；route 的候选边也算边
 const reachable = new Set();
 const queue = [story.meta.start];
 while (queue.length) {
@@ -447,19 +490,37 @@ while (queue.length) {
   if (!n) continue;
   if (n.next) queue.push(n.next);
   if (n.continueTo) queue.push(n.continueTo);      // 跨幕的入口也是入口
+  if (n.route) for (const r of n.route) queue.push(r.next);
   for (const c of n.choices || []) queue.push(c.next);
   for (const t2 of roamEdges(id)) queue.push(t2);
 }
+
+/* 旧稿的脱链节点：正文（含原著正文）一字不动地保留在文件里、也仍在原文核对的范围里，
+   但新时间线没有任何一条活路径指向它们 ——「旧入口不得与新时间线重复触发」。
+   它们是：第 2 天早晨的旧开场与旧日终背景（b12～b16、b23、b24）、旧第三幕整条链
+   （c1_door～c27_end）、狩猎篇被替换掉的两节开场（h4_knock、h4_habit）。 */
+const LEGACY = new Set([
+  'b12_morning', 'b13_door', 'b14_dressing', 'b15_hair', 'b16_montage', 'b23_corridor', 'b24_change',
+  ...act3.nodes.map((n) => n.id),
+  'h4_knock', 'h4_habit',
+]);
 t.empty(
-  story.nodes.map((n) => n.id).filter((id) => !reachable.has(id)),
-  '所有节点都能走到'
+  story.nodes.map((n) => n.id).filter((id) => !reachable.has(id) && !LEGACY.has(id)),
+  '除声明的脱链节点外，所有节点都能走到'
 );
-t.eq(reachable.size, 364, '可达节点数 = 节点总数（日常层的 133 个与狩猎篇的 127 个也全都能走到）');
-t.eq(
-  story.nodes.filter((n) => n.id[0] === 'b' && !reachable.has(n.id)).map((n) => n.id),
-  [],
-  '第二幕的节点从第一幕结局接得过去'
+t.empty(
+  story.nodes.map((n) => n.id).filter((id) => reachable.has(id) && LEGACY.has(id)),
+  '脱链节点一条活路径都进不去（旧入口没有重新挂上）'
 );
+// 反向：活的节点也不许把边指进脱链集合
+const intoLegacy = [];
+for (const n of story.nodes) {
+  if (!reachable.has(n.id)) continue;
+  const outs = [n.next, n.continueTo, ...(n.choices || []).map((c) => c.next), ...(n.route || []).map((r) => r.next)];
+  for (const o of outs) if (o && LEGACY.has(o)) intoLegacy.push(`${n.id} → ${o}`);
+}
+t.empty(intoLegacy, '活的节点一条边都不指向脱链集合');
+t.eq(reachable.size, 328 - LEGACY.size, `可达节点数 = 总数 − 脱链集合（328 − ${LEGACY.size}）`);
 
 t.section('素材');
 
@@ -494,12 +555,13 @@ t.eq(
   ['西比拉_好感', '西比拉_健康', '西比拉_尊敬', '西比拉_亲密'],
   '面板上只有这四项关系（其余全部隐藏：警惕 / 力量 / 压力 / 埋怨 / 反抗 / 恨意 / 府里的名声…）'
 );
-t.eq(Object.keys(story.initialStats).length, 23, '初始数值有 23 项（原有 15 项 + 新增 8 项）');
-// 标签比初始值多 —— 多出来的 60 面是日常层的「记录旗」（旗_第 N 天时段_地点）。
-// 它们不必进 initialStats：getStat() 读不到就是 0，0 就是「这一笔还没记上」。
+t.eq(Object.keys(story.initialStats).length, 25, '初始数值有 25 项（原 23 项 + 奥布里_道德 / 伊莎贝尔_课程进度）');
+// 标签比初始值多 —— 多出来的 9 面是日常层的「记录旗」（旗_…）与两个剧情旗
+// （旗_授课方式 / 旗_狩猎继续 / 旗_狩猎取消）。它们不必进 initialStats：
+// getStat() 读不到就是 0，0 就是「这一笔还没记上 / 还没决定」。
 // 但**必须**进 statLabels：引擎的 knownStats 取的是 Object.keys(statLabels)，
 // 写在 effects / if 里的数值不在里面，--validate 会拦。
-t.eq(Object.keys(story.config.statLabels).length, 83, '标签 83 项 = 23 项数值 + 60 面记录旗');
+t.eq(Object.keys(story.config.statLabels).length, 34, '标签 34 项 = 25 项数值 + 9 面记录/剧情旗');
 t.empty(
   Object.keys(story.config.statLabels).filter((k) => !/^(旗_|决斗_)/.test(k))
     .filter((k) => !(k in story.initialStats)),
@@ -519,9 +581,9 @@ t.empty(
 // 府里名声的 50 是中性起点，其余从 0 起。
 t.eq(
   Object.entries(story.initialStats).filter(([, v]) => v !== 0).sort().map(([k, v]) => `${k}=${v}`),
-  ['普里森堡_声誉=50', '普里森堡_秩序=50', '西比拉_健康=60', '西比拉_力量=5',
+  ['奥布里_道德=50', '普里森堡_声誉=50', '普里森堡_秩序=50', '西比拉_健康=60', '西比拉_力量=5',
     '西比拉_反抗=20', '西比拉_好感=-10', '西比拉_尊敬=10', '西比拉_恨意=10', '西比拉_警惕=80'],
-  '只有这九项不从 0 起（v1 的警惕起点是 0，所以 v1 那条 ≡3 不变量在 v2 下不成立）'
+  '只有这十项不从 0 起（奥布里_道德 的起点 50 是暂定值，等作者定阈值与联动）'
 );
 // 警惕：v2 就在、语义是「对你的警惕」，这一轮只是退出面板，**没有改名也没有被「尊敬」顶替**
 t.eq(story.config.statLabels['西比拉_警惕'], '西比拉 · 对你的警惕', '警惕的标签一个字没改');
@@ -553,30 +615,38 @@ t.empty(
 t.section('分支');
 
 const choicePoints = story.nodes.filter((n) => n.choices && n.choices.length);
-// 原著三幕的决定点一个都没有因为日常层而挪动或新增 —— 这条要一直钉着
+// 原著三幕的决定点一个都没有因为日常层而挪动或新增（b19 只是从「单线」变成三选一，正文未动）
 t.eq(
   choicePoints.filter((n) => n.id[0] !== 'd' && n.id[0] !== 'h').map((n) => n.id),
   ['o1_wait', 'o2_watch', 'o2_guard', 'o2_handkerchief', 'o2_haier',
     'o3_watch', 'o3_guard', 'o4_review', 'o4_expect', 'o4_night',
-    'b2_haier_knock', 'b4_enter', 'b8_farewell',
+    'b2_haier_knock', 'b4_enter', 'b8_farewell', 'b19_aubrey',
     'c5_lesson', 'c6_first', 'c26_invite'],
-  '原著三幕的决定点还是那 16 个（第一幕的决策全部落在奥布里幕间里）'
+  '原著的决定点：第一幕 10 个 + 第二幕 4 个（第一夜的 3 个 + b19 的授课方式三选一）+ 旧第三幕 3 个'
 );
-t.eq(choicePoints.length, 16 + 80 + 24, '再加上日常层的 80 个（20 个时段 hub + 52 处活动的处理选择 + 8 个主线幕尾反应）与狩猎篇的 24 个');
+t.eq(choicePoints.length, 17 + 30 + 24, '加上日常层的 30 个（14 张菜单 + 14 个处理选择 + 查看笔记 + 狩猎决定）与狩猎篇的 24 个');
 t.eq(ACT1_PATHS.length, 4608, '第一幕内部 4608 条分支（10 个决策点，但不是每个都在同一条路上）');
 t.eq(ACT2_NIGHT_PATHS.length, 8, '第二幕第一夜 2×2×2 = 8 条');
-t.eq(ACT3_PICKS.length, 8, '第三幕 2×2×2 = 8 条');
+t.eq(ACT3_PICKS.length, 8, '旧第三幕 2×2×2 = 8 条（只用于使旧链保持完整，不再进入跨幕主链）');
 t.ok(CROSS_PATHS.length >= ACT1_PATHS.length,
   `跨幕链路 ${CROSS_PATHS.length} 条：第一幕每条分支都配了一组第二/三幕走法，另加 24 条代表走满 8×8×2 组合`);
 
-// 第二幕：选项只决定「先看/先做原文里的哪一个动作」，不加减数值。
-// 「第二幕不改数值」这条不变量全靠这里撑着
+// 第二幕：选项原则上只决定「先看/先做原文里的哪一个动作」，不加减数值 ——
+// 唯一的例外是 b19_aubrey 的授课方式三选一（旗_授课方式 1/2/3 + 课程进度/礼仪）。
 t.empty(
-  choicePoints.filter((n) => n.id[0] === 'b')
+  choicePoints.filter((n) => n.id[0] === 'b' && n.id !== 'b19_aubrey')
     .flatMap((n) => n.choices.filter((c) => c.effects && c.effects.length)
       .map((c) => `${n.id} 的「${c.text}」不该有效果`)),
-  '第二幕的选项都不改数值'
+  '第二幕的选项都不改数值（b19 的授课方式三选一是唯一例外）'
 );
+{
+  const b19 = nodeById.get('b19_aubrey');
+  const modeEff = (c) => (c.effects || []).find((e) => e.stat === '旗_授课方式');
+  const modes = b19.choices.map((c) => modeEff(c) && modeEff(c).value);
+  t.eq(modes, [1, 2, 3], 'b19 三项分别落 旗_授课方式 = 1（严格）/ 2（普通）/ 3（宽松）');
+  t.eq(b19.defaultPick, 1, 'b19 的默认走法是「普通」（没亲历授课线时按它结算）');
+  t.ok(b19.choices.every((c) => (modeEff(c) || {}).silent === true), '授课方式是记录性旗 —— 三项都静默');
+}
 
 // 第一幕：决策只在奥布里幕间里，动的每一项数值都得在 statLabels 里定义过
 const badAct1 = [];
@@ -684,40 +754,48 @@ t.empty([...new Set(badClue)], '沿途所有数值都在 statRanges 里（线索
 t.section(`跨幕 ${CROSS_PATHS.length} 条链路全跑一遍`);
 
 const ran = [];
-const problems = { end: [], stats: [], bg: [], error: [], start: [], intoAct2: [], intoAct3: [] };
-const tag = (p) => `第一幕[${p.a1}] 夜[${p.a2}] 日常路线${DAILY_PLANS.indexOf(p.plan) + 1} 第三幕[${p.a3}]`;
+const problems = { end: [], stats: [], bg: [], error: [], start: [], intoAct2: [], decision: [], route: [] };
+const tag = (p) => `第一幕[${p.a1}] 夜[${p.a2}] 日常路线${DAILY_PLANS.indexOf(p.plan) + 1}`;
 
 for (const p of CROSS_PATHS) {
   let r;
   try {
-    r = replay([], undefined, chooserFor(p.a1, p.a2, p.a3, p.plan));
+    r = replay([], undefined, chooserFor(p.a1, p.a2, [], p.plan));
   } catch (err) {
     problems.error.push(`路径 ${tag(p)} 跑挂了：${err.message}`);
     continue;
   }
   ran.push(r);
-  if (r.end !== 'h8_end') problems.end.push(`路径 ${tag(p)} 停在 ${r.end}`);
-  // 第二幕一个 effects 都没写 —— 从前是靠「跨进第三幕 vs 跨进第二幕的数值逐项相同」
-  // 间接推的，现在中间夹了日常层（日常层本来就该改数值），改成直接盯：
-  // b 开头的节点上，一次都不许出现数值变化。
-  const changedInAct2 = r.statChanges.filter((c) => c.node[0] === 'b');
+  if (r.end !== 'h9_end') problems.end.push(`路径 ${tag(p)} 停在 ${r.end}`);
+  // 第二幕的节点上一次都不许出现数值变化（唯一的例外是 b19 的授课方式三选一）。
+  const changedInAct2 = r.statChanges.filter((c) => c.node[0] === 'b' && c.node !== 'b19_aubrey');
   if (changedInAct2.length) {
     problems.stats.push(`路径 ${tag(p)} 第二幕把数值改了：${changedInAct2.map((c) => `${c.node} ${c.stat} ${c.from}→${c.to}`).join('、')}`);
   }
   for (const b of r.bgs) if (!b.bg) problems.bg.push(`路径 ${tag(p)} 节点 ${b.node} 没有背景`);
   if (r.nodes[0] !== 's1_rain') problems.start.push(`路径 ${tag(p)} 起点是 ${r.nodes[0]}`);
   if (!r.nodes.includes('b1_room')) problems.intoAct2.push(`路径 ${tag(p)} 没走进第二幕`);
-  // 第三幕的入口现在挂在第 6 天早晨那张活动卡上：选第一项才亲历 c1_door，
-  // 选别处就走 applySegmentDefaults 把这一段按默认走法结掉（原著照样发生）。
-  // 所以「走进了第三幕」= 到了第三幕地界（c 开头的节点），而不是「进过 c1_door」。
-  if (!r.nodes.some((id) => id[0] === 'c')) problems.intoAct3.push(`路径 ${tag(p)} 没走进第三幕`);
-  if (!r.nodes.includes('c27_end')) problems.intoAct3.push(`路径 ${tag(p)} 没走到第三幕的收束 c27_end`);
+  // 唯一一次狩猎决定：每条路都要经过它，而且只经过一次
+  if (r.nodes.filter((id) => id === 'dy_d5_af_decision_e').length !== 1) {
+    problems.decision.push(`路径 ${tag(p)} 在狩猎决定节点上走了 ${r.nodes.filter((id) => id === 'dy_d5_af_decision_e').length} 次`);
+  }
+  // 周六夜分流以后，两条路各自的样子
+  const inHunt = r.nodes.some((id) => /^h[4-8]_/.test(id));
+  if (inHunt) {
+    if (!r.nodes.includes('dy_d6_ni_hunt_e')) problems.route.push(`路径 ${tag(p)} 进了狩猎却没经过周六夜交付`);
+    if (r.nodes.includes('dy_d6_ni_cancel_e') || r.nodes.includes('dy_d7_mo_care_e')) problems.route.push(`路径 ${tag(p)} 继续线里混进了取消段的节点`);
+  } else {
+    if (!r.nodes.includes('dy_d7_mo_care_e')) problems.route.push(`路径 ${tag(p)} 取消线没走到周日照料节点`);
+    if (r.nodes.includes('dy_d6_ni_hunt_e')) problems.route.push(`路径 ${tag(p)} 取消线里混进了交付骑装的夜晚`);
+    if (!r.nodes.includes('h9_stairs')) problems.route.push(`路径 ${tag(p)} 取消线没有并回第九章`);
+  }
 }
 
+if (problems.error.length) console.log('DBG 前几条错误：\n' + problems.error.slice(0, 3).join('\n'));
 t.eq(ran.length, CROSS_PATHS.length, `${CROSS_PATHS.length} 条链路全部跑完，没有一条崩`);
 t.empty(problems.error, '没有路径抛错');
-t.empty(problems.end, '每条路径都从第一幕一路走到狩猎篇末尾 h8_end（第三幕 → 第四～八章 → 收束）');
-t.empty(problems.stats, '第二幕（b 开头的节点）上一次都没有改过数值（第二幕一个 effects 都没写）');
+t.empty(problems.end, '每条路径都从第一幕一路走到第一幕的收束 h9_end（第二幕 → 日常层 → 狩猎/取消 → 第九章）');
+t.empty(problems.stats, '第二幕（b 开头的节点）上一次都没有改过数值（b19 的授课方式是唯一例外）');
 t.section('日常层的选择确实落到了数值上');
 t.ok(ran[0].statChanges.some((c) => c.node[0] === 'd'),
   '整条链上确实有数值是被日常层改动的（新加的八项不是白登记的）');
@@ -726,11 +804,12 @@ t.ok(ran[0].statChanges.some((c) => '西比拉_健康' === c.stat) && ran[0].sta
 t.empty(problems.bg, '沿途每个节点都有背景（背景会一直沿用，不会空场）');
 t.empty(problems.start, '每条路径都从 s1_rain 开始');
 t.empty(problems.intoAct2, '每条路径都真的进过第二幕（免得 continueTo 断了却假性通过）');
-t.empty(problems.intoAct3, '每条路径都真的走进了第三幕、走到它的收束（第二幕 → 日常层 → 第三幕的衔接断了要拦下来）');
-// 两条代表路线恰好把「亲历原著段」与「没亲历、由默认走法代走」都覆盖到了
-t.ok(ran.some((r) => r.nodes.includes('c1_door')), '有人亲历了第 6 天早晨那段原著');
-t.ok(ran.some((r) => !r.nodes.includes('c1_door') && r.nodes.includes('c27_end')),
-  '也有人没亲历它 —— 那一段照样在数值上发生，剧情从下一个时段接回主线');
+t.empty(problems.decision, '唯一一次狩猎决定：每条路都恰好经过 dy_d5_af_decision_e 一次（不复问、不重开）');
+t.empty(problems.route, '周六夜的两条路互斥：继续线不碰取消段、取消线不进狩猎、并且并回第九章');
+// 「亲历授课线」与「没亲历、由默认走法代走」都覆盖到了
+t.ok(ran.some((r) => r.nodes.includes('b17_scream')), '有人亲历了第 2 天早晨的授课线');
+t.ok(ran.some((r) => !r.nodes.includes('b17_scream') && r.nodes.includes('dy_d2_mo_doc_e')),
+  '也有人没亲历它 —— 那一段照样在数值上发生（默认走法），玩家去做了别的事');
 
 // 第三幕那三处 ±1 之后，数值还能落在哪儿
 const finalBound = (key) => {
@@ -764,32 +843,31 @@ function finalStats(chooser, startId) {
 
 /* 全程的最终上下限。
  *
- * 直接全跑是 4608 × 8 × 2 × 2 = 147456 条从头到尾的链路 —— 一条 0.8ms 也要两分钟。
- * 但**尾段（第二幕 → 狩猎篇末尾）的增减跟第一幕走哪条无关**：第一幕的 4608 条
- * 只决定起点，尾巴上每一处选择动多少是写在数据里的（三个区域的选项都不带 if，
- * 能点哪些与当前数值无关），第二幕更是一个字都不改。加上没有哪一项会在尾巴上
- * 顶到 statRanges 的边界，全程的最终值就是**起点 + 增量**，可以两边分开取极值：
+ * 直接全跑是 4608 × 3 × 2 = 27648 条从头到尾的链路 —— 一条 0.8ms 也要二十几秒。
+ * 但**尾段（第二幕夜 → 第九章末）的增减跟第一幕走哪条无关**：第一幕的 4608 条
+ * 只决定起点，尾巴上每一处选择动多少是写在数据里的（各区域的选项都不带 if，
+ * 能点哪些与当前数值无关），第二幕里除了 b19 也一个字都不改。加上没有哪一项会在
+ * 尾巴上顶到 statRanges 的边界，全程的最终值就是**起点 + 增量**，可以两边分开取极值：
  *
  *     最终值 = 第一幕跑完的数值 + 尾巴的增量
  *     极值   = min(起点) + min(增量)   /   max(起点) + max(增量)
  *
- * 这样只要 4608 条短短的第一幕 + 8 × 2 × 2 = 32 条尾巴。
+ * 这样只要 4608 条短短的第一幕 + 3 × 2 = 6 条尾巴（三条日常走法覆盖
+ * 继续/取消两条路线，两条狩猎走法覆盖猎场里的选择）。
  * 下面还有一道抽样反查（见 SAMPLE）拿真链路对一遍，别让这个拆法悄悄算错。
  */
 const ACT1_ENDS = ACT1_PATHS.map((p) => replay(p.picks, 'o4_end').stats);
 
 const TAIL_DELTAS = [];
-for (const q of ACT3_PICKS) {
-  for (const pd of DAILY_PLANS) {
-    for (const ph of HUNT_PLANS) {
-      const start = new StoryEngine(story);
-      start.enterNode('b1_room');
-      const from = Object.assign({}, start.stats);
-      const to = finalStats(chooserFor([0], ACT2_NIGHT_PATHS[0].picks, q, pd, ph), 'b1_room');
-      const d = {};
-      for (const k of Object.keys(to)) d[k] = to[k] - from[k];
-      TAIL_DELTAS.push(d);
-    }
+for (const pd of DAILY_PLANS) {
+  for (const ph of HUNT_PLANS) {
+    const start = new StoryEngine(story);
+    start.enterNode('b1_room');
+    const from = Object.assign({}, start.stats);
+    const to = finalStats(chooserFor([0], A2_PICKS[0], [], pd, ph), 'b1_room');
+    const d = {};
+    for (const k of Object.keys(to)) d[k] = to[k] - from[k];
+    TAIL_DELTAS.push(d);
   }
 }
 
@@ -820,7 +898,7 @@ const outside = [];
 for (const p of SAMPLE) {
   for (const pd of DAILY_PLANS) {
     for (const ph of HUNT_PLANS) {
-      const st = finalStats(chooserFor(p.a1, p.a2, p.a3, pd, ph));
+      const st = finalStats(chooserFor(p.a1, p.a2, [], pd, ph));
       for (const k of Object.keys(st)) {
         if (st[k] < finalLo[k] || st[k] > finalHi[k]) {
           outside.push(`${tag(p)} 的「${k}」= ${st[k]}，落在 ${finalLo[k]}~${finalHi[k]} 之外`);
@@ -831,35 +909,117 @@ for (const p of SAMPLE) {
 }
 t.empty(outside, `抽样反查（${SAMPLE.length} 条链 × 4 种走法）真的都落在算出来的上下限里`);
 const FINAL_RANGES = [
-  ['西比拉_好感', -12, -1],
-  ['西比拉_警惕', 75, 100],       // 上限 100 是默认区间 [0,100] 顶住的；狩猎篇又把它往下压了 3
-  ['西比拉_亲密', 5, 50],        // 第 3~5 天十二个时段的三列活动都在往这条上加，中间那一列加得最狠
+  // 首轮回填后：日常层的选择从旧版的 120 个小格减到 ~30 个（v2 稿「减少没有实质区别的选择」），
+  // 单格的幅度相应调大、总量维持在同一档。这里是**抽样路线的包络**（三条日常走法 ×
+  // 两条狩猎走法），不是设计上限 —— 最佳路线另有目标，见下面「好感轴预算」。
+  ['西比拉_好感', 9, 33],
+  ['西比拉_警惕', 73, 100],       // 起点 80；第一幕的几个决策往上顶到 100，狩猎篇又把它压下来 3
+  ['西比拉_亲密', -1, 25],        // 第 2、4 天那几处「走近她」的选择在加
   ['西比拉_力量', 4, 7],          // 狩猎篇两处 +1（他被藤蔓缠住时开路、第六天之后还跟得上）
   ['西比拉_压力', -7, 11],        // 狩猎篇两头都动：孩子的话能卸，主人的话只能接着
-  ['西比拉_自主性', 8, 25],      // 猎场出现过好几次，第 3~5 天「不插手」的那几支再往上推
+  ['西比拉_自主性', 0, 10],       // 「不插手 / 让她自己开口」的那几处
   ['佣兵_纪律', 0, 1],
-  ['伊莎贝尔_好感', -1, 6],       // 第一幕最多攒到 3，第三幕再加两次 +1，狩猎篇再加一次
-  ['伊莎贝尔_礼仪成长', 0, 5],    // 第 3~5 天的课后补课能连着加三天
-  ['海尔_好感', -4, 13],          // 洗衣房、账房那几处的添人与不添人，两头都记在这条上
-  ['布朗_好感', -2, 1],           // 托她教海尔认字那一件事，答应与推一晚会各走一头
-  ['线索_克莱尔旧事', 1, 1],      // 狩猎篇里她一次都没漏掉 —— 玛格丽特那句劝、梦里那句问话
+  ['伊莎贝尔_好感', -2, 7],       // 授课方式三选一 + 午餐 + 狩猎篇各记一笔
+  ['伊莎贝尔_礼仪成长', 0, 2],    // b19 严格方式 +1、狩猎篇 +1
+  ['海尔_好感', -2, 6],           // 托她教海尔认字那一件事，答应与推一晚会各走一头
+  ['布朗_好感', -2, 1],
+  ['线索_克莱尔旧事', 0, 1],
   ['线索_观察西比拉', 0, 1],
   ['线索_初夜观察', 0, 1],
   ['线索_路上表现', 0, 1],
-  // 下面八项只有日常层与狩猎篇会动，起点见 act1/story.json 的 initialStats，
-  // 每一处增减都写在 daily/story.json 各幕尾反应、hunt/ch4~ch8 各选项的 effects 里
-  ['西比拉_健康', 52, 84],       // 起点 60；第 3~5 天十二个时段两头差得开，狩猎篇那条鞭子再往下拉
-  ['西比拉_尊敬', 12, 19],       // 起点 10；她被当个人对待的那些时刻会往上加
-  ['西比拉_埋怨', 3, 33],        // 起点 0；没有一条路线能把它压回 0 —— 日常层总会留下账
-  ['西比拉_反抗', 20, 29],        // 起点 20；只有「不插手，让她自己收场」这类选项会加
-  ['西比拉_恨意', 17, 24],       // 起点 10；恨意只增不减，日常层那几笔记在哪儿全看玩家怎么待她
-  ['普里森堡_秩序', 38, 69],     // 起点 50；第 3~5 天每个时段都在「照册子办」和「挪开一次」之间选一边
-  ['普里森堡_声誉', 46, 65],     // 起点 50；随行狩猎 +4 / 留在府里 −3 是最粗的一笔
-  ['仆人_尊敬', -9, 11],         // 起点 0；当着众人压住西波是加的，把海尔的活挪走是减的
+  // 下面几项只有日常层与狩猎篇会动，起点见 act1/story.json 的 initialStats，
+  // 每一处增减都写在 daily/story.json 的选择、hunt/ch4~ch8 各选项的 effects 里
+  ['西比拉_健康', 50, 60],       // 起点 60；日常层的操劳与狩猎篇那条鞭子两头往下拉
+  ['西比拉_尊敬', 9, 18],        // 起点 10；她被当个人对待的那些时刻会往上加
+  ['西比拉_埋怨', 0, 6],         // 起点 0；冷待她的那几笔会往上记
+  ['西比拉_反抗', 20, 25],       // 起点 20；只有「不插手，让她自己收场」这类选项会加
+  ['西比拉_恨意', 10, 19],       // 起点 10；恨意只增不减，记在哪儿全看玩家怎么待她
+  ['普里森堡_秩序', 50, 62],     // 起点 50；每个选择都在「照规矩办」和「挪开一次」之间选一边
+  ['普里森堡_声誉', 47, 58],     // 起点 50；取消狩猎 −3、随行狩猎 +4 是最粗的两笔
+  ['仆人_尊敬', 0, 9],           // 起点 0；把下人的活挪走是减的、替下人说话是加的
 ];
 for (const [key, lo, hi] of FINAL_RANGES) {
   t.eq([finalLo[key], finalHi[key]], [lo, hi], `全程跑完「${key}」落在 ${lo}~${hi}`);
 }
+
+/* ===================================================================
+ * 3.5 好感轴：第一幕的预算
+ * -------------------------------------------------------------------
+ * 【第一幕最佳路线 ≈ 60】是**内容设计上的阶段目标**，不是属性上限。
+ * 这里只验「走得到、到不了别处去」，不验上限 —— 上限永远是 statRanges 里的 100。
+ * =================================================================== */
+
+t.section('好感轴预算');
+
+const diary = require(path.join(__dirname, '..', 'daily', 'diary.js'));
+const AFF = '西比拉_好感';
+const statOf = (res, k) => res.stats[k];
+
+/** 从一个选项出发、限深找「后面还能拿到的最大好感」 */
+const affMemo = new Map();
+function affAhead(id, depth) {
+  if (!id || depth <= 0) return 0;
+  const key = id + '|' + depth;
+  if (affMemo.has(key)) return affMemo.get(key);
+  const n = nodeById.get(id);
+  let best = 0;
+  if (n) {
+    if (n.choices && n.choices.length) {
+      best = Math.max(...n.choices.map((c) => {
+        const g = ((c.effects || []).find((e) => e.stat === AFF) || { value: 0 }).value;
+        return g + affAhead(c.next, depth - 1);
+      }));
+    } else if (n.next) {
+      best = affAhead(n.next, depth - 1);
+    }
+  }
+  affMemo.set(key, best);
+  return best;
+}
+const rawChoice = (c) => (c && c.choice) || c;
+/** chooser 的形状和 chooserFor 一样：(nodeId, list) => 选第几项 */
+const betterAff = (sign) => (nodeId, list) => {
+  let bi = 0, bv = sign > 0 ? -Infinity : Infinity;
+  list.forEach((c, i) => {
+    if (c.enabled === false) return;
+    const own = ((c.effects || []).find((e) => e.stat === AFF) || { value: 0 }).value;
+    const v = own + affAhead(rawChoice(c).next, 12);
+    if (sign > 0 ? v > bv : v < bv) { bv = v; bi = i; }
+  });
+  return bi;
+};
+const pickBestAff = betterAff(1);      // 每一步都挑对好感最有利的
+const pickWorstAff = betterAff(-1);    // 反过来：每一步都躲着好感走
+const bestAff = replay([], null, pickBestAff);
+const worstAff = replay([], null, pickWorstAff);
+
+const BEST_AFF = statOf(bestAff, AFF);
+t.ok(BEST_AFF >= 56 && BEST_AFF <= 68,
+  `第一幕最佳路线的好感落在设计目标 60 附近（实测 ${BEST_AFF}）`);
+t.ok(statOf(worstAff, AFF) <= 10,
+  `一路躲着好感走，第一幕走完也热不起来（实测 ${statOf(worstAff, AFF)}）`);
+
+// 档位要真的跟着人走。
+// 注意：第 4 档的门槛（好感 ≥60 且 亲密 ≥45）是照旧版「每天四个时段、每处一个选择」的
+// 密经济标定的；首轮回填后选择数减到 ~30 个，第 4 档够不到 —— 与「≈60 的阶段目标」
+// 一起留给作者统一核定数值时再回看（见报告「待作者决定」）。
+const tierOfStats = (res) => diary.tierOf({ getStat: (k) => res.stats[k] });
+t.ok(tierOfStats(bestAff) >= 3, '最佳路线够得到日记第 3 档（个人情绪的那一页不是死内容）');
+t.ok(tierOfStats(bestAff) > tierOfStats(worstAff), '档位真的跟着人走：最佳路线比最冷那条高一档以上');
+
+// 好感**没有**被 60 封顶：区间还是它本来的样子，第二幕之后照常往上走
+t.eq(story.config.statRanges[AFF], [-100, 100],
+  '西比拉_好感的区间没被动过 —— 60 不在 statRanges 里');
+t.ok(BEST_AFF > 0 && BEST_AFF < 100,
+  '最佳路线是一个「到达得了、又不是顶格」的值（60 是阶段目标，不是上限）');
+
+/* 面板只给当前值，不拿 100 当分母 —— 界面上不该出现「x / 100」这类东西 */
+const freshEngine = new StoryEngine(story);
+const affRows = freshEngine.statPanel();
+t.empty(affRows.filter((s) => /\//.test(String(s.display)))
+  .map((s) => `${s.label} 的 display 里有斜杠：${s.display}`),
+  '数值面板给的 display 是纯当前值，没有「当前 / 上限」');
+t.ok(story.config.statOrder.indexOf(AFF) >= 0, '好感仍然是面板上公开的那一项');
 
 /* ===================================================================
  * 4. 视角切换
@@ -867,79 +1027,84 @@ for (const [key, lo, hi] of FINAL_RANGES) {
 
 t.section('视角切换');
 
-const switches = ran[0].povSwitches;
+const switches = ran[0].povSwitches;      // ran[0] 走继续线：含最后那次进狩猎篇
 const SWITCH_SEQ = switches.map((s) => s.from + '>' + s.to).join(' | ');
 const NOVEL_SEQ = switches.slice(0, 8).map((s) => s.from + '>' + s.to).join(' | ');
 // 前七次是第一幕自己的（一字未动），第八次是跨进第二幕。
-// 第八次之后全是「日常层（奥布里）→ 原著段（西比拉）」——
-// 日常层的节点都写了 povSwitch.silent，所以从原著段回落到日常层是静默的，
-// 只有进原著段那一头会出声：
-//   dy_d2_mo_hub→b12_morning / dy_d2_nn_hub→b16_montage / dy_d2_af_hub→b21_haier_calls
-//   / dy_d2_ni_hub→b23_corridor
-//   / dy_d6_mo_hub→c1_door / dy_d6_nn_hub→c8_stairs / dy_d6_af_hub→c13_out
-//   / dy_d6_ni_hub→c23_front / dy_d6_ni_r→c27_end
-// （从前那次 dy_d2_ni_r→b25_end 没有了：b25_end 退成零台词过场，视角切换也是静默的。）
-// 上了狩猎篇就一直是西比拉视角（c27_end → h4_knock 是同一视角里的换场，不切），
-// 所以狩猎篇那 127 个节点一次都不添新的切换。
-t.eq(switches.length, 17, '整场切十七次视角（第一幕七次 + 跨进第二幕一次 + 日常层进原著段九次）');
+// 首轮回填之后：第二天整条授课线翻成了奥布里视角（不再切）、日常层与取消线全程奥布里。
+//   - 唯一的例外是周六夜进狩猎篇：dy_d6_ni_hunt_e 上弹一次「转到西比拉」；
+//   - 取消线并回 h9_stairs 是静默的（第九章的节点都带 silent），不弹横幅；
+//   - 上了狩猎篇（h4～h9）一直是西比拉视角，一次都不再切。
+t.eq(switches.length, 9, '整场切九次视角（第一幕七次 + 跨进第二幕一次 + 周六夜进狩猎篇一次）');
 t.eq(
   SWITCH_SEQ,
   '西比拉>奥布里 | 奥布里>西比拉 | 西比拉>奥布里 | 奥布里>西比拉 | 西比拉>奥布里 | 奥布里>西比拉 | 西比拉>奥布里'
-    + ' | ' + new Array(10).fill('奥布里>西比拉').join(' | '),
-  '马车 / 门口 / 庭院 / 大厅四段幕间各切一个来回，跨进第二幕后，此后每一次都是从日常层切进原著段'
+    + ' | ' + new Array(2).fill('奥布里>西比拉').join(' | '),
+  '马车 / 门口 / 庭院 / 大厅四段幕间各切一个来回；跨进第二幕一次；此后只有周六夜进狩猎篇那一次'
 );
 t.eq(switches[0].from, '西比拉', '一开场是西比拉（马车里）');
 t.eq(switches[6].to, '奥布里', '第七次切进「第一章结算」那个幕间');
-t.eq(switches[7].to, '西比拉', '第八次切回西比拉 —— 第二幕全程西比拉视角');
+t.eq(switches[7].to, '西比拉', '第八次切回西比拉 —— 第一夜到第二天上午是她的镜头');
+t.eq(switches[8].line, '接下来是狩猎篇 —— 一次较长的特殊事件，视角转到西比拉；主线方向已由周五的决定定下。',
+  '第九次（最后一次）用自定义横幅，说明接下来是一段较长的特殊事件');
+t.eq(switches[8].from + '>' + switches[8].to, '奥布里>西比拉', '第九次是从周六夜切进西比拉');
 t.ok(switches.every((s) => !!s.line), '每次切换都有一行提示文字');
 t.eq(replay(ACT1_PATHS[0].picks, 'o4_end').povSwitches.length, 7, '第一幕自己切七次');
 
-// 原著三幕自己的那八次跟走哪条分支、日常层怎么选都没关系；
-// 此后每一次都必须长成「奥布里>西比拉」—— 亲历得少的路线切换得少，但不会有别的形状
+// 前八次跟走哪条分支、日常层怎么选都没关系
 t.empty(
   ran.filter((r) => r.povSwitches.slice(0, 8).map((s) => s.from + '>' + s.to).join(' | ') !== NOVEL_SEQ)
     .map((r) => `[${r.a1}]`),
-  '不管走哪条分支、日常层选哪条路线，原著三幕自己切视角的位置都一样'
+  '不管走哪条分支、日常层选哪条路线，前八次切换的形状都一样'
 );
+// 第八次之后：继续线只多进狩猎篇那一次；取消线一次都不多（并回第九章是静默的）
 t.empty(
   ran.filter((r) => r.povSwitches.slice(8).some((s) => s.from + '>' + s.to !== '奥布里>西比拉'))
     .map((r) => `[${r.a1}]`),
-  '此后的每一次切换都是「日常层（奥布里）→ 原著段（西比拉）」，没有别的形状'
+  '此后每一次切换都只能是「奥布里>西比拉」'
 );
-t.ok(ran.some((r) => r.povSwitches.length < switches.length),
-  '没亲历原著段的路线切换得更少（跳过的那一段不弹横幅 —— 那些节点压根没进）');
+t.empty(
+  ran.filter((r) => {
+    const inHunt = r.nodes.some((id) => /^h[4-8]_/.test(id));
+    return inHunt ? r.povSwitches.length !== 9 : r.povSwitches.length !== 8;
+  }).map((r) => `[${r.a1}]`),
+  '继续线九次（多出进狩猎篇那次），取消线八次（并回第九章是静默的）'
+);
 
-// 前缀就说明了视角：s（第一幕西比拉线）/ b（第二幕）/ c（第三幕）是西比拉，
-// o（第一幕幕间）/ f（自由活动）/ d（dy_ 日常层）是奥布里。
-// 唯一的例外是 b25_end —— 它退成了通往第 3 天的过场，写奥布里只是为了不误触发
-// 一行视角横幅（上一个节点 b24_change 是西比拉），玩家看不见它。
+// 前缀与视角的对应：s（第一幕西比拉线）/ c（旧第三幕留档）是西比拉；
+// b 里除第二天授课线与 b25_end 之外（第一夜、旧开场/旧日终留档）也是西比拉。
+const O_POV_B = new Set(['b17_scream', 'b18_classroom', 'b19_aubrey', 'b20_lesson', 'b21_haier_calls', 'b22_after', 'b25_end']);
 t.empty(
-  story.nodes.filter((n) => (n.id[0] === 's' || n.id[0] === 'b' || n.id[0] === 'c')
-    && n.id !== 'b25_end' && n.pov !== '西比拉').map((n) => `${n.id} 的 pov 是 ${n.pov}`),
-  's / b / c 开头的节点（第一幕西比拉线、第二幕、第三幕）都是西比拉视角'
+  story.nodes.filter((n) => (n.id[0] === 's' || n.id[0] === 'c') && n.pov !== '西比拉').map((n) => `${n.id} 的 pov 是 ${n.pov}`),
+  's / c 开头的节点（第一幕西比拉线、旧第三幕留档）都是西比拉视角'
 );
-t.eq(nodeById.get('b25_end').povSwitch.silent, true, '那个例外自己挂了 silent —— 不弹提示');
 t.empty(
-  story.nodes.filter((n) => (n.id[0] === 'o' || n.id[0] === 'f' || n.id[0] === 'd') && n.pov !== '奥布里').map((n) => `${n.id} 的 pov 是 ${n.pov}`),
-  'o 开头的幕间节点、f 开头的自由活动节点、dy_ 开头的日常层节点都是奥布里视角'
+  story.nodes.filter((n) => n.id[0] === 'b' && !O_POV_B.has(n.id) && n.pov !== '西比拉').map((n) => `${n.id} 的 pov 是 ${n.pov}`),
+  '第一夜与旧留档段落是西比拉视角；第二天的授课线与 b25_end 是奥布里视角（v2 的日程口径）'
+);
+t.empty(
+  story.nodes.filter((n) => (n.id[0] === 'o' || n.id[0] === 'f' || n.id[0] === 'd')
+    && n.id !== 'dy_d6_ni_hunt_e' && n.pov !== '奥布里').map((n) => `${n.id} 的 pov 是 ${n.pov}`),
+  'o / f 与日常层节点都是奥布里视角 —— 唯一的例外是周六夜的狩猎入口 dy_d6_ni_hunt_e（西比拉）'
 );
 // 反着也查一道：别的地方冒出个奥布里视角的节点，就是写串了
 t.eq(
   Array.from(new Set(story.nodes.filter((n) => n.pov === '奥布里').map((n) => n.id[0]))).sort(),
   ['b', 'd', 'f', 'o'],
-  '奥布里视角只出现在 o（第一幕幕间）、f（自由活动）、d（日常层）与 b25_end 那个过场里'
+  '奥布里视角只出现在 o（第一幕幕间）、f（自由活动）、d（日常层）与第二天授课线那几个 b 节点里'
 );
-// 日常层的节点一律静默切视角 —— 不然每换一个时段都会弹一行系统提示
-t.empty(
+// 日常层的节点一律静默切视角 —— 唯一的例外是周六夜进狩猎篇那一个
+t.eq(
   daily.nodes.filter((n) => !(n.povSwitch && n.povSwitch.silent)).map((n) => n.id),
-  '日常层的每个节点都写了 povSwitch.silent'
+  ['dy_d6_ni_hunt_e'],
+  '日常层只有周六夜的狩猎入口会弹视角提示（silent 只关提示，_prevPov 照常更新）'
 );
 
-// 第二幕的选项点：和序章一样是「重播型」，一条 effects 都不许有
+// 第二幕的选项点：原则上是「重播型」，一条 effects 都不许有（b19 的授课方式除外，见「分支」一节）
 t.empty(
-  act2.nodes.filter((n) => n.choices).flatMap((n) => n.choices.filter((c) => c.effects && c.effects.length)
+  act2.nodes.filter((n) => n.choices && n.id !== 'b19_aubrey').flatMap((n) => n.choices.filter((c) => c.effects && c.effects.length)
     .map((c) => `${n.id} 的「${c.text}」不该有效果`)),
-  '第二幕的选项一条 effects 都没写'
+  '第二幕的选项一条 effects 都没写（b19 除外）'
 );
 
 // povSwitch.silent：只换视角、不出提示。
@@ -1012,14 +1177,16 @@ t.eq(endView.node.continueTo, 'b1_room', 'o4_end 的 continueTo 指向第二幕�
 // 只是一根通到日常层第 3 天早晨的 next（零台词，advance() 会直接穿过去）
 t.eq(nodeById.get('b25_end').ending, undefined, 'b25_end 不再是结局节点');
 t.eq(nodeById.get('b25_end').continueTo, undefined, 'b25_end 不再挂 continueTo —— 它只是一根过场指针');
-t.eq(nodeById.get('b25_end').next, 'dy_d3_mo_hub', '第二幕演完直接接日常层的第 3 天早晨');
+t.eq(nodeById.get('b25_end').next, 'dy_d3_mo_intro', '第二幕演完穿过 b25_end 进日常层第 3 天的开场（查看笔记）');
 t.eq(nodeById.get('b25_end').dialogues.length, 0, '过场节点零台词，玩家看不见它');
-// 第一幕的收束点已经在狩猎篇末尾了：c27_end 只剩一根 next（不是结局），
-// 真正弹结局屏的是 h8_end，而且它后面**不写** continueTo（第一幕到头了）
-t.eq(nodeById.get('c27_end').next, 'h4_knock', 'c27_end 接着狩猎篇第一章，不再自己收场');
+// 第一幕的收束点已经挪到第九章末尾：h8_end 不再弹结局屏，只留一根 next；
+// 真正弹结局屏的是 h9_end，而且它后面**不写** continueTo（第一幕到头了）
+t.eq(nodeById.get('c27_end').next, 'h4_knock', '旧第三幕的收束链保留原样（供旧稿追溯，不进入新主线）');
 t.eq(nodeById.get('c27_end').ending, undefined, 'c27_end 已经不是结局节点了');
-t.eq(nodeById.get('h8_end').ending, true, '狩猎篇第八章末才是第一幕的收束');
-t.eq(nodeById.get('h8_end').continueTo, undefined, 'h8_end 后面不写 continueTo —— 第一幕到此为止');
+t.eq(nodeById.get('h8_end').ending, undefined, 'h8_end 不再弹结局屏（不显示「第一幕尾声」一类提示）');
+t.eq(nodeById.get('h8_end').next, 'h9_start', 'h8_end 只留一根 next 接第九章');
+t.eq(nodeById.get('h9_end').ending, true, '第九章末尾 h9_end 才是第一幕的收束');
+t.eq(nodeById.get('h9_end').continueTo, undefined, 'h9_end 后面不写 continueTo —— 第一幕到此为止');
 
 const intoAct2 = bridge.enterNode(endView.node.continueTo);
 t.eq(intoAct2.id, 'b1_room', '从结局节点能直接走进第二幕');
@@ -1360,8 +1527,8 @@ t.ok(indexOfText(runToMenu(high.eng).view.choices, '换装') >= 0, '播完照样
 /* --- 最后一个 hub（狩猎篇之后）：没有「进入下一幕」 --- */
 const roam2 = new StoryEngine(story);
 roam2.start();
-roam2.enterNode('h8_end');
-t.eq(roam2.enterRoam(roam2.roamAnchorAfter('h8_end')).ok, true, '狩猎篇结束之后进得了自由活动');
+roam2.enterNode('h9_end');
+t.eq(roam2.enterRoam(roam2.roamAnchorAfter('h9_end')).ok, true, '第九章收束之后进得了自由活动');
 t.eq(roam2.node.id, 'fr_act3_hub', '落在 fr_act3_hub 上');
 step = runToMenu(roam2);
 t.eq(indexOfText(step.view.choices, '进入下一幕'), -1, '已经是最后一幕了，不显示「进入下一幕」');
@@ -1390,7 +1557,10 @@ t.eq(anchors.filter((n) => n.ending).map((n) => n.id), ['fr_the_end'],
   '锚点里只有 fr_the_end 是结局，别的都是菜单');
 t.eq(roamNodes.filter((n) => !story.freeRoam.anchors.includes(n.id) && n.ending).map((n) => n.id),
   ['fr_revenge'], '不在锚点里的那个 f 节点就是报仇结局');
-t.empty(report.warnings, '自检没有把这些锚点当成「走不到」或「结局」');
+t.empty(
+  report.warnings.filter((w) => !/^(b12_morning|b16_montage|b23_corridor|c1_door) 没有任何节点指向它，走不到$/.test(w)),
+  '自检没有把这些锚点当成「走不到」或「结局」（四条旧链入口的登记不算）'
+);
 
 // v1 那句「好感只在自由活动里动」随 v2 作废（第一幕的幕间决策本身就在动好感）。
 // 现在守的是另一条：第二幕那套自由活动只认四个老数值，第一章新加的那些
@@ -1471,7 +1641,7 @@ t.section('触摸分档的行为');
 function freshRoom(hub) {
   const eng = new StoryEngine(story);
   eng.start();
-  eng.enterNode(hub === 'fr_act3_hub' ? 'h8_end' : 'o4_end');
+  eng.enterNode(hub === 'fr_act3_hub' ? 'h9_end' : 'o4_end');
   eng.enterRoam(eng.roamAnchorAfter(eng.node.id));
   eng.choose(indexOfText(runToMenu(eng).view.choices, '去西比拉的房间'));
   return eng;
@@ -1578,6 +1748,59 @@ const highWear = wearLine('骑装', 85);
 t.ok(lowWear && highWear && lowWear.text !== highWear.text, '同一套衣服，好感不同说出来的话不一样');
 t.eq(wearLine('骑装', 85).text, highWear.text, '同一档里说的话是稳定的');
 t.eq(lowWear.speaker, '西比拉', '换装之后那句话还是她说的（占位文本，等作者替换）');
+
+/* -------------------------------------------------------------------
+ * 换装是侧厅，不是剧情
+ *
+ * 它能改数值（第一次换上某套，她会有反应），也**必须**写 history ——
+ * 「她此刻穿着什么」正是靠 history 记的（engine 的 _roamOutfitId 沿它回看），
+ * 那是存档的一部分，不是剧情流水。
+ *
+ * 但它不进剧情账：不写日记、不进当天的总结、不动任何剧情旗标。
+ * （日记的取数位就是那几个「旗_…」，所以「旗子没动」＝「日记里不会多出一条」。）
+ * ------------------------------------------------------------------- */
+
+t.section('换装不进剧情账');
+{
+  const eng = freshRoom();
+  const flagsBefore = {};
+  for (const k of Object.keys(eng.stats)) if (k.indexOf('旗_') === 0) flagsBefore[k] = eng.stats[k];
+  const diaryBefore = JSON.stringify(eng.stats);
+
+  eng.choose(indexOfText(runToMenu(eng).view.choices, '换装'));
+  eng.choose(indexOfText(runToMenu(eng).view.choices, '女仆装'));
+
+  const flagsAfter = {};
+  for (const k of Object.keys(eng.stats)) if (k.indexOf('旗_') === 0) flagsAfter[k] = eng.stats[k];
+  t.eq(flagsAfter, flagsBefore, '换装一个剧情旗标都没动 —— 日记里不会因此多出一条');
+
+  /* 日记正文是按天写死的，只有「今日事件」靠旗子与 visited 取。
+     旗子没动 + 换装节点不在 dy_ 命名空间里，所以日记两边都不受影响。 */
+  t.empty(
+    Object.keys(eng.stats).filter((k) => k.indexOf('旗_') === 0 && eng.stats[k] !== flagsBefore[k])
+      .map((k) => `${k} 被换装改了`),
+    '换装之后没有哪面记录旗被写进去'
+  );
+  t.ok(eng.history.some((id) => /^fr/.test(id)),
+    '换装确实走过节点（装束＝位置，history 就是记这个用的）');
+  t.ok(diaryBefore.length > 0, '换装前确实有一份数值在这儿作对照');
+
+  /* 结构上也堵死：日记的「今日事件」只从 choice.diary 取，
+     自由活动那几个节点一个 diary 字段都不许有。 */
+  t.empty(
+    story.nodes.filter((n) => /^fr/.test(n.id))
+      .flatMap((n) => (n.choices || []).filter((c) => c.diary)
+        .map((c) => `${n.id} 上有 diary 字段 —— 自由活动不该进日记`)),
+    '自由活动的节点一个日记字段都没有（结构上就进不了那本册子）'
+  );
+
+  /* 幕间自由活动整层也不在 daily 层的命名空间里（dy_），
+     所以「今天的总结」按天取数时扫不到它。 */
+  t.empty(
+    story.nodes.filter((n) => /^fr/.test(n.id) && n.id.indexOf('dy_') === 0).map((n) => n.id),
+    '自由活动的节点没有混进 dy_ 命名空间（按天取日记时扫不到它们）'
+  );
+}
 
 /* ===================================================================
  * 报仇：好感掉到 -50 以下，再进她房间时按概率触发

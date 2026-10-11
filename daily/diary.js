@@ -44,18 +44,21 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  /* 一天里的四个时段。**数组顺序就是日记里事件的排列顺序。**
-     key 是节点 id 里那一段（dy_d2_**mo**_hub），label 是显示用的。 */
+  /* 一天里的时段。**数组顺序就是日记里事件的排列顺序。**
+     key 是节点 id 里那一段（dy_d2_**mo**_hub），label 是显示用的。
+     第三、四天起，一天里多出一格「傍晚」（drafts 里的 `dy_d3_ev_*`），
+     排在午后与夜晚之间 —— 顺序就是这个世界一天实际经过的顺序。 */
   const SLOTS = [
     { key: 'mo', label: '早晨' },
     { key: 'nn', label: '中午' },
     { key: 'af', label: '午后' },
+    { key: 'ev', label: '傍晚' },
     { key: 'ni', label: '夜晚' },
   ];
 
   /* dy_d{天}_{时段}_… —— 日常层节点 id 的形状。
      天和时段编进 id，就是存档能记住「现在是第几天、什么时辰」的全部原因。 */
-  const NODE_RE = /^dy_d(\d+)_(mo|nn|af|ni)(?:_|$)/;
+  const NODE_RE = /^dy_d(\d+)_(mo|nn|af|ev|ni)(?:_|$)/;
 
   const SLOT_LABEL = {};
   SLOTS.forEach((s) => { SLOT_LABEL[s.key] = s.label; });

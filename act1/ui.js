@@ -209,6 +209,7 @@
 
       this.reducedMotion = prefersReducedMotion(this.win);
       this.els = {};
+      this.keyIndex = -1;          // ↑↓ 选中的那一项（只影响画面，不碰引擎）
       this._bgKey = null;
       this._portraitKeys = { left: undefined, right: undefined };
       this._speaking = { left: false, right: false };
@@ -236,7 +237,9 @@
         'portrait-layer-r', 'portrait-grid-host-r', 'portrait-image-r',
         'pov-banner', 'title-bar', 'dialogue-box', 'speaker-plate',
         'dialogue-text', 'next-hint', 'choices', 'stats-panel', 'stats-body',
-        'stats-toggle', 'save-btn', 'load-btn', 'restart-btn', 'server-dot', 'pause-btn',
+        'stats-toggle', 'save-btn', 'load-btn', 'server-dot', 'pause-btn',
+        'sys-menu', 'sys-menu-veil', 'sys-continue', 'sys-keys', 'sys-keys-panel',
+        'sys-title', 'sys-quit',
         'toast', 'end-screen', 'end-stats', 'end-title', 'end-sub', 'end-continue',
         'title-screen', 'title-bg', 'title-start',
         'end-roam',
@@ -624,6 +627,9 @@
      */
     fillChoiceButtons(host, choices) {
       while (host.firstChild) host.removeChild(host.firstChild);
+      // 换了一批选项就把高亮重置掉，否则它可能停在一个刚被灰掉的项上
+      const firstOn = choices.find((c) => c.enabled !== false);
+      this.keyIndex = firstOn ? firstOn.index : -1;
       for (const c of choices) {
         const btn = this.doc.createElement('button');
         btn.className = 'choice-btn' + (c.enabled ? '' : ' locked') + (c.worn ? ' worn' : '');
@@ -632,7 +638,8 @@
 
         btn.appendChild(el(this.doc, 'span', 'choice-key', String(c.index + 1)));
         btn.appendChild(el(this.doc, 'span', 'choice-text', c.text));
-        if (c.hint) btn.appendChild(el(this.doc, 'span', 'choice-hint', c.hint));
+        // 选项上不再挂解释性提示（hint）—— 那是「这个选项是什么价值观 / 会怎么样」，
+        // 交给玩家自己读。数据里的 hint 字段原样留着，只是不画出来。
         if (c.worn) btn.appendChild(el(this.doc, 'span', 'choice-worn', '✔ 现在穿着'));
         if (!c.enabled) btn.appendChild(el(this.doc, 'span', 'choice-lock', '🔒 ' + c.lockedHint));
 
@@ -856,7 +863,8 @@
       for (const s of this.engine.statPanel()) {
         const row = el(this.doc, 'div', 'end-stat-row');
         row.appendChild(el(this.doc, 'span', 'end-stat-label', s.label));
-        row.appendChild(el(this.doc, 'span', 'end-stat-value', s.value + ' / ' + s.max));
+        // 和状态面板同一个规矩：只给当前值，不写「x / 上限」
+        row.appendChild(el(this.doc, 'span', 'end-stat-value', String(s.value)));
         body.appendChild(row);
       }
       this.notify();
@@ -913,28 +921,91 @@
         for (const s of e.statPanel()) {
           const row = el(this.doc, 'div', 'stat-row');
           row.appendChild(el(this.doc, 'span', 'stat-label', s.label));
-          row.appendChild(el(this.doc, 'span', 'stat-value', s.display));
-          const track = el(this.doc, 'div', 'stat-track');
-          const fill = el(this.doc, 'div', 'stat-fill');
-          fill.style.width = Math.round(s.ratio * 100) + '%';   // 按区间缩放，负数才画得出来
-          track.appendChild(fill);
-          row.appendChild(track);
+          // 只给当前值。不画进度条、不写「x / 上限」——
+          // 玩家按常识理解就是一把一百分的尺，界面不用替他解释。
+          row.appendChild(el(this.doc, 'span', 'stat-value', String(s.value)));
           body.appendChild(row);
         }
         this.els['stats-panel'].classList.add('revealed');
       } else {
-        body.appendChild(el(this.doc, 'div', 'stat-hidden', '数值已隐藏 —— 按 V 查看真实数字'));
         this.els['stats-panel'].classList.remove('revealed');
       }
       this.els['stats-toggle'].setAttribute('data-on', e.showStats ? '1' : '0');
-      this.els['stats-toggle'].textContent = e.showStats ? '收起数值 (V)' : '查看数值 (V)';
+      this.els['stats-toggle'].textContent = '状态';
       this.notify();
     }
 
     toggleStats() {
       const on = this.engine.toggleStats();
       this.renderStats();
-      this.showToast(on ? '显示真实数值' : '隐藏数值（只看感觉）');
+    }
+
+    /* ---------------- 系统菜单（Esc） ---------------- */
+
+    get menuOpen() {
+      const s = this.els['sys-menu'];
+      return !!(s && s.classList.contains('on'));
+    }
+
+    openMenu() {
+      this.renderKeysPanel(false);
+      this.els['sys-menu'].classList.add('on');
+    }
+
+    closeMenu() {
+      this.els['sys-menu'].classList.remove('on');
+      this.renderKeysPanel(false);
+    }
+
+    toggleMenu() {
+      if (this.menuOpen) this.closeMenu(); else this.openMenu();
+    }
+
+    toggleKeysPanel() {
+      this.renderKeysPanel(!this.els['sys-keys-panel'].classList.contains('on'));
+    }
+
+    /**
+     * 快捷键一览。**只列真的能按的键** —— 这里写什么，手上就得能按出什么来
+     * （见 onKeyDown）。「打开日记」没有键，就照实写它是 HUD 上那颗按钮。
+     */
+    renderKeysPanel(on) {
+      const host = this.els['sys-keys-panel'];
+      while (host.firstChild) host.removeChild(host.firstChild);
+      host.classList.toggle('on', !!on);
+      this.els['sys-keys'].setAttribute('data-on', on ? '1' : '0');
+      if (!on) return;
+      const rows = [
+        ['空格 / 回车 / 左键', '继续下一句'],
+        ['↑ / ↓', '上下选择选项'],
+        ['1 – 9', '直接选第 n 项'],
+        ['Enter', '确认选中的那一项'],
+        ['Esc', '打开 / 关闭这个菜单'],
+        ['V', '打开 / 关闭状态'],
+        ['P', '剧情中途暂停（能暂停的地方才有）'],
+        ['Ctrl + S / Ctrl + L', '存档 / 读档'],
+        ['R', '重新开始'],
+        ['——', '日记：HUD 上的【日记】按钮（没有按键）'],
+      ];
+      for (const [k, v] of rows) {
+        const row = el(this.doc, 'div', 'sys-key-row');
+        row.appendChild(el(this.doc, 'span', 'sys-key-name', k));
+        row.appendChild(el(this.doc, 'span', 'sys-key-desc', v));
+        host.appendChild(row);
+      }
+    }
+
+    /**
+     * 退出游戏。浏览器只在「这个窗口是脚本开的」时才让 close()，
+     * 所以关不掉的时候退回开始界面 —— 效果一样是「不玩了」，
+     * 而且进度还在 localStorage 里。
+     */
+    quitGame() {
+      this.closeMenu();
+      if (this.win && typeof this.win.close === 'function') {
+        try { this.win.close(); } catch (err) { /* 跨源/非脚本开的窗，浏览器会拒 */ }
+      }
+      this.restart();
     }
 
     /* ---------------- 浮字提示 ---------------- */
@@ -1094,7 +1165,9 @@
       // 立刻收掉按钮：点下去到下一句画出来之间还有 toast / 数值面板两拍，
       // 那两拍里按钮要是还挂着，就正好压在立绘上（这就是之前那个遮挡）
       this.hideChoices();
-      for (const note of res.notes || []) this.showToast(note);
+      // 剧情过程中不再弹数值反馈（res.notes 是「她看你的眼神软了一点」那一类）。
+      // 关系的变化交给后续对白、日记、换装里的反应去表达；
+      // 玩家想看当前值，按「状态」自己翻。
       this.renderStats();          // 数值可能变了
       this.render(this.engine.advance());
       return true;
@@ -1133,9 +1206,16 @@
       this.els['end-roam'].addEventListener('click', () => this.enterRoamFromEnd());
       this.els['stats-toggle'].addEventListener('click', () => this.toggleStats());
       this.els['pause-btn'].addEventListener('click', () => this.togglePause());
-      this.els['restart-btn'].addEventListener('click', () => this.restart());
       this.els['save-btn'].addEventListener('click', () => this.save());
       this.els['load-btn'].addEventListener('click', () => this.load());
+
+      // 系统菜单（Esc）
+      this.els['sys-continue'].addEventListener('click', () => this.closeMenu());
+      this.els['sys-keys'].addEventListener('click', () => this.toggleKeysPanel());
+      this.els['sys-title'].addEventListener('click', () => { this.closeMenu(); this.restart(); });
+      this.els['sys-quit'].addEventListener('click', () => this.quitGame());
+      // 点浮层外侧也收起来 —— 和别的浮层一个手感
+      this.els['sys-menu-veil'].addEventListener('click', () => this.closeMenu());
 
       if (win) {
         win.addEventListener('resize', () => { /* 网格用 1fr 自适应，不需要重算 */ });
@@ -1165,9 +1245,30 @@
         return;
       }
 
+      // 系统菜单开着的时候，这一下输入只归它管 —— 否则空格会顺手推一句剧情
+      if (this.menuOpen) {
+        if (key === 'Escape') { ev.preventDefault(); this.closeMenu(); }
+        return;
+      }
+
+      if (key === 'Escape') { ev.preventDefault(); this.openMenu(); return; }
       if (key === 'v' || key === 'V') { this.toggleStats(); return; }
       if (key === 'r' || key === 'R') { this.restart(); return; }
       if (key === 'p' || key === 'P') { this.togglePause(); return; }   // 用不上时它自己会拒绝
+
+      // 上下选选项。Enter 在选项屏上就是「确认当前选中的那一项」，
+      // 不在选项屏上仍然是「继续」（start 界面/插画那两处的 return 更早）。
+      if (key === 'ArrowDown' || key === 'ArrowUp') {
+        ev.preventDefault();
+        this.moveKey(key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
+
+      if (key === 'Enter' && this.moveKey(0)) {
+        ev.preventDefault();
+        this.choose(this.keyIndex);
+        return;
+      }
 
       if (key === ' ' || key === 'Enter') {
         ev.preventDefault();               // 免得滚页 / 二次触发按钮
@@ -1180,6 +1281,45 @@
         const v = this.view;
         // 换装浮层里的那排衣服也认数字键（都是 view.choices）
         if (v && (v.type === 'choices' || v.type === 'outfit') && idx < v.choices.length) this.choose(idx);
+      }
+    }
+
+    /** 当前可选的项（灰着的不算） */
+    choiceList() {
+      const v = this.view;
+      if (!v || (v.type !== 'choices' && v.type !== 'outfit')) return [];
+      return v.choices;
+    }
+
+    /**
+     * ↑↓ 移动高亮。delta 为 0 表示「只是问一句现在选着哪个」——
+     * 返回 true 说明此刻确实有一项被选中（Enter 才好拿去确认）。
+     * 高亮只画在屏幕上，不碰引擎。
+     */
+    moveKey(delta) {
+      const list = this.choiceList();
+      const usable = list.map((c, i) => (c.enabled === false ? -1 : i)).filter((i) => i >= 0);
+      if (!usable.length) return false;
+      if (delta === 0) {
+        if (usable.indexOf(this.keyIndex) < 0) this.keyIndex = usable[0];
+      } else {
+        const at = usable.indexOf(this.keyIndex);
+        const next = at < 0 ? 0 : (at + delta + usable.length) % usable.length;
+        this.keyIndex = usable[next];
+      }
+      this.paintKey();
+      return true;
+    }
+
+    /** 把高亮画到按钮上 */
+    paintKey() {
+      const hosts = [this.els.choices, this.els['outfit-choices']];
+      for (const host of hosts) {
+        if (!host) continue;
+        for (const btn of host.children) {
+          const on = Number(btn.getAttribute('data-index')) === this.keyIndex;
+          btn.classList.toggle('keyed', on);
+        }
       }
     }
 

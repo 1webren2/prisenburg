@@ -1,0 +1,540 @@
+{
+  "meta": {
+    "title": "第九章",
+    "act": "第一幕 · 第九章",
+    "version": "0.1.0",
+    "start": "h9_start",
+    "description": "第一幕的收束：狩猎之后的周一，从清晨直接开始，完整保持西比拉视角，不显示「第一幕尾声」等提示。文本取自 09_第九章_第一幕收束版.md（人工收束稿），暂不列入 tests/fidelity.cjs 的原文核对。",
+    "textSource": "09_第九章_第一幕收束版.md"
+  },
+  "nodes": [
+    {
+      "id": "h9_start",
+      "pov": "西比拉",
+      "povSwitch": {
+        "silent": true
+      },
+      "title": "第九章 · 清晨",
+      "art": {
+        "bg": "bg_sibylla_room",
+        "portrait": "chr_sibylla"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "清晨。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉从床上慢慢醒来。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "昨夜的事情还留在脑子里，她撑着床沿坐起来，过了一会儿才想起今天有课。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她起身穿好衣服，推开房门。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "走廊里很安静。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她走到伊莎贝尔的房间门前，抬手敲了敲门。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "伊莎贝尔小姐，该上课了。"
+        }
+      ],
+      "next": "h9_lesson"
+    },
+    {
+      "id": "h9_lesson",
+      "pov": "西比拉",
+      "povSwitch": {
+        "silent": true
+      },
+      "title": "第九章 · 伊莎贝尔的课",
+      "art": {
+        "bg": "bg_isabelle_room",
+        "portrait": "chr_sibylla_teacher"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "里面很快传来脚步声。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "西比拉小姐，进来吧。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "门打开以后，西比拉走进去。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "桌上的教典还在，旁边放着蜡版。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔昨天没有画完的东西还留在那里。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "西比拉小姐，今天还要讲昨天的吗？"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "先把昨天的讲完。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "可是昨天没有讲完。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "所以今天才要讲。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔鼓起脸，还是把教典翻开。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔自己翻到下一页，把昨天讲过的部分背了出来。",
+          "if": {
+            "stat": "伊莎贝尔_礼仪成长",
+            "op": ">=",
+            "value": 4
+          }
+        },
+        {
+          "speaker": "西比拉",
+          "text": "不错。",
+          "if": {
+            "stat": "伊莎贝尔_礼仪成长",
+            "op": ">=",
+            "value": 4
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔中间停了几次，最后还是把整段背了下来。",
+          "if": {
+            "all": [
+              {
+                "stat": "伊莎贝尔_礼仪成长",
+                "op": ">=",
+                "value": 2
+              },
+              {
+                "stat": "伊莎贝尔_礼仪成长",
+                "op": "<",
+                "value": 4
+              }
+            ]
+          }
+        },
+        {
+          "speaker": "西比拉",
+          "text": "很好，再看下一段。",
+          "if": {
+            "all": [
+              {
+                "stat": "伊莎贝尔_礼仪成长",
+                "op": ">=",
+                "value": 2
+              },
+              {
+                "stat": "伊莎贝尔_礼仪成长",
+                "op": "<",
+                "value": 4
+              }
+            ]
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔背了几句便停下来。",
+          "if": {
+            "stat": "伊莎贝尔_礼仪成长",
+            "op": "<",
+            "value": 2
+          }
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "这里我记不住。",
+          "if": {
+            "stat": "伊莎贝尔_礼仪成长",
+            "op": "<",
+            "value": 2
+          }
+        },
+        {
+          "speaker": "西比拉",
+          "text": "那就再来一遍。",
+          "if": {
+            "stat": "伊莎贝尔_礼仪成长",
+            "op": "<",
+            "value": 2
+          }
+        },
+        {
+          "speaker": "旁白",
+          "text": "课程结束时，伊莎贝尔已经有些坐不住了。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她把蜡版放到一旁。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "西比拉小姐，哥哥的腿是不是还疼？"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉收拾教典的手停了一下。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "应该还疼。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "那今天哥哥还上楼吗？"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "会的。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔点了点头，又低头去看自己的蜡版。"
+        }
+      ],
+      "next": "h9_stairs"
+    },
+    {
+      "id": "h9_stairs",
+      "pov": "西比拉",
+      "povSwitch": {
+        "silent": true
+      },
+      "title": "第九章 · 楼梯",
+      "art": {
+        "bg": "bg_corridor",
+        "portrait": "chr_sibylla_teacher"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "西比拉收拾好东西以后下楼。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她刚走到楼梯口，就看见奥布里从下面走上来。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "他的腿已经包扎好了，走路还是慢。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "布朗不在旁边。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "沃大人。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "西比拉小姐，正好。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "他停下来。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "能送我上去吗？"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "好的，沃大人。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉走下两级台阶，扶住他的手臂。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "奥布里的脚落地时轻了一些。"
+        }
+      ],
+      "next": "h9_name"
+    },
+    {
+      "id": "h9_name",
+      "pov": "西比拉",
+      "povSwitch": {
+        "silent": true
+      },
+      "title": "第九章 · 称呼",
+      "art": {
+        "bg": "bg_corridor",
+        "portrait": "chr_sibylla_teacher"
+      },
+      "dialogues": [
+        {
+          "speaker": "奥布里",
+          "text": "西比拉小姐，我一直有件事情想问你。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "请说，沃大人。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "你为什么总叫我“沃大人”？"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉愣了一下。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "我也不知道。刚来的时候就是这么叫的。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "这里的人都叫我奥布里大人。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "要是您不喜欢，我可以改。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "没有不喜欢。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "他继续往上走。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "只是觉得奇怪。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉没有再说话。"
+        }
+      ],
+      "next": "h9_knowledge"
+    },
+    {
+      "id": "h9_knowledge",
+      "pov": "西比拉",
+      "povSwitch": {
+        "silent": true
+      },
+      "title": "第九章 · 身份",
+      "art": {
+        "bg": "bg_corridor",
+        "portrait": "chr_sibylla_teacher"
+      },
+      "dialogues": [
+        {
+          "speaker": "西比拉",
+          "text": "奥布里大人，我还有一个问题。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "你说。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "您对我为什么总是这么客气？"
+        },
+        {
+          "speaker": "旁白",
+          "text": "楼梯上安静了一会儿。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "因为你有知识，也有技能。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "贵族有土地和财富，市民有手艺，农夫和马夫也都有自己的本事。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "有了能让自己站住脚的东西，别人自然会把你当回事。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "他指了指楼下做事的人。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "你现在虽然是我的仆人，可你会教伊莎贝尔，也会骑马，也会用剑。"
+        },
+        {
+          "speaker": "奥布里",
+          "text": "我没有必要把你当成什么都不会的人。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉低头想了一会儿。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "谢谢您为我解惑。"
+        }
+      ],
+      "next": "h9_button"
+    },
+    {
+      "id": "h9_button",
+      "pov": "西比拉",
+      "povSwitch": {
+        "silent": true
+      },
+      "title": "第九章 · 小插曲",
+      "art": {
+        "bg": "bg_corridor",
+        "portrait": "chr_sibylla_teacher"
+      },
+      "dialogues": [
+        {
+          "speaker": "奥布里",
+          "text": "差点忘了，衣服要穿好。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉这才发现衣服有一颗扣子没有扣紧。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她低头把扣子重新系好。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "脸色有些发红。"
+        }
+      ],
+      "next": "h9_isabelle"
+    },
+    {
+      "id": "h9_isabelle",
+      "pov": "西比拉",
+      "povSwitch": {
+        "silent": true
+      },
+      "title": "第九章 · 伊莎贝尔",
+      "art": {
+        "bg": "bg_corridor",
+        "portrait": "chr_sibylla_teacher"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "奥布里的房门就在眼前。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "还没等西比拉开口，伊莎贝尔已经从走廊另一头跑了过来。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "西比拉小姐！"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她牵住西比拉的手。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "哥哥刚刚是不是又和你说大人的话？"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "只是说了几句话。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "他说了什么？"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "以后你长大了就会知道。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔皱起脸，还想追问。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "西比拉摸了摸她的头。"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "先去上课。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "哦。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔拉着西比拉往回走了两步，又突然回头。"
+        },
+        {
+          "speaker": "伊莎贝尔",
+          "text": "西比拉小姐，明天也要上课！"
+        },
+        {
+          "speaker": "西比拉",
+          "text": "我知道。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "伊莎贝尔这才笑起来。"
+        }
+      ],
+      "next": "h9_end"
+    },
+    {
+      "id": "h9_end",
+      "pov": "西比拉",
+      "povSwitch": {
+        "silent": true
+      },
+      "art": {
+        "bg": "bg_sibylla_room",
+        "portrait": "chr_sibylla"
+      },
+      "dialogues": [
+        {
+          "speaker": "旁白",
+          "text": "西比拉回到自己的房间，放下教典。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "外面的雨还在下。"
+        },
+        {
+          "speaker": "旁白",
+          "text": "她坐了一会儿，又站起来，准备下一节课。"
+        }
+      ],
+      "ending": true
+    }
+  ]
+}

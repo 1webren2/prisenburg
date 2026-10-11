@@ -6,8 +6,10 @@
     "start": "c1_door",
     "description": "第三幕全程为西比拉·德·克莱尔视角。数据独立成幕，共用第一幕的引擎与存档；第二幕结局画面按「继续第三幕」无缝接上，第三幕结尾再接回幕间自由活动。",
     "textSource": "全部台词与旁白均取自小说第三章原文，没有自编内容。三个选项点只决定「这次先看原文里的哪一个动作」，并且各带一项 ±1 的数值变化（伊莎贝尔_好感 / 西比拉_警惕）。",
-    "continues": ["../daily/story.json"],
-    "continuationNote": "continues 只负责把日常层装进同一张节点表，不代表剧情导航。第三幕实际往下走的顺序由连接字段决定：c7_day_end / c12_mock / c22_back / c26a_refuse / c26b_meet 各自指向 daily/story.json 里对应时段的幕尾反应节点。"
+    "continues": [
+      "../daily/story.json"
+    ],
+    "continuationNote": "continues 只负责把日常层装进同一张节点表，不代表剧情导航。首轮回填后，c1～c27 这条旧链整条脱链：正文一字未动（原文核对照旧盯着它），只把链内几个断口接回自己人 —— c7_day_end→c8_stairs、c12_mock→c13_out、c22_back→c23_front、c26a_refuse / c26b_meet→c27_end，c27_end 照旧 → h4_knock（狩猎篇的旧入口）。新时间线不走这条链：日常层第 6 天夜里由 dy_d6_ni_hunt_e 直接接进 hunt/ch4。"
   },
   "characters": {
     "西波": {
@@ -561,7 +563,7 @@
           "text": "伊莎贝尔咽下一口气，恶狠狠的甩下句话，她说完拉起海尔急忙逃走了，像是说了什么了不得的话。"
         }
       ],
-      "next": "dy_d6_mo_r"
+      "next": "c8_stairs"
     },
     {
       "id": "c8_stairs",
@@ -705,7 +707,7 @@
           "text": "西，西比拉小姐，你……"
         }
       ],
-      "next": "dy_d6_nn_r"
+      "next": "c13_out"
     },
     {
       "id": "c13_out",
@@ -1001,7 +1003,7 @@
           "text": "谈到布朗管家，海尔的眼皮跳了几下，显然有些恐惧，但又想到他的恩情，海尔鼓起勇气，与西比拉一同走出了这片绿荫。"
         }
       ],
-      "next": "dy_d6_af_r"
+      "next": "c23_front"
     },
     {
       "id": "c23_front",
@@ -1182,7 +1184,7 @@
           "text": "奥布里微笑着摆了摆手。"
         }
       ],
-      "next": "dy_d6_ni_r"
+      "next": "c27_end"
     },
     {
       "id": "c26b_meet",
@@ -1218,7 +1220,7 @@
           "text": "奥布里微笑着摆了摆手。"
         }
       ],
-      "next": "dy_d6_ni_r"
+      "next": "c27_end"
     },
     {
       "id": "c27_end",

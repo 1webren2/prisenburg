@@ -28,6 +28,8 @@
  *     dialogues: [ { speaker, text, if? } ],   // 台词；if 不满足就跳过这一行
  *     choices:   [ { text, hint, next, if?, lockedHint?, effects? } ],
  *     next:      "a2_returned"                 // 没有 choices 时用 next 直接跳
+ *     route:     [ { if?, next }, … ]          // 条件路由：按世界状态决定下一步去哪儿，
+ * }                                            // 在玩家眼里不是一次选择（与 next/choices 互斥）
  *   }
  *
  * 效果 / 条件里出现的 stat，必须先在 config.statLabels 里定义过，否则自检会报错：
@@ -640,6 +642,13 @@
       }
 
       // 台词播完了
+      // 条件路由（route）：没有台词、没有选项的岔路口 —— 按世界状态决定下一步去哪儿，
+      // 在玩家眼里不是一次选择（周六夜里的狩猎/取消分流就走它）。
+      const routed = this.routeTarget();
+      if (routed) {
+        this.enterNode(routed);
+        return this.advance();
+      }
       if (this.node.next) {
         this.enterNode(this.node.next);
         return this.advance();
@@ -660,6 +669,21 @@
       // 自由活动的菜单是生成的，但永远至少有一项（最不济还有个「离开」）
       if (this._roamHasMenu()) return true;
       return !!(this.node && this.node.choices && this.node.choices.length);
+    }
+
+    /**
+     * 条件路由的目标：按 route 里写的顺序，取第一条条件命中的。
+     * 没写 route、或一条都没命中（剧本写了兜底就不会发生），返回 null ——
+     * 那就照旧走 next / choices / 结局。route 与 next / choices 互斥（自检查）。
+     */
+    routeTarget(node) {
+      const list = ((node || this.node) || {}).route;
+      if (!list || !list.length) return null;
+      for (const r of list) {
+        if (!r || !r.next) continue;
+        if (!r.if || this.checkCondition(r.if)) return r.next;
+      }
+      return null;
     }
 
     /**
@@ -717,8 +741,10 @@
      * tests/daily.test.cjs 里有一条端到端断言钉着这一点。
      *
      * 走法：从入口节点出发，有 choices 就按 defaultPick（没写就是 0）拐，
-     * 没有就顺着 next；**撞到日常层节点（dy_…）就把它当这一段的一部分，
-     * 落完它的 defaultPick 后停**（它的 next 已经是下一时段了，不再往下走）。
+     * 没有就顺着 next；**撞到这一天的时段菜单（dy_dX_*_hub）就把它当这一段
+     * 的边界，落完它的 defaultPick 后停**（它后面就是下一时段，不再往下走）。
+     * 段中间夹着的日常层反应节点（比如授课方式的三枚反应节点）照走不误 ——
+     * 边界的判据是「时段菜单」，不是「名字以 dy_ 开头」。
      */
     applySegmentDefaults(entryId) {
       const applied = [];
@@ -727,6 +753,12 @@
         if (!node || !node.choices || !node.choices.length) return null;
         const i = Number.isInteger(node.defaultPick) ? node.defaultPick : 0;
         return node.choices[i] || null;
+      };
+      const isStop = (nodeId) => {
+        if (!nodeId) return false;
+        if (/^dy_d\d+_.*_hub$/.test(nodeId)) return true;       // 时段菜单 / 收束 hub
+        const n = this.nodes[nodeId];
+        return !!(n && n.route);                                 // 条件路由也是段边界
       };
       let id = entryId;
       while (id && !seen.has(id)) {
@@ -740,7 +772,7 @@
         } else {
           id = node.next;
         }
-        if (id && id.indexOf('dy_') === 0) {
+        if (isStop(id)) {
           const c2 = pickOf(this.nodes[id]);
           if (c2) applied.push(...this.applyEffects(c2.effects));
           break;
@@ -1410,6 +1442,10 @@
       }
 
       if (this.node && this.node.next) add(this.node.next);
+      if (this.node && this.node.route) {
+        // 条件路由的每一条候选都算「接下来可能走到的地方」——预加载宁可多拉一张
+        for (const r of this.node.route) add(r.next);
+      }
       if (this.hasChoices()) {
         for (const item of this.availableChoices()) {
           if (item.enabled) add((item.choice || {}).next);
@@ -1629,7 +1665,7 @@
         // 结局节点要显式写 "ending": true，否则没接上就是写漏了。
         // 自由活动的锚点例外：它们的菜单是引擎生成的，本来就不写 choices/next。
         const hasChoices = node.choices && node.choices.length;
-        if (!hasChoices && !node.next && !node.ending && !this.isFreeRoamNode(node)) {
+        if (!hasChoices && !node.next && !node.route && !node.ending && !this.isFreeRoamNode(node)) {
           errors.push(`${id} 既没有 choices 也没有 next，剧情会卡死（是结局就写 "ending": true）`);
         }
 
@@ -1648,6 +1684,26 @@
 
         if (node.next && !this.nodes[node.next]) errors.push(`${id} 的 next 指向不存在的节点：${node.next}`);
 
+        // route：条件路由（与 next / choices 互斥的第三种出口；最后一条留兜底）
+        if (node.route) {
+          if (!Array.isArray(node.route) || !node.route.length) {
+            errors.push(`${id} 的 route 不是一张非空表`);
+          } else {
+            if (node.next || hasChoices) {
+              errors.push(`${id} 同时写了 route 和 ${node.next ? 'next' : 'choices'} —— 这一步只能有一个出口`);
+            }
+            node.route.forEach((r, i) => {
+              if (!r || !r.next) errors.push(`${id} 的 route 第 ${i + 1} 条没写 next`);
+              else if (!this.nodes[r.next]) errors.push(`${id} 的 route 第 ${i + 1} 条指向不存在的节点：${r.next}`);
+              if (r && r.if) checkStats(r.if, `${id} 的 route 条件`);
+            });
+            const lastR = node.route[node.route.length - 1];
+            if (lastR && lastR.if) {
+              warnings.push(`${id} 的 route 最后一条也写了 if，条件不满足时会没有出口（留一条不写 if 的兜底）`);
+            }
+          }
+        }
+
         // continueTo：结局屏上「继续下一幕」按的那个按钮往哪走
         if (node.continueTo) {
           if (!this.nodes[node.continueTo]) {
@@ -1664,6 +1720,7 @@
             const o = this.nodes[other];
             if (o.next === id) return true;
             if (o.continueTo === id) return true;      // 跨幕的入口也是入口
+            if ((o.route || []).some((r) => r.next === id)) return true;   // 条件路由的候选也是入口
             return (o.choices || []).some((c) => c.next === id);
           });
           if (!referenced) warnings.push(`${id} 没有任何节点指向它，走不到`);
@@ -1676,6 +1733,7 @@
       const endings = this.nodeOrder.filter((id) => {
         const n = this.nodes[id];
         if (this.isFreeRoamNode(n) && !n.ending) return false;
+        if (n.route) return false;          // 条件路由是岔路口，不是结局
         return !n.next && !(n.choices && n.choices.length);
       });
       if (endings.length === 0) warnings.push('没有任何结局节点（剧情会一直走下去）');

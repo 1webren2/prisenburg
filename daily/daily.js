@@ -196,6 +196,26 @@
     '门':          /* 一扇门 */
       '<rect x="6.4" y="4.2" width="11.2" height="15.6" rx="1"/>' +
       '<path d="M14.6 12.4v.1"/>',
+    '会客厅':      /* 茶几上的两只杯盏 */
+      '<path d="M4.6 13.6h14.8"/>' +
+      '<path d="M6.4 13.6v6M17.6 13.6v6"/>' +
+      '<path d="M8.8 10.6h2.4v3H8.8zM12.8 10.6h2.4v3h-2.4z"/>',
+    '档案室':      /* 三层的抽屉柜 */
+      '<rect x="5" y="4.6" width="14" height="15" rx="1.2"/>' +
+      '<path d="M5 9.6h14M5 14.6h14"/>' +
+      '<path d="M10.4 7.1h3.2M10.4 12.1h3.2M10.4 17.1h3.2"/>',
+    '城墙':        /* 带垛口的砖墙 */
+      '<path d="M4.4 19.4V7.6h2.8v1.8h3V7.6h3.6v1.8h3V7.6h2.8v11.8z"/>' +
+      '<path d="M4.4 13.2h15.2"/>' +
+      '<path d="M9 16.4h6"/>',
+    '休息':        /* 床头的烛台与枕头 */
+      '<path d="M3.8 18.6V9.4M3.8 18.6h16.4M3.8 14.6h16.4"/>' +
+      '<path d="M6.6 14.6v-3h4.2v3"/>' +
+      '<path d="M17.4 6.2c1.4 1.6 1.4 2.9 0 3.8-1.4-.9-1.4-2.2 0-3.8z"/>',
+    '文书':        /* 一页纸与一支笔 */
+      '<path d="M7 4.4h7.2l3.4 3.4v11.8H7z"/>' +
+      '<path d="M14.2 4.4v3.4h3.4"/>' +
+      '<path d="M9.4 12.2h5.2M9.4 15.4h5.2"/>',
   };
 
   /* 匹配顺序：**具体的排在笼统的前面**。菜单上写的是「一楼的大厅」这种
@@ -206,6 +226,7 @@
     '伊莎贝尔小姐门前',
     '伊莎贝尔', '西比拉的房间', '洗衣房', '账房',
     '教室', '走廊', '马厩', '大厅', '外院', '书房', '后坡', '绿荫', '餐桌', '门',
+    '会客厅', '档案室', '城墙', '休息', '文书',
   ];
 
   var SVG_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
@@ -219,11 +240,11 @@
     return null;
   }
 
-  /* 时段菜单的 id 形状：dy_d{天}_{时段}_hub。
+  /* 时段菜单的 id 形状：dy_d{天}_{时段}_hub（时段 mo/nn/af/ev/ni）。
      **不能只看 `_hub` 结尾** —— 第二幕那个自由活动锚点叫 fr_hub，
      它六项菜单是竖排列表，不是三张活动卡（曾经被这条判据误当成时段菜单，
      六项里有两项被硬塞了图标）。所以照着 diary.js 的 NODE_RE 形状来认。 */
-  var HUB_RE = /^dy_d\d+_(mo|nn|af|ni)_hub$/;
+  var HUB_RE = /^dy_d\d+_(mo|nn|af|ev|ni)_hub$/;
 
   /** 只有 20 个时段菜单是卡片菜单。判据是 id 形状，不是「有没有选项」——
       幕尾反应节点也有选项，但它该是竖排列表。 */
@@ -244,11 +265,20 @@
     }
     if (!on) return;
 
+    /* 选项的文字点不出地点时（第 6 天早晨那两项写的是「去教室看看。／先处理府里的事。」），
+       退一步看这一项**去哪儿**：目的地节点的标题写的是「书房 · 清单」，按它取图标。
+       图标许诺的是「你会去到一个什么样的地方」，不是「按钮上印了什么字」。 */
+    var items = api.engine.availableChoices ? api.engine.availableChoices() : [];
     for (var i = 0; i < choicesEl.children.length; i++) {
       var btn = choicesEl.children[i];
       if (btn.getElementsByClassName('dy-icon').length) continue;   // 已经塞过了
       var textEl = btn.getElementsByClassName('choice-text')[0];
       var inner = textEl ? iconFor(textEl.textContent) : null;
+      if (!inner) {
+        var item = items[i];
+        var dest = item && item.choice && api.engine.nodes[item.choice.next];
+        if (dest && dest.title) inner = iconFor(dest.title);
+      }
       if (!inner) continue;                                          // 没图标就保持原样
       var icon = el('span', 'dy-icon');
       icon.setAttribute('aria-hidden', 'true');

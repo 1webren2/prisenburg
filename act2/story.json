@@ -758,11 +758,11 @@
     },
     {
       "id": "b17_scream",
-      "pov": "西比拉",
+      "pov": "奥布里",
       "title": "府邸 · 我不要学了",
       "art": {
         "bg": "bg_portrait_wall",
-        "portrait": "chr_sibylla_teacher"
+        "portrait": "chr_aubrey"
       },
       "dialogues": [
         {
@@ -806,11 +806,11 @@
     },
     {
       "id": "b18_classroom",
-      "pov": "西比拉",
+      "pov": "奥布里",
       "title": "教室 · 僵持",
       "art": {
         "bg": "bg_classroom",
-        "portrait": "chr_sibylla_teacher"
+        "portrait": "chr_aubrey"
       },
       "dialogues": [
         {
@@ -854,11 +854,11 @@
     },
     {
       "id": "b19_aubrey",
-      "pov": "西比拉",
+      "pov": "奥布里",
       "title": "教室 · 奥布里大人",
       "art": {
         "bg": "bg_classroom",
-        "portrait": "chr_sibylla_teacher"
+        "portrait": "chr_aubrey"
       },
       "dialogues": [
         {
@@ -946,15 +946,85 @@
           "text": "哥哥！哥——"
         }
       ],
-      "next": "b20_lesson"
+      "choices": [
+        {
+          "text": "让她回到座位上，按规矩继续。",
+          "hint": "按规矩来",
+          "next": "dy_d2_mo_strict_e",
+          "effects": [
+            {
+              "stat": "旗_授课方式",
+              "value": 1,
+              "silent": true
+            },
+            {
+              "stat": "伊莎贝尔_课程进度",
+              "value": 2
+            },
+            {
+              "stat": "伊莎贝尔_礼仪成长",
+              "value": 1
+            },
+            {
+              "stat": "伊莎贝尔_好感",
+              "value": -1
+            },
+            {
+              "stat": "西比拉_好感",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "text": "让西比拉照原来的节奏教下去。",
+          "hint": "照她的节奏",
+          "next": "dy_d2_mo_plain_e",
+          "effects": [
+            {
+              "stat": "旗_授课方式",
+              "value": 2,
+              "silent": true
+            },
+            {
+              "stat": "伊莎贝尔_课程进度",
+              "value": 1
+            },
+            {
+              "stat": "西比拉_好感",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "text": "先让她歇一会儿，再接着上课。",
+          "hint": "先缓一缓",
+          "next": "dy_d2_mo_soft_e",
+          "effects": [
+            {
+              "stat": "旗_授课方式",
+              "value": 3,
+              "silent": true
+            },
+            {
+              "stat": "伊莎贝尔_好感",
+              "value": 1
+            },
+            {
+              "stat": "西比拉_好感",
+              "value": 3
+            }
+          ]
+        }
+      ],
+      "defaultPick": 1
     },
     {
       "id": "b20_lesson",
-      "pov": "西比拉",
+      "pov": "奥布里",
       "title": "教室 · 教典",
       "art": {
         "bg": "bg_classroom",
-        "portrait": "chr_sibylla_teacher"
+        "portrait": "chr_aubrey"
       },
       "dialogues": [
         {
@@ -1002,15 +1072,15 @@
           "text": "以前是。"
         }
       ],
-      "next": "dy_d2_nn_r"
+      "next": "b21_haier_calls"
     },
     {
       "id": "b21_haier_calls",
-      "pov": "西比拉",
+      "pov": "奥布里",
       "title": "教室 · 敲门声",
       "art": {
         "bg": "bg_classroom",
-        "portrait": "chr_sibylla_teacher"
+        "portrait": "chr_aubrey"
       },
       "dialogues": [
         {
@@ -1050,11 +1120,11 @@
     },
     {
       "id": "b22_after",
-      "pov": "西比拉",
+      "pov": "奥布里",
       "title": "教室 · 一个人的时候",
       "art": {
         "bg": "bg_classroom",
-        "portrait": "chr_sibylla_teacher"
+        "portrait": "chr_aubrey"
       },
       "dialogues": [
         {
@@ -1066,7 +1136,7 @@
           "text": "西比拉站在门前，手中抱着教典和蜡版，眼角不知什么时候渗出一点眼泪，西比拉抬起手将泪水擦去，不禁有些耻笑自己，为什么要哭呢？"
         }
       ],
-      "next": "dy_d2_af_r"
+      "next": "dy_d2_mo_r"
     },
     {
       "id": "b23_corridor",
@@ -1098,7 +1168,7 @@
           "text": "她走入房间，很快将牧师服换下，穿上一件黑白相间的女仆服装。"
         }
       ],
-      "next": "dy_d2_ni_r"
+      "next": "b25_end"
     },
     {
       "id": "b25_end",
@@ -1113,7 +1183,7 @@
         "portrait": "chr_aubrey"
       },
       "dialogues": [],
-      "next": "dy_d3_mo_hub"
+      "next": "dy_d3_mo_intro"
     },
     {
       "id": "fr_hub",
@@ -1279,7 +1349,12 @@
     "pov": "奥布里",
     "affinity": {
       "stat": "西比拉_好感",
-      "tiers": [80, 40, 0, -49],
+      "tiers": [
+        80,
+        40,
+        0,
+        -49
+      ],
       "revengeBelow": -50,
       "comboPeak": 90
     },
@@ -1358,7 +1433,7 @@
         "endNode": "fr_the_end"
       },
       "fr_act3_hub": {
-        "after": "h8_end",
+        "after": "h9_end",
         "lines": [
           {
             "speaker": "旁白",

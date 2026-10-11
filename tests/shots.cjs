@@ -3,7 +3,7 @@
  * =====================================================================
  *   node tests/shots.cjs              四个分辨率全跑，截图存 tests/shots/
  *   node tests/shots.cjs --only 1440x900
- *   node tests/shots.cjs --e2e        不截图，从开始界面一路玩到第一幕收束（狩猎篇第八章末）
+ *   node tests/shots.cjs --e2e        不截图，从开始界面一路玩到第一幕收束（第九章末）
  *
  * 为什么要「量」而不是只看图：
  *   立绘顶端顶没顶到章节标题、左右两槽有没有叠在一起、选项和正文有没有对齐，
@@ -54,8 +54,8 @@ const TARGETS = [
   { name: '11-双立绘-西比拉与奥布里', node: 'b19_aubrey', mode: 'first', speaker: '奥布里' },
   { name: '09-第一幕结局屏', node: 'o4_end', mode: 'end' },
   // b25_end 不再有结算屏（它退成了通往第 3 天的零台词过场），
-  // 第一幕真正的收束屏在 h8_end 那一格
-  { name: '10-第一幕收束屏', node: 'h8_end', mode: 'end' },
+  // 第一幕真正的收束屏挪到了第九章末 h9_end 那一格
+  { name: '10-第一幕收束屏', node: 'h9_end', mode: 'end' },
   // 幕间自由活动：hub 的菜单、房间里的双立绘（右槽是她此刻那套）
   { name: '12-自由活动-hub', mode: 'roam', roam: 'fr_hub' },
   { name: '13-自由活动-西比拉房间', mode: 'roam', roam: 'fr_sib_riding' },
@@ -72,12 +72,16 @@ const TARGETS = [
   // 多一颗按钮会不会把这一排挤出去，只有真量一遍才知道（设计稿 §5.2 要求量）。
   { name: '20-日常层-HUD与日记按钮', mode: 'daily', node: 'dy_d2_mo_hub' },
   { name: '21-日记本摊开', mode: 'daily', node: 'dy_d2_mo_hub', openDiary: true },
-  // 时段菜单本身：右下角三张活动卡（Stage0 那一套）。停在菜单上不往下走，
-  // 量的是三张卡的大小、位置、图标颗数与那行「早晨 · 选择去向」。
-  { name: '26-时段菜单-三张活动卡', mode: 'daily', node: 'dy_d3_mo_hub', stayHub: true, closeBook: true },
+  // 时段菜单本身：右下角那一排图标卡（Stage0 那一套）。停在菜单上不往下走，
+  // 量的是每张卡的大小、位置、图标颗数与那行「早晨 · 选择去向」。
+  { name: '26-时段菜单-图标卡', mode: 'daily', node: 'dy_d3_mo_hub', stayHub: true, closeBook: true },
   { name: '27-时段菜单-主线日', mode: 'daily', node: 'dy_d2_nn_hub', stayHub: true },
   { name: '28-进第3天-先弹上一日总结', mode: 'daily', node: 'dy_d3_mo_hub', stayHub: true,
     wantBook: /第 2 日总结/ },
+  // Esc 系统菜单：六颗入口 + 展开后的快捷键表。量的是它自己那一屏，
+  // 顺带确认菜单铺开时底下那层还在（不是一块纯黑）。
+  { name: '29-系统菜单', node: 'b1_room', mode: 'first', openMenu: true },
+  { name: '30-系统菜单-快捷键', node: 'b1_room', mode: 'first', openMenu: true, openKeys: true },
   // 第一天那场册子（设计稿 §4）：末句「你开了门。她站在门外，把一本册子递了上来。」
   // 播完之后摊开，摊开的是第 1 日那一页 —— 那天一件记事都没有，整页只有她自己的字。
   { name: '22-第一天-她敲门递上册子', mode: 'intro', node: 'dy_d2_mo_intro' },
@@ -287,6 +291,11 @@ function jumpExpr(target) {
       lines.push(`for (let i = 0; i < 80 && !(v.type === "line" && v.speaker === ${JSON.stringify(target.speaker)} && !v.narration); i++) v = e.advance();`);
     }
     lines.push('ui.renderStats(); ui.render(v);');
+  }
+  // Esc 系统菜单：跟哪个 mode 都能搭 —— 把菜单铺在当前的画面上量一次
+  if (target.openMenu) {
+    lines.push('ui.openMenu();');
+    if (target.openKeys) lines.push('ui.renderKeysPanel(true);');
   }
   return `(() => {
     const a = window.act1;
@@ -649,8 +658,8 @@ function inspect(label, m, target) {
      每张顶上都有图标，编号（1/2/3）是藏起来的，上面还挂着那行时段提示。 */
   const dc = m.dyCards;
   if (dc) {
-    if (dc.n !== 3) bad.push(`时段菜单是 ${dc.n} 张卡，该是 3 张`);
-    if (dc.rows !== 1) bad.push(`三张活动卡折成了 ${dc.rows} 行`);
+    if (dc.n !== 2 && dc.n !== 3) bad.push(`时段菜单是 ${dc.n} 张卡，该是 2~3 张`);
+    if (dc.rows !== 1) bad.push(`图标卡折成了 ${dc.rows} 行`);
     if (dc.left < -0.5 || dc.right > vw + 0.5) bad.push(`活动卡左右出画（${dc.left} ~ ${dc.right}，窗口宽 ${vw}）`);
     if (dc.top < -0.5 || dc.bottom > vh + 0.5) bad.push(`活动卡上下出画（${dc.top} ~ ${dc.bottom}，窗口高 ${vh}）`);
     if (dc.icons !== dc.n) bad.push(`只有 ${dc.icons}/${dc.n} 张卡顶上画了图标`);
@@ -793,7 +802,7 @@ async function endToEnd(cdp) {
   log(`  · boot() 自己读进来的剧本：${loaded.nodes} 个节点，第二幕${loaded.hasAct2 ? '在' : '不在'}，第三幕${loaded.hasAct3 ? '在' : '不在'}`);
   if (!loaded.hasAct2) bad.push('boot() 没把第二幕读进来（meta.continues 的路径解错了）');
   if (!loaded.hasAct3) bad.push('boot() 没把第三幕读进来（meta.continues 的路径解错了）');
-  if (loaded.nodes !== 364) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 364（三幕 + 日常层 + 狩猎篇五章合起来）`);
+  if (loaded.nodes !== 328) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 328（三幕 + 日常层 + 狩猎篇五章 + 第九章合起来）`);
 
   await cdp.eval(PLAY_JS);
 
@@ -828,7 +837,7 @@ async function endToEnd(cdp) {
     if (s.cards && s.cards.on && !cardHubs.includes(s.node)) {
       // 同一格会 peek 好几次（合上总结的那一下不动剧情），按节点去重
       cardHubs.push(s.node);
-      if (s.cards.n !== 3 || s.cards.icons !== 3) {
+      if ((s.cards.n !== 2 && s.cards.n !== 3) || s.cards.icons !== s.cards.n) {
         cardBad.push(`${s.node}（${s.cards.n} 项 / ${s.cards.icons} 个图标）`);
       }
     }
@@ -851,9 +860,11 @@ async function endToEnd(cdp) {
   }
 
   log(`  · 一路走过 ${walked.length} 个节点、视角经过 ${[...seenPov].join(' → ')}，最后停在 ${walked[walked.length - 1]}`);
-  if (walked[walked.length - 1] !== 'h8_end') bad.push(`全程没有走到 h8_end（第一幕真正的收束点），停在 ${walked[walked.length - 1]}`);
+  if (walked[walked.length - 1] !== 'h9_end') bad.push(`全程没有走到 h9_end（第一幕真正的收束点），停在 ${walked[walked.length - 1]}`);
   if (!walked.includes('b1_room')) bad.push('全程没有进过第二幕');
-  if (!walked.includes('b12_morning')) bad.push('全程没有走到换牧师服那一天');
+  // 换牧师服那一场在第二幕原著授课线里（b17_scream 起，b18 是教室）；
+  // b12_morning 那条旧链首轮回填后已脱链，主线不再从它进来。
+  if (!walked.includes('b18_classroom')) bad.push('全程没有走到换牧师服那一天（第二幕授课线 b18_classroom）');
   // 第一天那本册子：走空格走到底，它得在引入场那一格自己摊开（daily.js 的捕获阶段），
   // 摊开之后再按一下就合上、接着往下走 —— 既不漏开，也不能把人卡在最后一句上。
   // （摊开过的**不止**这一格：往后每天头一个菜单上还会弹上一日总结，所以看的是
@@ -863,17 +874,18 @@ async function endToEnd(cdp) {
     bad.push(`第一天的册子该在 dy_d2_mo_intro（第一夜之后那一场）摊开，实际只在 ${diaryNodes.join('、')} 摊开过`);
   }
   if (!walked.includes('dy_d2_mo_hub')) bad.push('全程没有走进第 2 天早晨的菜单（册子合上之后接不上）');
-  // 时段菜单：走过 20 个，每一个都得是「三张活动卡 + 三个图标」
-  log(`  · 一路走过 ${cardHubs.length} 个时段菜单，都是三张活动卡`);
-  if (cardHubs.length !== 20) bad.push(`走过了 ${cardHubs.length} 个时段菜单，该是 20 个`);
-  if (cardBad.length) bad.push(`有 ${cardBad.length} 个时段菜单不是三张卡：${cardBad.join('、')}`);
+  // 时段菜单：走过 14 个，每一个都得是「图标卡 + 每张卡一个图标」
+  log(`  · 一路走过 ${cardHubs.length} 个时段菜单，都是图标卡`);
+  if (cardHubs.length !== 14) bad.push(`走过了 ${cardHubs.length} 个时段菜单，该是 14 个`);
+  if (cardBad.length) bad.push(`有 ${cardBad.length} 个时段菜单不是图标卡：${cardBad.join('、')}`);
   // 进第 3 天的第一个菜单时，上一日（第 2 日）的总结要自己摊开
   log(`  · 上一日总结在 ${summaryAt} 上弹出来（${summaryTitle}）`);
   if (summaryAt !== 'dy_d3_mo_hub') bad.push(`第 2 日总结该在 dy_d3_mo_hub 上自己摊开，实际在 ${summaryAt}`);
   if (summaryAt && !/第 2 日总结/.test(summaryTitle)) bad.push(`摊开的那本标题是「${summaryTitle}」，该是「第 2 日总结」`);
-  if (!walked.includes('c1_door')) bad.push('全程没有进过第三幕（第二幕结局的 continueTo 没接上）');
-  // 狩猎篇：第三幕末尾摘掉结局之后要接得上，五章一章节一节地走到底
-  if (!walked.includes('h4_knock')) bad.push('全程没有进过狩猎篇第四章（c27_end 的 next 没接上）');
+  // 首轮回填后 c1～c27 那条旧链脱链留档，不在主线上；第二幕之后接的是日常层
+  if (!walked.includes('dy_d3_mo_intro')) bad.push('第二幕之后没有接上日常层（b25_end 的 next 没接上）');
+  // 狩猎篇：日常层第 6 天夜里的交付场景接进第四章，五章一章节一节地走到底
+  if (!walked.includes('h4_request')) bad.push('全程没有进过狩猎篇第四章（周六夜的交付场景没接上）');
   if (!walked.includes('h6_ride')) bad.push('全程没有走到第六章返营那一格（插画过场所在处）');
   if (cutAt !== 'h6_ride') bad.push(`插画过场该在 h6_ride 铺开，实际在 ${cutAt}`);
   else log('  · 插画过场在 h6_ride 上真的铺开过（走的是空格，不是直接调引擎）');
@@ -903,7 +915,7 @@ async function endToEnd(cdp) {
   }
 
   for (const b of bad) log(`      ⚠ ${b}`);
-  log(bad.length ? `  ✗ 全程走下来有 ${bad.length} 处不对` : '  ✓ 第一幕 → 第一夜 → 第 2 天 → 自由活动 → 第 6 天 → 狩猎篇五章，一路走到第一幕收束；存档读档跨幕都对');
+  log(bad.length ? `  ✗ 全程走下来有 ${bad.length} 处不对` : '  ✓ 第一幕 → 第一夜 → 日常层第 2~6 天 → 狩猎篇六章（含第九章），一路走到第一幕收束；存档读档跨幕都对');
   return bad.length;
 }
 
@@ -1045,7 +1057,7 @@ async function main() {
     process.exit(1);
   }
   if (e2eOnly) {
-    log('\n✓ 从开始界面一路玩到第一幕收束（狩猎篇第八章末），存档读档跨幕都对得上');
+    log('\n✓ 从开始界面一路玩到第一幕收束（第九章末），存档读档跨幕都对得上');
   } else {
     log(`\n截图在 ${OUT_DIR}`);
     log('\n✓ 所有分辨率下：立绘不叠、不顶标题、不出画，选项和正文对齐，对话框收起不挤动布局');

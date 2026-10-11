@@ -26,7 +26,7 @@ const story = require(path.join(ROOT, 'act1', 'story.json'));
 const story2 = require(path.join(ROOT, 'act2', 'story.json'));
 const story3 = require(path.join(ROOT, 'act3', 'story.json'));
 const dailyStory = require(path.join(ROOT, 'daily', 'story.json'));
-const huntStories = [4, 5, 6, 7, 8].map((n) => require(path.join(ROOT, 'hunt', `ch${n}.json`)));
+const huntStories = [4, 5, 6, 7, 8, 9].map((n) => require(path.join(ROOT, 'hunt', `ch${n}.json`)));
 // 和浏览器里 boot() 一样：第一幕 + 顺着 meta.continues 读到的第二幕 / 第三幕 / 日常层 / 狩猎篇
 const wholeStory = api.composeStories([story, story2, story3, dailyStory, ...huntStories]);
 
@@ -113,8 +113,8 @@ t.eq(CONFIG.titleBackground, 'bg_carriage', '开始界面背景是马车图');
 const mounted = bootUI();
 t.eq(
   Object.keys(mounted.ui.els).length,
-  41,
-  'mount() 找到了 41 个元素（32 + 结局卡片上的「自由活动」+ 换装浮层的 7 个 + 暂停按钮）'
+  47,
+  'mount() 找到了 47 个元素（原 41 − 挪进菜单的「重新开始」+ 系统菜单的 7 个）'
 );
 
 // index.html 里不该有「没人管」的 id —— 要么进 ui.js 的清单，要么是纯装饰用的
@@ -291,8 +291,11 @@ for (;;) {
 }
 t.ok(seenOutfits.includes('url("../images/chr_sibylla.webp")'), '第二幕前半段西比拉穿女仆装（chr_sibylla）');
 t.ok(seenOutfits.includes('url("../images/chr_sibylla_teacher.webp")'), '换上牧师服（＝教师服）后左槽换成那张');
-// 第二幕（给伊莎贝尔上课）和第三幕（接着当老师）各穿一段牧师服，中间隔着一段女仆装
-t.eq(seenOutfits.filter((s) => s === 'url("../images/chr_sibylla_teacher.webp")').length, 2, '牧师服出现两段，各自连续，中间没有来回闪');
+/* 首轮回填后主线里只剩第二幕那一处牧师服：第三幕整条链（c1～c27）脱链了 ——
+   正文一字未动、仍在原文核对的名单里，只是新时间线改走日常层第 3~6 天与狩猎篇。
+   所以「两段牧师服」变成「一段」，中间也没有来回闪的余地。 */
+t.eq(seenOutfits.filter((s) => s === 'url("../images/chr_sibylla_teacher.webp")').length, 1,
+  '牧师服只剩第二幕授课那一段（第三幕那条链已脱链）');
 t.eq(
   seenOutfits[seenOutfits.length - 1],
   'url("../images/chr_sibylla.webp")',
@@ -497,16 +500,15 @@ t.eq(bridge.ui.els['end-screen'].classList.contains('on'), false, '全程没有�
 t.eq(bridge.engine.pov, '奥布里', '日常层是奥布里视角');
 t.eq(bridge.engine.povSwitchInfo, null, '进日常层是静默切视角，不弹那行系统提示');
 
-// 第三幕之后还有狩猎篇五章（c27_end → h4_knock 是一根 next，不是 continueTo），
-// 所以要一路演到第一幕真正的收束点 h8_end 才算走完
+// 日常层之后还有狩猎篇五章 + 第九章，要一路演到第一幕真正的收束点 h9_end 才算走完
 let g6 = 0;
 while (g6++ < 6000) {
-  if (bridge.ui.view.type === 'end' && bridge.ui.view.node.id === 'h8_end') break;
+  if (bridge.ui.view.type === 'end' && bridge.ui.view.node.id === 'h9_end') break;
   if (!autoStep(bridge.ui)) break;
 }
-t.eq(bridge.ui.view.type, 'end', '第三幕 + 狩猎篇五章也能走到结局');
-t.eq(bridge.ui.view.node.id, 'h8_end', '停在狩猎篇第八章末 —— 第一幕真正的收束点');
-t.eq(bridge.ui.els['end-continue'].style.display, 'none', 'h8_end 后面没有下一幕，没有「继续」按钮了');
+t.eq(bridge.ui.view.type, 'end', '日常层 + 狩猎篇六章也能走到结局');
+t.eq(bridge.ui.view.node.id, 'h9_end', '停在第九章末 —— 第一幕真正的收束点');
+t.eq(bridge.ui.els['end-continue'].style.display, 'none', 'h9_end 后面没有下一幕，没有「继续」按钮了');
 t.eq(bridge.ui.els['end-roam'].style.display, '', '第一幕的结局屏上照旧有「自由活动」的入口');
 
 /* ===================================================================
@@ -731,11 +733,9 @@ fr.fire(fr.ui.els.choices, 'click', {
 });
 t.eq(fr.engine.getStat('西比拉_警惕'), baseWatch + 1, '好感低时触摸：警惕上升');
 t.eq(fr.engine.getStat('西比拉_好感'), -11, '好感低时触摸：好感被扣掉 1（区间是 -100~100，扣得动）');
-t.ok(fr.ui.els.toast.children.length > 0, '数值变动弹了提示');
-t.empty(
-  fr.ui.els.toast.children.filter((n) => /\d/.test(n._text || '')).map((n) => n._text),
-  '提示里不带数字（真实数值要自己按 V 看）'
-);
+/* 数值变了，但屏幕上不弹任何一句话 —— 关系的变化由后续对白 / 日记 / 换装里的反应表达。
+   想看当前值，玩家自己按「状态」。 */
+t.eq(fr.ui.els.toast.children.length, 0, '数值变动不弹提示（剧情过程中不给数值反馈）');
 
 // ---- 好感高：同一次触摸走另一支 ----
 fr.engine.setStat('西比拉_好感', 45); // 「≥40」那档
@@ -972,17 +972,142 @@ t.section('数值面板');
 
 const stat = bootUI();
 stat.ui.begin();
-t.eq(stat.ui.els['stats-body'].children.length, 1, '默认不列数值，只给一句提示');
-t.ok(stat.ui.els['stats-body'].children[0].className.includes('stat-hidden'), '默认那一句是「数值已隐藏」');
+t.eq(stat.ui.els['stats-body'].children.length, 0, '默认一行数值都不列');
+t.eq(stat.ui.els['stats-panel'].classList.contains('revealed'), false, '默认整块面板收着，不占剧情空间');
 
 stat.fireKey('v');
-t.eq(stat.engine.showStats, true, '按 V 打开真实数值');
+t.eq(stat.engine.showStats, true, '按 V 打开状态');
 t.eq(stat.ui.els['stats-body'].children.length, 4, '打开后有 4 行（只列西比拉的四项关系，其余数值隐藏）');
 t.eq(stat.ui.els['stats-toggle'].getAttribute('data-on'), '1', '按钮状态跟着变');
 t.eq(stat.ui.els['stats-panel'].classList.contains('revealed'), true, '面板展开');
 
+/* 只给当前值：不许出现「x / 上限」，也不许画进度条 —— 上限是系统的事，
+   玩家按常识理解就是一把一百分的尺，界面不替他解释。 */
+const statText = stat.ui.els['stats-body'].children.map(
+  (row) => row.children.map((c) => c._text).join(' ')
+);
+t.empty(statText.filter((s) => /\//.test(s)).map((s) => `状态面板上出现了「x / y」：${s}`),
+  '状态面板只给当前值，一条「当前 / 上限」都没有');
+t.empty(stat.ui.els['stats-body'].children.filter((row) => row.children.length !== 2)
+  .map((row) => `这一行列了 ${row.children.length} 个格子（应为「名字 + 当前值」两格）`),
+  '每一行就是「名字 + 当前值」，没有进度条那一格');
+
 stat.fireKey('v');
 t.eq(stat.engine.showStats, false, '再按 V 收起来');
+t.eq(stat.ui.els['stats-body'].children.length, 0, '收起来之后一行都不留');
+t.eq(stat.ui.els['stats-panel'].classList.contains('revealed'), false, '面板整块收回去');
+
+/* 点的入口也要能用（不只是 V） */
+stat.fire(stat.ui.els['stats-toggle'], 'click');
+t.eq(stat.engine.showStats, true, '点「状态」也能打开');
+stat.fire(stat.ui.els['stats-toggle'], 'click');
+t.eq(stat.engine.showStats, false, '再点一下关掉');
+
+/* ===================================================================
+ * 7.5 系统菜单（Esc）
+ * =================================================================== */
+
+t.section('系统菜单');
+
+const menu = bootUI();
+menu.ui.begin();
+t.eq(menu.ui.menuOpen, false, '默认不占着屏幕');
+
+menu.fireKey('Escape');
+t.eq(menu.ui.menuOpen, true, '按 Esc 打开系统菜单');
+/* 菜单开着的时候，剧情不能被顺手推走 —— 空格在菜单里不该算「继续下一句」 */
+const nodeBefore = menu.engine.node.id;
+const lineBefore = menu.ui.view && menu.ui.view.index;
+menu.fireKey(' ');
+t.eq(menu.engine.node.id, nodeBefore, '菜单开着时按空格：剧情原地不动');
+t.eq(menu.ui.view && menu.ui.view.index, lineBefore, '菜单开着时按空格：连当前这一句都没往前走');
+
+menu.fireKey('Escape');
+t.eq(menu.ui.menuOpen, false, '再按 Esc 关掉');
+
+// 六个入口都真的在页面上（dom 替身不解析 HTML 文本，所以对着源码查）
+for (const [id, label] of [
+  ['sys-continue', '继续游戏'], ['save-btn', '存档'], ['load-btn', '读档'],
+  ['sys-keys', '快捷键'], ['sys-title', '返回标题'], ['sys-quit', '退出游戏'],
+]) {
+  const re = new RegExp('<[^>]*id="' + id + '"[^>]*>[^<]*' + label);
+  t.ok(re.test(HTML), `菜单里有「${label}」（#${id}）`);
+  t.ok(id in menu.ui.els, `#${id} 有人在用（不是页面上的孤儿元素）`);
+}
+
+// 点「继续游戏」也是关掉菜单、回到原来那一句
+menu.ui.openMenu();
+menu.fire(menu.ui.els['sys-continue'], 'click');
+t.eq(menu.ui.menuOpen, false, '点「继续游戏」收起菜单');
+
+// 快捷键面板：列出来的键必须是真的能按的
+menu.ui.openMenu();
+menu.fire(menu.ui.els['sys-keys'], 'click');
+t.eq(menu.ui.els['sys-keys-panel'].classList.contains('on'), true, '点「快捷键」展开那张表');
+const keyRows = menu.ui.els['sys-keys-panel'].children.map((r) => r.children.map((c) => c._text));
+t.ok(keyRows.length >= 6, `快捷键表列了 ${keyRows.length} 行`);
+const keyText = keyRows.map((r) => r[0]).join(' ');
+for (const real of ['空格', 'Enter', 'Esc', 'V', '↑ / ↓', 'Ctrl + S']) {
+  t.ok(keyText.indexOf(real) >= 0, `快捷键表里有「${real}」—— 而且它真的能按`);
+}
+t.ok(keyRows.filter((r) => /日记/.test(r[1]) && /没有按键/.test(r[1])).length === 1,
+  '日记没有按键，就照实写「没有按键」，不编一个出来');
+menu.fire(menu.ui.els['sys-keys'], 'click');
+t.eq(menu.ui.els['sys-keys-panel'].classList.contains('on'), false, '再点一下收起来');
+
+// 点浮层外侧 = 关掉
+menu.ui.openMenu();
+menu.fire(menu.ui.els['sys-menu-veil'], 'click');
+t.eq(menu.ui.menuOpen, false, '点菜单外侧收起菜单');
+
+/* ===================================================================
+ * 7.6 选项上的字：只留选项本身
+ * =================================================================== */
+
+t.section('选项不解释自己');
+
+const plain = bootUI();
+plain.ui.begin();
+for (let step = 0; step < 40 && plain.ui.view.type !== 'choices'; step++) plain.fireKey(' ');
+t.eq(plain.ui.view.type, 'choices', '走几步碰到一个选项屏');
+t.empty(
+  plain.ui.els.choices.children.flatMap((b) => b.children
+    .filter((c) => c.className.includes('choice-hint'))
+    .map((c) => `选项上挂着解释性提示：${c._text}`)),
+  '选项按钮上不再渲染 hint（「这个选项是什么价值观」那一类，交给玩家自己读）'
+);
+// 数据里的 hint 没删，只是不画 —— 将来要用还在
+const withHint = [];
+for (const n of wholeStory.nodes) for (const c of (n.choices || [])) if (c.hint) withHint.push(c);
+t.ok(withHint.length > 0,
+  `剧本里还留着 ${withHint.length} 条 hint 数据（本任务只改画面，不删剧情数据）`);
+
+/* ===================================================================
+ * 7.7 ↑↓ 选选项
+ * =================================================================== */
+
+t.section('上下选择');
+
+const arrows = bootUI();
+arrows.ui.begin();
+for (let step = 0; step < 40 && arrows.ui.view.type !== 'choices'; step++) arrows.fireKey(' ');
+const nChoices = arrows.ui.view.choices.length;
+arrows.fireKey('ArrowDown');
+t.eq(arrows.ui.keyIndex, 1, '按 ↓ 高亮挪到第 2 项');
+t.eq(arrows.ui.els.choices.children.filter((b) => b.className.includes('keyed')).length, 1,
+  '屏幕上只有一个高亮');
+arrows.fireKey('ArrowUp');
+t.eq(arrows.ui.keyIndex, 0, '按 ↑ 挪回来');
+arrows.fireKey('ArrowUp');
+t.eq(arrows.ui.keyIndex, nChoices - 1, '在第 1 项上按 ↑ 绕到最后一项');
+
+// Enter = 确认选中的那一项
+const pickedText = arrows.ui.view.choices[arrows.ui.keyIndex].text;
+arrows.fireKey('ArrowUp');
+const wanted = arrows.ui.view.choices[arrows.ui.keyIndex].text;
+arrows.fireKey('Enter');
+t.ne(arrows.ui.view.type, 'choices', '按 Enter 之后选项屏就过了（真的选了）');
+t.ok(!!wanted && pickedText !== undefined, '选的是高亮那一项（高亮位置在选之前就定好了）');
 
 /* ===================================================================
  * 8. 存档 / 读档
