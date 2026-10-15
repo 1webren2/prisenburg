@@ -229,10 +229,15 @@
   white-space: pre-line;       /* 多段之间空一行 */
 }
 
-/* 合上那颗按钮跟 HUD 一个样式，但要用深色底 —— 底下是暗的 */
+/* 合上那颗按钮跟 HUD 一个样式，但要用深色底 —— 底下是暗的。
+   **要往下让开翻页那一条**：.dy-diary-nav 挂在书的下沿外面（bottom: -46px、
+   连按钮 34px 高，占的是书底往下 12~46px 那一条），而合上这颗是 flex 列里的
+   下一项、原来只隔着屏幕的 26px gap —— 正好压在页码上。推下去 34px
+   （26 + 34 = 书底往下 60px）就整个错开了，窄屏那条 -42px 也一样让得开。 */
 .dy-diary-close {
   position: relative;
   z-index: 3;
+  margin-top: 34px;
   font-family: var(--font-sans);
   letter-spacing: .1em;
 }

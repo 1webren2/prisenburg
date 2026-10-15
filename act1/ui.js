@@ -627,9 +627,12 @@
      */
     fillChoiceButtons(host, choices) {
       while (host.firstChild) host.removeChild(host.firstChild);
-      // 换了一批选项就把高亮重置掉，否则它可能停在一个刚被灰掉的项上
-      const firstOn = choices.find((c) => c.enabled !== false);
-      this.keyIndex = firstOn ? firstOn.index : -1;
+      /* 选项刚出现时**一项都不选中、也不高亮**。
+         这里要是顺手替玩家选上第一项，回车就会变成「默认确认第一项」——
+         他还没读完选项，剧情已经按第一项走掉了。
+         「选中」只能来自玩家自己的动作：↑↓（见 moveKey）、数字键、鼠标点击。 */
+      this.keyIndex = -1;
+      this.paintKey();          // 顺带把上一轮留在两个容器里的高亮擦干净
       for (const c of choices) {
         const btn = this.doc.createElement('button');
         btn.className = 'choice-btn' + (c.enabled ? '' : ' locked') + (c.worn ? ' worn' : '');
@@ -976,10 +979,10 @@
       this.els['sys-keys'].setAttribute('data-on', on ? '1' : '0');
       if (!on) return;
       const rows = [
-        ['空格 / 回车 / 左键', '继续下一句'],
-        ['↑ / ↓', '上下选择选项'],
+        ['空格 / 回车 / 左键', '继续下一句（选项出现时不算）'],
+        ['↑ / ↓', '选项上下移动；还没选中时 ↓ 进第一项、↑ 进最后一项'],
         ['1 – 9', '直接选第 n 项'],
-        ['Enter', '确认选中的那一项'],
+        ['Enter', '确认已选中的那一项（没选中前按它不会选）'],
         ['Esc', '打开 / 关闭这个菜单'],
         ['V', '打开 / 关闭状态'],
         ['P', '剧情中途暂停（能暂停的地方才有）'],
@@ -1256,18 +1259,27 @@
       if (key === 'r' || key === 'R') { this.restart(); return; }
       if (key === 'p' || key === 'P') { this.togglePause(); return; }   // 用不上时它自己会拒绝
 
-      // 上下选选项。Enter 在选项屏上就是「确认当前选中的那一项」，
-      // 不在选项屏上仍然是「继续」（start 界面/插画那两处的 return 更早）。
+      /* 上下选选项。选项刚出现时**没有**选中项（见 fillChoiceButtons），
+         所以第一次按方向键是「进入」而不是「移动」：
+         ↓ 进第一个可用项、↑ 进最后一个可用项。 */
       if (key === 'ArrowDown' || key === 'ArrowUp') {
         ev.preventDefault();
         this.moveKey(key === 'ArrowDown' ? 1 : -1);
         return;
       }
 
-      if (key === 'Enter' && this.moveKey(0)) {
-        ev.preventDefault();
-        this.choose(this.keyIndex);
-        return;
+      /* 选项屏上（普通选项栏 / 换装浮层那一排衣服），回车只用来**确认此刻
+         明确选中的那一项**。一项都没选中时把这一下输入拦下来，但什么也不做 ——
+         既不替玩家选中第一项，也不把它当成「继续下一句」往下推。
+         空格在这两处同理：它不该把还没做决定的选项屏推过去。 */
+      if (this.atChoiceScreen()) {
+        if (key === 'Enter') {
+          ev.preventDefault();
+          const at = this.keyedIndex();
+          if (at >= 0) this.choose(at);
+          return;
+        }
+        if (key === ' ') { ev.preventDefault(); return; }
       }
 
       if (key === ' ' || key === 'Enter') {
@@ -1291,27 +1303,53 @@
       return v.choices;
     }
 
+    /** 此刻是不是停在选项屏上（普通选项栏或换装浮层那一排衣服） */
+    atChoiceScreen() {
+      const v = this.view;
+      return !!v && (v.type === 'choices' || v.type === 'outfit');
+    }
+
     /**
-     * ↑↓ 移动高亮。delta 为 0 表示「只是问一句现在选着哪个」——
-     * 返回 true 说明此刻确实有一项被选中（Enter 才好拿去确认）。
+     * 此刻**明确选中**的那一项的下标；-1 = 一项都没选中。
+     *
+     * 「选中」只能是玩家自己按出来的（↑↓、数字键、鼠标），选项刚出现时是 -1。
+     * 灰掉的那一项永远不算选中 —— 界面这一层也不许确认它
+     * （引擎那边 choose() 还会再拒一次，两道都留着）。
+     */
+    keyedIndex() {
+      if (!this.atChoiceScreen()) return -1;
+      const c = this.view.choices[this.keyIndex];
+      if (!c || c.enabled === false) return -1;
+      return this.keyIndex;
+    }
+
+    /**
+     * ↑↓ 移动高亮。没有选中项的时候不叫「移动」，叫「进入」：
+     * delta > 0（↓）进第一个可用项、delta < 0（↑）进最后一个可用项。
+     *
+     * delta 为 0 表示「只是问一句现在选着哪个」—— 纯查询，不改状态。
+     * 这一点是刻意的：回车要靠它判断「到底选了没有」，
+     * 不能让它顺手替玩家把第一项选上（那就又变成「默认确认第一项」了）。
+     * 返回 true 说明此刻确实有一项被选中。
      * 高亮只画在屏幕上，不碰引擎。
      */
     moveKey(delta) {
       const list = this.choiceList();
       const usable = list.map((c, i) => (c.enabled === false ? -1 : i)).filter((i) => i >= 0);
       if (!usable.length) return false;
-      if (delta === 0) {
-        if (usable.indexOf(this.keyIndex) < 0) this.keyIndex = usable[0];
-      } else {
-        const at = usable.indexOf(this.keyIndex);
-        const next = at < 0 ? 0 : (at + delta + usable.length) % usable.length;
-        this.keyIndex = usable[next];
-      }
+      if (delta === 0) return this.keyedIndex() >= 0;      // 只问，不选
+
+      const at = usable.indexOf(this.keyIndex);
+      if (at < 0) this.keyIndex = delta > 0 ? usable[0] : usable[usable.length - 1];
+      else this.keyIndex = usable[(at + delta + usable.length) % usable.length];
       this.paintKey();
       return true;
     }
 
-    /** 把高亮画到按钮上 */
+    /**
+     * 把高亮画到按钮上。keyIndex 是 -1（一项都没选中）时这一步就是「全擦掉」——
+     * 选项刚出现、玩家还没按 ↑↓ 的时候，屏幕上不该有任何一项是亮的。
+     */
     paintKey() {
       const hosts = [this.els.choices, this.els['outfit-choices']];
       for (const host of hosts) {

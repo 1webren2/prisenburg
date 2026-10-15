@@ -59,6 +59,21 @@
   --panel-w:    240px;
   --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", Georgia, serif;
   --font-sans:  "Noto Sans SC", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+
+  /* 「角色姓名」专用（#speaker-plate 的姓名牌 / .outfit-speaker 换装那句）：
+     拉丁字用 Palatino 这一路文艺复兴衬线 —— 它的斜体是真斜体，
+     运笔带一点手写的顿挫，不是机器压出来的直角；中文落到楷体
+     （Kaiti SC / 华文楷体 / 楷体 —— macOS、Office、Windows 各自都带一份），
+     楷体本身就有手写味，和章节标题那种古典衬线是一路气质，也不像黑体那样又现代又机械。
+     楷体、仿宋都缺的机器上，末尾整体退回 --font-serif：仍然是衬线兜底，
+     中英混排不会一半楷体一半宋体。 */
+  --font-name: "Palatino Linotype", "Book Antiqua", Palatino,
+               "Kaiti SC", "STKaiti", KaiTi, "楷体",
+               "FangSong", "STFangsong", "仿宋",
+               var(--font-serif);
+  /* 姓名牌上用的金：比 --gold 亮一档 —— 13~15px 的细笔画压在小胶囊上，
+     亮一档才立得住（正文那种大块的字不用这么亮）。 */
+  --gold-bright: #e3c78f;
 }
 
 * { box-sizing: border-box; }
@@ -362,16 +377,28 @@ body:not(.ready) #app { opacity: 0; }
 
 #speaker-plate {
   position: absolute;
-  top: -13px;
+  /* 牌面比原来高一点，所以往上多抬 2px：
+     牌子的底边（现在约 12.5px）仍然远在正文第一行（26px）之上，不会压字 */
+  top: -15px;
   left: var(--dialogue-gutter);
-  padding: 3px 16px;
+  padding: 4px 18px;
   border-radius: 999px;
-  border: 1px solid var(--panel-edge);
+  /* 描边比别处（--panel-edge）实一点：「这是谁在说话」这块牌子得先看清轮廓 */
+  border: 1px solid rgba(201, 160, 90, 0.5);
   background: linear-gradient(180deg, #2a2219, #171310);
-  font-family: var(--font-serif);
-  font-size: 13px;
-  letter-spacing: 0.16em;
-  color: var(--gold);
+  /* 姓名牌走 --font-name ＋ 斜体：和正文的宋/明体拉开，
+     一眼就能分出「谁在说话」和「说了什么」 */
+  font-family: var(--font-name);
+  font-style: italic;
+  /* 跟着正文那两档走：正文 15~19、选项 14~17，姓名牌 13~15，字号是一路收下来的 */
+  font-size: clamp(13px, 1.15vw, 15px);
+  line-height: 1.35;
+  /* 字距从 0.16em 收到 0.08em：楷体本来就疏朗，斜体再加宽字距会散成一个个孤字 */
+  letter-spacing: 0.08em;
+  text-indent: 0.08em;            /* 补掉 letter-spacing 落在末尾的那一份，字在胶囊里居中 */
+  color: var(--gold-bright);
+  /* 深底上的浅字给一道贴边的暗影，笔画边缘更清楚（不是发光） */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
 }
 /* 旁白没有说话人：牌子的位置留空，不显示 */
@@ -383,7 +410,12 @@ body:not(.ready) #app { opacity: 0; }
   font-family: var(--font-serif);
   font-size: clamp(15px, 1.75vw, 19px);
   line-height: 1.75;
+  /* 衬线体的中文笔画细，字与字贴太紧会糊成一片：给一丝字距（0.02em ≈ 0.4px），
+     整段读起来松一点，仍然比选项（同样 0.02em、但字号小一档）显眼 */
+  letter-spacing: 0.02em;
   color: var(--parchment);
+  /* 和姓名牌同一道暗影、弱一档：正文压在毛玻璃上，笔画边缘更利落 */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 #next-hint {
@@ -418,8 +450,11 @@ body:not(.ready) #app { opacity: 0; }
   width: 100%;
   padding: 13px 20px;
   text-align: left;
+  /* 选项和正文同一套衬线、同一份字距，只是小一档 ——
+     三处字号 19 / 17 / 15 是一路收下来的，读起来是一个体系 */
   font-family: var(--font-serif);
   font-size: clamp(14px, 1.5vw, 17px);
+  letter-spacing: 0.02em;
   color: var(--parchment);
   background: rgba(20, 17, 14, 0.80);
   border: 1px solid var(--panel-edge);
@@ -933,10 +968,12 @@ body:not(.ready) #app { opacity: 0; }
 .outfit-speaker {
   display: block;
   margin-bottom: 4px;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  letter-spacing: 0.2em;
-  color: var(--gold);
+  /* 换装浮层里的说话人和对话框上的姓名牌是同一块东西，用同一套字 */
+  font-family: var(--font-name);
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--gold-bright);
 }
 
 /* 衣服那一排：**必须是一排**，因为立绘的高度是按「一排」估出来的

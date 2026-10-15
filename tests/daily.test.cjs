@@ -130,20 +130,22 @@ t.eq(D.bodyFor(whole, withStats({ 西比拉_好感: 60, 西比拉_亲密: 45 }),
 t.section('日记 · 摊开的那一下在前还是在后');
 {
   /* 第一天那场册子摊在**最后一句之后**。早一句，屏幕上最后那两句就被书盖住了：
-     人还没把册子递上来，书先开了。这条边距只有拿真引擎逐句推才看得见。 */
+     人还没把册子递上来，书先开了。这条边距只有拿真引擎逐句推才看得见。
+     第二轮回填后这场戏在第一夜（b8_diary_writing）：她领到书、写下第一笔、
+     把书送回书房、回到房间 —— 最后一句之后书才摊开。 */
   const ie = new StoryEngine(whole);
-  ie.enterNode('dy_d2_mo_intro');
+  ie.enterNode('b8_diary_writing');
   const total = ie.visibleLines().length;
   t.ok(total > 1, '引入场不是一句话就完的（不然这条边距没意义）');
-  t.eq(D.atLastLine(ie, 'dy_d2_mo_intro'), false, '刚进节点、第一句还没推：不摊开');
+  t.eq(D.atLastLine(ie, 'b8_diary_writing'), false, '刚进节点、第一句还没推：不摊开');
   t.eq(D.atLastLine(ie, 'dy_d2_mo_hub'), false, '节点对不上，一律 false');
   for (let i = 1; i < total; i++) {
     ie.advance();
-    t.eq(D.atLastLine(ie, 'dy_d2_mo_intro'), false, `第 ${i + 1} 句上还不摊开`);
+    t.eq(D.atLastLine(ie, 'b8_diary_writing'), false, `第 ${i + 1} 句上还不摊开`);
   }
   ie.advance();
-  t.eq(ie.node.id, 'dy_d2_mo_intro', '最后一句播完，人还停在这个节点上');
-  t.eq(D.atLastLine(ie, 'dy_d2_mo_intro'), true, '—— 就是这一下把册子摊开');
+  t.eq(ie.node.id, 'b8_diary_writing', '最后一句播完，人还停在这个节点上');
+  t.eq(D.atLastLine(ie, 'b8_diary_writing'), true, '—— 就是这一下把册子摊开');
 }
 
 /* =====================================================================
@@ -152,8 +154,23 @@ t.section('日记 · 摊开的那一下在前还是在后');
 
 const dailyNodes = whole.nodes.filter((n) => /^dy_/.test(n.id));
 // dy_d{天}_{时段}[_{地点}]_{类型}：地点那一段可有可无（菜单和幕尾反应没有地点）
-// intro 只有 dy_d2_mo_intro 一个：日记的剧情入口，挂在第一夜之后（见下面那一段）
+// intro 只有 dy_d2_mo_intro 一个：第 2 天的开场（日记的剧情入口在第一夜，见下面那一段）
 const DY_ID = /^dy_d\d+_(mo|nn|af|ev|ni)(_[a-z0-9]+)*_(hub|arr|e|r|intro)$/;
+
+/* **下线的旧节点**：第二轮回填按作者新稿重排了第 2 天（中午/午后换成午餐后/午后，
+   夜晚的菜单并进傍晚那场熬药），被顶掉的那几处正文一字未删地留在剧本里，
+   但从菜单上下来了 —— 玩家走不到，--validate 会逐个提醒。
+   这里的清单就是那批：凡是要问「这一天有什么」的地方都得把它们排除在外。 */
+const RETIRED = [
+  'dy_d2_mo_r',                                        // 「谁来收拾残局」（新稿里没有这一问）
+  'dy_d2_nn_hl_e', 'dy_d2_nn_hl_r',                     // 旧中午·大厅（新稿换成「分配工作」）
+  'dy_d2_nn_guest_e', 'dy_d2_nn_guest_r',               // 旧中午·会客厅
+  'dy_d2_nn_account_e', 'dy_d2_nn_account_r',           // 旧中午·账房（并进午后的账册）
+  'dy_d2_af_archive_e', 'dy_d2_af_archive_r',           // 旧午后·旧档案室
+  'dy_d2_af_wall_e', 'dy_d2_af_wall_r',                 // 旧午后·西侧城墙
+  'dy_d2_ni_hub', 'dy_d2_ni_paper_e', 'dy_d2_ni_paper_r', // 旧夜晚菜单（新稿到傍晚就收）
+];
+const liveDaily = dailyNodes.filter((n) => RETIRED.indexOf(n.id) < 0);
 
 t.section('剧本 · 节点 id 的规矩');
 t.empty(dailyNodes.filter((n) => !DY_ID.test(n.id)).map((n) => n.id),
@@ -161,8 +178,8 @@ t.empty(dailyNodes.filter((n) => !DY_ID.test(n.id)).map((n) => n.id),
 t.empty(dailyNodes.filter((n) => !D.stampOf(n.id)).map((n) => n.id),
   '每个 dy_ 节点 id 都能被 diary.js 解析出天与时段 —— 两边的规则是同一套');
 
-const hubs = dailyNodes.filter((n) => /_hub$/.test(n.id));
-const reactions = dailyNodes.filter((n) => /_r$/.test(n.id));
+const hubs = liveDaily.filter((n) => /_hub$/.test(n.id));
+const reactions = liveDaily.filter((n) => /_r$/.test(n.id));
 const SLOT_ORDER = ['mo', 'nn', 'af', 'ev', 'ni'];
 
 t.section('剧本 · 标题只写地点');
@@ -174,10 +191,10 @@ t.empty(dailyNodes.filter((n) => TIME_WORD.test(n.title || '')).map((n) => `${n.
 t.empty(dailyNodes.filter((n) => !n.title).map((n) => n.id),
   '每个日常节点都有标题（读档的 toast 也要用它）');
 t.eq(new Set(hubs.map((n) => n.title)).size, 1,
-  '17 个 _hub 节点的标题是同一个地点名 —— 它们的背景都是 bg_aubrey_room，标题栏只说「你现在在哪儿」');
+  '16 个活着的 _hub 节点标题是同一个地点名 —— 它们的背景都是 bg_aubrey_room，标题栏只说「你现在在哪儿」');
 t.eq(new Set(hubs.map((n) => n.art && n.art.bg)).size, 1,
   '菜单的立绘背景也只有一张 —— 菜单是一块不动的界面，不是一处场景');
-t.eq(hubs.length, 17, '17 个 _hub：14 张时段菜单 + 3 个「煎药夜」收束 hub（第 3~5 天的夜晚）');
+t.eq(hubs.length, 16, '16 个活着的 _hub：13 张时段菜单 + 3 个「煎药夜」收束 hub（第 3~5 天的夜晚）');
 /* 一处活动 = 一对 _e / _r，两边标题得是同一个地名：进场和做决定之间不该换牌子。 */
 {
   const seen = new Map();
@@ -194,18 +211,32 @@ t.empty(dailyNodes.filter((n) => n.continueLabel).map((n) => n.id),
   '日常层一个 continueLabel 都不写 —— b25_end 已经不是结局屏了（见下面「时段是闭合的」）');
 
 t.section('剧本 · 日记的剧情入口');
-/* 设计稿 §4 的第一个入口：第 1 天不是按钮，是剧情 —— 她写完、敲门把册子递上来。
-   它接在**第一夜 b11_sleep 之后、第 2 天早晨菜单之前**，原著 b1~b11 一字不动。 */
-const intro = byId.get('dy_d2_mo_intro');
-t.ok(intro, '有 dy_d2_mo_intro 这一个节点（日常层里唯一一个 intro）');
-t.eq(byId.get('b11_sleep').next, 'dy_d2_mo_intro', '第一夜睡下之后接的就是它');
-t.eq(intro.pov, '奥布里', '奥布里视角 —— 跟日常层其余节点一致');
-t.ok(intro.povSwitch && intro.povSwitch.silent === true,
+/* 设计稿 §4 的第一个入口：第 1 天不是按钮，是剧情 —— 她领到册子、当场写下第一笔。
+   作者的新稿把它从**第 2 天早晨**挪回了**第一夜**：
+     b8_farewell（海尔转告）→ b8_study_diary（书房里的吩咐）→ b8_diary_writing（写下第一篇手记）
+   —— 最后一句播完，书当场摊开。第 2 天早晨不再交代写日记（dy_d2_mo_intro 只剩一句清晨）。 */
+const intro = byId.get('b8_diary_writing');
+t.ok(intro, '有 b8_diary_writing 这一个节点（第一夜写下的那一笔）');
+t.eq(byId.get('b8_farewell').next, 'b8_study_diary', '送她出门之后接的是「书房里的吩咐」');
+t.eq(byId.get('b8_farewell').choices, undefined,
+  '送别那一场不再是决定点 —— 作者新稿把「捏枕头 / 备课文」二选一挪到写完之后');
+t.eq(byId.get('b8_study_diary').next, 'b8_diary_writing', '吩咐完了回房写手记');
+t.eq(byId.get('b8_study_diary').choices, undefined, '书房那一场没有岔路');
+t.eq(byId.get('b8_study_diary').dialogues[0].text, '对了，西比拉小姐，奥布里大人叫您去书房一趟。',
+  '第一句就是海尔转告的那一句（作者稿把它写在 b8_farewell 末尾，运行时落在这一节的开头）');
+t.eq(intro.pov, '西比拉', '西比拉视角 —— 第一夜是她的');
+t.eq((intro.choices || []).map((c) => c.next), ['b9_pillow', 'b10_desk'],
+  '写完之后才是「捏枕头 / 备课文」二选一（原先挂在这一场前面的 b8_farewell 上）');
+t.eq(intro.dialogues[intro.dialogues.length - 1].text,
+  '西比拉推门进去，发现奥布里已经离开。她走到书桌旁，将厚书放在奥布里交代的位置，随后轻轻退出书房，回到自己的房间。',
+  '末句是她回到房间 —— 册子摊开（第 1 日那一页）是在这一句**之后**，由 daily.js 在捕获阶段拦');
+t.eq(byId.get('b11_sleep').next, 'dy_d2_mo_intro', '第一夜睡下之后接的是第 2 天的清晨');
+t.eq((byId.get('dy_d2_mo_intro').dialogues || []).map((d) => d.text),
+  ['第二天清晨，你回到书房。昨夜没有处理完的几份条陈仍摆在桌上。'],
+  '第 2 天早晨只剩这一句 —— 写日记那件事头天夜里已经交代过了，不再重复');
+t.eq(byId.get('dy_d2_mo_intro').next, 'dy_d2_mo_hub', '说完直接进第 2 天早晨的菜单');
+t.ok(byId.get('dy_d2_mo_intro').povSwitch && byId.get('dy_d2_mo_intro').povSwitch.silent === true,
   '视角不弹提示 —— 日常层每个节点都带 povSwitch.silent，不然每次上下楼都要弹一次');
-t.eq(intro.next, 'dy_d2_mo_hub', '演完直接进第 2 天早晨的菜单 —— 引入场自己没有岔路');
-t.eq(intro.choices, undefined, '引入场不是决定点：她把册子递上来，玩家只负责读这一场');
-t.eq(intro.dialogues[intro.dialogues.length - 1].text, '她应下了，退出去的时候把门轻轻带上。',
-  '末句是她退出书房 —— 册子摊开（第 1 日那一页）是在这一句**之后**，由 daily.js 在捕获阶段拦');
 {
   // 「查看笔记」那一场是第 3 天的开场（接在 b25_end 之后），不是第 2 天。
   const d3intro = byId.get('dy_d3_mo_intro');
@@ -224,6 +255,15 @@ t.eq(intro.dialogues[intro.dialogues.length - 1].text, '她应下了，退出去
       || (n.choices || []).some((c) => c.next === 'dy_d2_mo_intro'))
     .map((n) => n.id);
   t.eq(sources, ['b11_sleep'], '它的来路只有 b11_sleep 一条');
+  const introSources = whole.nodes
+    .filter((n) => n.next === 'b8_diary_writing' || n.continueTo === 'b8_diary_writing'
+      || (n.choices || []).some((c) => c.next === 'b8_diary_writing'))
+    .map((n) => n.id);
+  t.eq(introSources, ['b8_study_diary'], '册子摊开那一场也只从书房那一节进');
+  const studySources = whole.nodes
+    .filter((n) => n.next === 'b8_study_diary' || (n.choices || []).some((c) => c.next === 'b8_study_diary'))
+    .map((n) => n.id);
+  t.eq(studySources, ['b8_farewell'], '书房那一节的来路只有送别');
 }
 
 t.section('剧本 · 那一页正文');
@@ -245,13 +285,15 @@ for (const d of [2, 3, 4, 5, 6]) {
 
 t.section('剧本 · 时段菜单');
 const MENU_IDS = {
-  dy_d2_mo_hub: 3, dy_d2_nn_hub: 3, dy_d2_af_hub: 3, dy_d2_ni_hub: 2,
+  dy_d2_mo_hub: 3, dy_d2_nn_hub: 3, dy_d2_af_hub: 2,
   dy_d3_mo_hub: 2, dy_d3_nn_hub: 3, dy_d3_ev_hub: 2,
   dy_d4_mo_hub: 2, dy_d4_nn_hub: 3, dy_d4_ev_hub: 2,
   dy_d5_mo_hub: 2, dy_d5_nn_hub: 3,
   dy_d6_mo_hub: 2, dy_d6_nn_hub: 3,
 };
-t.eq(Object.keys(MENU_IDS).length, 14, '14 张时段菜单（第 2 天 4 + 第 3 天 3 + 第 4 天 3 + 第 5 天 2 + 第 6 天 2）');
+t.eq(Object.keys(MENU_IDS).length, 13,
+  '13 张时段菜单（第 2 天 3 + 第 3 天 3 + 第 4 天 3 + 第 5 天 2 + 第 6 天 2）—— ' +
+  '第 2 天按新稿收在傍晚那场熬药上，夜晚的菜单下线了');
 t.eq(hubs.length - Object.keys(MENU_IDS).length, 3, '另外 3 个 _hub 是第 3~5 天的煎药夜收束（没有选项）');
 const menuProblems = [];
 for (const [id, n] of Object.entries(MENU_IDS)) {
@@ -279,33 +321,48 @@ t.empty(dailyNodes.flatMap((n) => (n.choices || []).filter((c) => c.lockedHint).
 }
 
 t.section('剧本 · 主线不可跳过');
-// 第 2 天早晨：原著授课线（b17～b22）只从本时段的菜单进；另两处标成「没亲历」走默认结算。
+// 第 2 天早晨：原著授课线（b12～b22）只从本时段的菜单进；另两处标成「没亲历」走默认结算。
 {
   const wrong = [];
   const d2hub = byId.get('dy_d2_mo_hub');
-  if (d2hub.choices[0].next !== 'b17_scream') wrong.push('第一项不是 b17_scream');
-  for (const c of d2hub.choices.slice(1)) if (c.skip !== 'b17_scream') wrong.push(`「${c.text}」没写 skip`);
-  const sources = whole.nodes.filter((n) => n.next === 'b17_scream' || n.continueTo === 'b17_scream'
-    || (n.choices || []).some((c) => c.next === 'b17_scream')).map((n) => n.id).sort();
-  if (JSON.stringify(sources) !== JSON.stringify(['b16_montage', 'dy_d2_mo_hub'])) {
-    wrong.push(`b17_scream 的来路是 ${sources}`);
+  if (d2hub.choices[0].next !== 'b12_morning') wrong.push('第一项不是 b12_morning');
+  for (const c of d2hub.choices.slice(1)) if (c.skip !== 'b12_morning') wrong.push(`「${c.text}」没写 skip`);
+  const sources = whole.nodes.filter((n) => n.next === 'b12_morning' || n.continueTo === 'b12_morning'
+    || (n.choices || []).some((c) => c.next === 'b12_morning')).map((n) => n.id).sort();
+  if (JSON.stringify(sources) !== JSON.stringify(['dy_d2_mo_hub'])) {
+    wrong.push(`b12_morning 的来路是 ${sources}`);
   }
-  t.empty(wrong, '授课线只从第 2 天早晨的菜单进（b16 那条是脱链旧链的留档回边），另两处走默认结算');
+  /* 新稿的「活动 A」是**整条**原著授课线：b12_morning → … → b15_hair → b16_montage
+     → b17_scream → … → b22_after → 午餐。首轮把 b12~b16 脱了链（那会儿只走对抗段），
+     本轮接回来 —— 一间一节地对一遍，免得半路又断在哪里。 */
+  const CHAIN = [
+    ['b12_morning', 'b13_door'], ['b13_door', 'b14_dressing'], ['b14_dressing', 'b15_hair'],
+    ['b15_hair', 'b16_montage'], ['b16_montage', 'b17_scream'], ['b17_scream', 'b18_classroom'],
+    ['b18_classroom', 'b19_aubrey'], ['b20_lesson', 'b21_haier_calls'],
+    ['b21_haier_calls', 'b22_after'], ['b22_after', 'dy_d2_nn_meal_e'],
+  ];
+  for (const [from, to] of CHAIN) {
+    const n = byId.get(from);
+    if (!n || n.next !== to) wrong.push(`${from} → ${n && n.next}，应当是 ${to}`);
+  }
+  t.eq(byId.get('b19_aubrey').choices.length, 3, '对抗段那个三选一还在（旗_授课方式 1/2/3）');
+  t.empty(wrong, '授课线只从第 2 天早晨的菜单进，一路接回午餐 —— 一节不落');
 }
 
 t.section('剧本 · 处理选择节点');
-/* 处理选择（_r）只在作者写了「选择：」的地方落 —— 首轮回填后一共 14 个：
-   第 2 天 10 个（早晨 3 + 中午 3 + 午后 3 + 夜晚 1）、第 3 天 1 个、
+/* 处理选择（_r）只在作者写了「选择：」的地方落 —— 第二轮回填后一共 10 个：
+   第 2 天 6 个（早晨 2 + 午餐后 3 + 午后 1）、第 3 天 1 个、
    第 4 天 2 个、第 5 天 1 个。没有「选择：」的活动就是一段 _e 直连下一拍。 */
-t.eq(reactions.length, 14, '14 个 _r 节点（第 2 天 10 + 第 3 天 1 + 第 4 天 2 + 第 5 天 1）');
-/* 记日记的是「她的日子」那五处（授课 / 大厅 / 后坡 / 任务簿 / 傍晚的后坡）；
-   其余九处是政务（修桥、商队、账目、城墙……）—— 玩家怎么处理世界的事，
-   日记不重述，两项也就不挂记录旗。 */
-const DIARY_R = ['dy_d2_mo_r', 'dy_d2_nn_hl_r', 'dy_d2_af_hil_r', 'dy_d3_nn_hall_r', 'dy_d4_ev_hill_r'];
+t.eq(reactions.length, 10, '10 个 _r 节点（第 2 天 6 + 第 3 天 1 + 第 4 天 2 + 第 5 天 1）');
+/* 记日记的是「她的日子」那五处（午餐后的大厅 / 外院 / 后坡、任务簿、傍晚的后坡）；
+   其余是政务与别人的事（修桥、马匹、账册、伊莎贝尔偷吃甜点……）——
+   玩家怎么处理世界的事，日记不重述，两项也就不挂记录旗。 */
+const DIARY_R = ['dy_d2_nn_hall_r', 'dy_d2_nn_yard_r', 'dy_d2_af_hil_r', 'dy_d3_nn_hall_r', 'dy_d4_ev_hill_r'];
 t.eq(reactions.filter((n) => (n.choices || []).some((c) => typeof c.diary === 'string' && c.diary)).map((n) => n.id),
   DIARY_R, '有日记取材的处理选择就这五处 —— 她的日子与府里的公事分得开');
-t.empty(reactions.filter((n) => (n.choices || []).length !== 2).map((n) => `${n.id}：${(n.choices || []).length} 个`),
-  '每个处理选择都是两难 —— 两个都占得住脚');
+t.empty(reactions.filter((n) => (n.choices || []).length < 2).map((n) => `${n.id}：${(n.choices || []).length} 个`),
+  '每个处理选择至少两个方向 —— 一条路撑不起一次选择' +
+  '（外院那一处是作者稿的三选一：留饭 / 先吃 / 交给布朗）');
 t.empty(reactions.flatMap((n) => (n.choices || []).filter((c) => !byId.has(c.next))
   .map((c) => `${n.id} → ${c.next}`)), '处理选择的每一条都指向真的节点');
 
@@ -316,7 +373,7 @@ const convProblems = [];
 for (const n of reactions) {
   const day = D.stampOf(n.id).day;
   const landings = [];
-  for (const i of [0, 1]) {
+  for (const i of n.choices.map((_, k) => k)) {
     const e = new StoryEngine(whole);
     e.enterNode(n.id);
     let landed = null;
@@ -348,7 +405,12 @@ for (const n of reactions.filter((x) => DIARY_R.indexOf(x.id) >= 0)) {
       // 记录旗是日记的取数位，不是给玩家的奖励反馈：记下来，但一个字都不说
       if (f.silent !== true) flagProblems.push(`${n.id} 的 ${f.stat} 没写 "silent": true`);
       if (f.note) flagProblems.push(`${n.id} 的 ${f.stat} 写了 note —— 静默的旗不该有提示文案`);
-      if (f.value !== 0 && f.value !== 1) flagProblems.push(`${n.id} 的 ${f.stat} 值不是 0/1`);
+      /* 旗面本身还是「这一笔记下来了没有」，但一条活动有几个方向，旗就有几个值：
+         两难是 0/1（首轮那几处），作者写了三选一的就是 0/1/2/3 里的三个。
+         上限 3 是**合同的一部分**：再多就不该塞进一面旗，该换一张表。 */
+      if (!Number.isInteger(f.value) || f.value < 0 || f.value > 3) {
+        flagProblems.push(`${n.id} 的 ${f.stat} 值是 ${f.value} —— 只许 0~3`);
+      }
     }
   });
   /* 两项必须共用**同一个**旗：一个「这个时段记下来了没有」的取数位，
@@ -378,7 +440,7 @@ const flagLeak = [];
 const branchProblems = [];
 for (const n of reactions.filter((x) => DIARY_R.indexOf(x.id) >= 0)) {
   const marks = [];
-  for (const i of [0, 1]) {
+  for (const i of n.choices.map((_, k) => k)) {
     const e = new StoryEngine(whole);
     e.enterNode(n.id);
     const res = e.choose(i);
@@ -392,14 +454,16 @@ for (const n of reactions.filter((x) => DIARY_R.indexOf(x.id) >= 0)) {
       marks.push(e.getStat(f.stat));
     }
   }
-  /* 每一项都是「做没做」的取数位：同一节点两条路必须落成不同的两个字
-     （哪个是 0、哪个是 1 由剧本定，不统一要求），而且都得在 {0, 1} 里。 */
-  if (new Set(marks).size !== 2) branchProblems.push(`${n.id} 两条路都记成了 ${marks.join('/')}`);
-  if (!marks.every((v) => v === 0 || v === 1)) branchProblems.push(`${n.id} 记的不是 0/1：${marks.join('/')}`);
+  /* 每一项都是取数位：同一节点几条路必须落成**几个互不相同的数**
+     （哪个是哪个由剧本定，不统一要求），而且都得在 0~3 里。 */
+  if (new Set(marks).size !== marks.length) branchProblems.push(`${n.id} 有几条路记成了一样：${marks.join('/')}`);
+  if (!marks.every((v) => Number.isInteger(v) && v >= 0 && v <= 3)) {
+    branchProblems.push(`${n.id} 记的不是 0~3：${marks.join('/')}`);
+  }
 }
 t.empty(flagLeak, 'A / B 两条路都只留记录、不出提示（engine 的 effects 认 "silent": true）');
 t.empty(branchProblems,
-  '每个日记取材的两条路在记录里分得开（一面旗，两个字）—— 后面好几天的日记正文要靠它分岔');
+  '每个日记取材的几条路在记录里都分得开（一面旗，几个互不相同的值）—— 日记正文要靠它分岔');
 
 t.empty(Object.keys(act1.config.statNotes).filter((k) => D.isRecordStat(k)).map((k) => `${k}：${act1.config.statNotes[k]}`),
   'config.statNotes 里一条记录旗的文案都没有 —— 留着就是等哪天一不留神弹出来');
@@ -414,7 +478,8 @@ for (const n of hubs) {
 for (const d of Object.keys(hubsByDay)) {
   hubsByDay[d].sort((a, b) => SLOT_ORDER.indexOf(D.stampOf(a).key) - SLOT_ORDER.indexOf(D.stampOf(b).key));
 }
-t.eq(hubsByDay[2].length, 4, '第 2 天四个时段菜单齐（早晨 / 中午 / 午后 / 夜晚）');
+t.eq(hubsByDay[2].length, 3,
+  '第 2 天三个时段菜单（早晨 / 午餐后 / 午后）—— 午餐与傍晚是固定事件，夜晚并进傍晚那场熬药');
 t.eq(hubsByDay[3].length, 4, '第 3 天四个（含傍晚）');
 t.eq(hubsByDay[4].length, 4, '第 4 天四个（含傍晚）');
 t.eq(hubsByDay[5].length, 3, '第 5 天三个 —— 傍晚并进午后那场决定');
@@ -501,7 +566,7 @@ t.empty(walkProblems, '每张菜单的每一项：选完先落进本时段的活
    --------------------------------------------------------------------- */
 t.section('剧本 · 跳过的那一段用的是同一份数据');
 /* 新时间线里唯一「会被错过、要按默认结算」的原著段：第 2 天早晨的授课线
-   （b17～b22）。菜单上选了别的两处，它照样发生 —— 数值沿它自己的
+   （b12～b22）。菜单上选了别的两处，它照样发生 —— 数值沿它自己的
    defaultPick 落（引擎的 applySegmentDefaults），补记由她自己写。 */
 function witnessedDefaults(entry) {
   const e = new StoryEngine(whole);
@@ -510,15 +575,15 @@ function witnessedDefaults(entry) {
     const v = e.advance();
     if (v.type === 'end') break;
     if (v.type === 'choices') {
+      // 与 applySegmentDefaults 同一条边界：撞到时段菜单就停（它后面是下一时段）
+      if (/^dy_d\d+_.*_hub$/.test(e.node.id)) break;
       const i = Number.isInteger(e.node.defaultPick) ? e.node.defaultPick : 0;
       e.choose(i);
-      // 与 applySegmentDefaults 同一条边界：撞到时段菜单就停
-      if (/^dy_d\d+_.*_hub$/.test(e.node.id)) break;
     }
   }
   return e;
 }
-const SEG_ENTRIES = ['b17_scream'];
+const SEG_ENTRIES = ['b12_morning'];
 const segProblems = [];
 for (const entry of SEG_ENTRIES) {
   const a = witnessedDefaults(entry);             // 亲历，每个岔口按 defaultPick
@@ -576,6 +641,85 @@ t.eq(cancelNode.next, 'dy_d5_ni_hub', '演完接第五天的夜晚');
     || n.continueTo === 'dy_d5_ev_cancel_e'
     || (n.choices || []).some((c) => c.next === 'dy_d5_ev_cancel_e')).map((n) => n.id);
   t.eq(sources, ['dy_d5_af_decision_e'], '只有周五那次决定能走进这一段（继续线一个字都不播）');
+}
+
+t.section('剧本 · 第一夜与第二天的新正文是作者原文');
+/* 《普里森堡_第一二天剧情稿_第一夜日记后续衔接修正版》里那几段正文必须**逐字转移**，
+   一个字都不许自己写。源文各存了一份在 store/（只摘正文，不含作者稿的说明与协作注记）：
+     · store/第一夜日记衔接.txt   —— 第一夜那两场 + 第 1 日那一页
+     · store/第二天新场景.txt     —— 第二天本轮新落的那些节点
+   做法与首轮那条取消线一样，这里是**拼接核对**：把节点台词按顺序拼起来、
+   连引号带空白一起剥掉，应当与源文逐字相同 —— 自编、漏字、串序，三样一起堵死。
+   源文里的「--- 第N组」对的是节点里挂了 if 的台词（旗_授课方式 的三条路线各对一组），
+   没有分组标记的节点就是一整段连续的正文。 */
+function readSource(file) {
+  const raw = fs.readFileSync(path.join(ROOT, 'store', file), 'utf8');
+  const out = new Map();
+  let id = null;
+  let cur = [];
+  let groups = [];
+  const endGroup = () => { if (cur.length) groups.push(cur.join('')); cur = []; };
+  const endSection = () => { if (!id) return; endGroup(); out.set(id, groups); groups = []; id = null; };
+  for (const line of raw.split(/\r?\n/)) {
+    const h = /^###\s+(.+?)\s*$/.exec(line);
+    if (h) { endSection(); id = h[1]; continue; }
+    if (!id) continue;                          // 文件头的说明
+    if (/^---/.test(line)) { endGroup(); continue; }
+    if (/^[=-]{4,}$/.test(line)) continue;      // 文件里的分隔线
+    cur.push(line.trim());
+  }
+  endSection();
+  return out;
+}
+/** 节点台词按「挂了同一个条件」切成连续几组 —— 与源文里的 --- 一一对应。 */
+function groupDialogues(node) {
+  const groups = [];
+  let key = null;
+  let started = false;
+  for (const d of node.dialogues || []) {
+    const k = d.if ? JSON.stringify(d.if) : '';
+    if (!started || k !== key) { groups.push([]); key = k; started = true; }
+    groups[groups.length - 1].push(d.text || '');
+  }
+  return groups.map((g) => g.join(''));
+}
+const AUTHOR_FILES = [
+  ['第一夜日记衔接.txt', ['b8_study_diary', 'b8_diary_writing']],
+  ['第二天新场景.txt', [
+    'dy_d2_mo_intro', 'dy_d2_mo_hub', 'dy_d2_nn_meal_e',
+    'dy_d2_nn_hub', 'dy_d2_nn_hall_e', 'dy_d2_nn_hall_r', 'dy_d2_nn_hall_a_e', 'dy_d2_nn_hall_b_e',
+    'dy_d2_nn_yard_e', 'dy_d2_nn_yard_r', 'dy_d2_nn_yard_a_e', 'dy_d2_nn_yard_b_e', 'dy_d2_nn_yard_c_e',
+    'dy_d2_nn_kitchen_e', 'dy_d2_nn_kitchen_a_e', 'dy_d2_nn_kitchen_b_e',
+    'dy_d2_af_ledger_e', 'dy_d2_af_hub',
+    'dy_d2_af_hil_e', 'dy_d2_af_hil_r', 'dy_d2_af_hil_a_e', 'dy_d2_af_hil_b_e',
+    'dy_d2_af_yard_e', 'dy_d2_af_yard_r', 'dy_d2_af_yard_a_e', 'dy_d2_af_yard_b_e',
+    'dy_d2_ev_brew_e',
+  ]],
+];
+for (const [file, ids] of AUTHOR_FILES) {
+  const src = readSource(file);
+  // 「手记 · …」那一节不是节点（它是册子上的一页），下面单独对
+  t.eq([...src.keys()].filter((k) => k.indexOf('手记') !== 0), ids,
+    `store/${file} 的分节与覆盖的节点一一对应（少一节 = 有新正文没人在核）`);
+  for (const id of ids) {
+    const node = byId.get(id);
+    t.ok(node, `${id} 在剧本里`);
+    const want = src.get(id) || [];
+    const got = groupDialogues(node);
+    t.eq(got.length, want.length, `${id}：台词的组数与源文对得上`);
+    got.forEach((g, i) => t.eq(stripAll(g), stripAll(want[i] || ''),
+      `${id} 第 ${i + 1} 组与作者原文逐字相同`));
+  }
+}
+{
+  /* 第 1 日那一页不是节点台词（自编文本进 dialogues 是红线），所以单独对一次：
+     日期 + 天气 + 她写的那几段，拼起来应当就是作者稿里那一段。 */
+  const block = readSource('第一夜日记衔接.txt').get('手记 · 第 1 日') || [];
+  const entry = dailyStory.diary.entries[0];
+  t.eq(entry.date, '第 1 日', '她写的是第 1 日');
+  t.eq(entry.weather, '雨', '那天在下雨');
+  t.eq(stripAll([entry.date, entry.weather, ...(entry.body || [])].join('')), stripAll(block.join('')),
+    '第 1 日那一页（日期 + 天气 + 她写的）与作者原文逐字相同');
 }
 
 /* =====================================================================
@@ -653,10 +797,36 @@ function playSlot(e, pick) {
   return toReaction(e);
 }
 
-const d2want = [['mo', 'dy_d2_mo_r'], ['nn', 'dy_d2_nn_hl_r'], ['af', 'dy_d2_af_hil_r'], ['ni', null]];
-d2want.forEach(([s, want]) => {
+/** 从处理选择一路走到下一个时段菜单（本时段剩下的活动演完；原著里的小岔口按 defaultPick）。 */
+function toNextHub(e) {
+  for (let g = 0; g < 4000; g++) {
+    if (/_hub$/.test(e.node.id)) return e.node.id;
+    const v = e.advance();
+    if (v.type === 'end') return null;
+    if (v.type === 'choices') e.choose(Number.isInteger(e.node.defaultPick) ? e.node.defaultPick : 0);
+  }
+  throw new Error('走不到下一个菜单');
+}
+
+/** 走完这一天：一路推到第 3 天的开场（夜里那一格过了，当天的收束才结得清）。 */
+function toDayEnd(e) {
+  for (let g = 0; g < 2000; g++) {
+    const v = e.advance();
+    if (v.type === 'end') break;
+    if (v.type === 'choices') {
+      if (e.node.id === 'dy_d3_mo_intro') return e.node.id;
+      e.choose(Number.isInteger(e.node.defaultPick) ? e.node.defaultPick : 0);
+    }
+  }
+  return e.node.id;
+}
+
+/* 第 2 天三个时段：早晨走原著授课线（它自己没有 _r，选择权在 b19_aubrey 那个三选一上），
+   午餐后与外院各有自己的处理选择。 */
+const d2want = [['mo', null], ['nn', 'dy_d2_nn_hall_r'], ['af', 'dy_d2_af_hil_r']];
+d2want.forEach(([s, want], k) => {
   const r = playSlot(e2, 0);
-  t.eq(r, want, `${slotCn[s]}：${want ? '落到本时段的处理选择 ' + want : '本时段没有处理选择（现在休息／文书都有）'}`);
+  t.eq(r, want, `${slotCn[s]}：${want ? '落到本时段的处理选择 ' + want : '本时段没有处理选择（授课线的选择在 b19 上）'}`);
   if (r) {
     // 站在处理选择上、还没迈步的时候：这一笔还不该出现（旗是 0，和「选了 A」同形）
     const standing = D.eventTexts(whole, e2, 2);
@@ -664,31 +834,38 @@ d2want.forEach(([s, want]) => {
       `${slotCn[s]}：站在处理选择上还没迈步，日记里不该先写着做法`);
     e2.choose(0);
   }
+  if (k < d2want.length - 1) toNextHub(e2);
 });
+toDayEnd(e2);                                      // 傍晚那场熬药收束，第二天结清
 const day2 = D.collect(whole, e2, 2);
-t.eq(day2.length, 6, '第 2 天六条：她记下的三笔 + 没亲历的旧链补记三份');
-t.eq(day2.map((x) => x.node),
-  ['b12_morning', 'dy_d2_mo_r', 'b16_montage', 'dy_d2_nn_hl_r', 'dy_d2_af_hil_r', 'b23_corridor'],
-  '按「早晨 → 夜晚」排好；同一时段里补记排在她走过的那一处之前（原著先发生）');
-t.eq(day2.map((x) => x.slot), ['早晨', '早晨', '中午', '中午', '午后', '夜晚'], '每一条挂在自己的时辰上');
-t.eq(day2.filter((x) => x.offstage).map((x) => x.node), ['b12_morning', 'b16_montage', 'b23_corridor'],
-  '补记三条：b12 / b16 / b23（b17 与 b21 都在授课线上亲历过，轮不到补记）');
+t.eq(day2.map((x) => x.node), ['dy_d2_nn_hall_r', 'dy_d2_af_hil_r', 'b23_corridor'],
+  '第 2 天：她记下的两笔 + 没亲历的走廊那一份补记');
+t.eq(day2.map((x) => x.slot), ['中午', '午后', '夜晚'],
+  '按「中午 → 午后 → 夜晚」排好，每一条挂在自己的时辰上');
+t.eq(day2.filter((x) => x.offstage).map((x) => x.node), ['b23_corridor'],
+  '只有走廊那一份是补记 —— 授课线整条亲历过，轮不到补记');
+t.eq(day2[0].text, byId.get('dy_d2_nn_hall_r').choices[0].diary, '第一笔取自她选的那一项');
 
-/* 全走第二条路：没亲历授课段，那一段由她自己补记 —— 两条路的日记是两件事。 */
+/* 全走最后一条路：不去教室（授课段整段错过）、午餐后去厨房、午后去外院。 */
 const e2b = new StoryEngine(whole);
 e2b.enterNode('dy_d2_mo_hub');
-for (let k = 0; k < 4; k++) {
+for (let k = 0; k < 3; k++) {
   const list = e2b.availableChoices();
   const on = list.map((x, i) => (x.enabled ? i : -1)).filter((i) => i >= 0);
   const r = playSlot(e2b, on[on.length - 1]);
   if (r) e2b.choose(1);
+  if (k < 2) toNextHub(e2b);
 }
-/* 第二天要**走完**才结账：站在夜里那一步上时，夜晚那一格还没过去 */
-toChoices(e2b);
-t.eq(e2b.node.id, 'dy_d3_mo_intro', '第二天走完，穿过 b25_end 落进第 3 天开场（查看笔记）');
+/* 第二天要**走完**才结账：站在傍晚那一步上时，夜晚那一格还没过去 */
+t.eq(toDayEnd(e2b), 'dy_d3_mo_intro', '第二天走完，穿过 b25_end 落进第 3 天开场（查看笔记）');
 const day2b = D.collect(whole, e2b, 2);
-t.eq(day2b.map((x) => x.node), ['b12_morning', 'b17_scream', 'b16_montage', 'b21_haier_calls', 'b23_corridor'],
-  'B 路五条全是补记 —— 授课段整段没亲历');
+t.eq(day2b.filter((x) => x.offstage).map((x) => x.node).sort(),
+  ['b12_morning', 'b16_montage', 'b17_scream', 'b21_haier_calls', 'b23_corridor'],
+  '授课段整段没亲历：那五段由她自己补记');
+t.eq(day2b.filter((x) => !x.offstage).length, 0,
+  '厨房与外院那两处都不进她的册子（她不在场，或者那件事不值得记）');
+t.eq([...new Set(day2b.map((x) => x.slot))].sort(), ['午后', '中午', '夜晚', '早晨'].sort(),
+  '补记挂在她错过的那些时辰上（授课线横跨早晨到午后，走廊那一段在夜里）');
 t.ne(JSON.stringify(day2b.map((x) => x.text)), JSON.stringify(day2.map((x) => x.text)),
   '同一时段的 A / B 两条路，日记里写的是两件事');
 
@@ -716,23 +893,25 @@ t.section('端到端 · 没亲历的那一段');
   skip.enterNode('dy_d2_mo_hub');
   skip.choose(1);                                  // 本时段去书房，授课线整段错过
   t.eq(skip.node.id, 'dy_d2_mo_doc_e', '落在书房那处活动上（不是原著段）');
-  t.eq(skip.getStat('旗_第2天早晨'), 1, '授课线按默认走法结掉了（不插手那条）');
+  t.eq(skip.getStat('旗_授课方式'), 2,
+    '授课线按默认走法结掉了 —— b19_aubrey 的 defaultPick 是 1（「照原来的节奏教下去」→ 旗 2）');
   t.eq(toReaction(skip), 'dy_d2_mo_doc_r', '书房活动自己的处理选择');
   t.eq(D.offstageFor(whole, skip, 2), [], '这个时段还没过去，补记先不写（不然是提前剧透）');
-  skip.choose(0);                                  // 处理完，走到中午
-  t.eq(skip.node.id, 'dy_d2_nn_hub', '推到了中午的菜单');
+  skip.choose(0);                                  // 处理完，推到午餐
+  t.eq(skip.node.id, 'dy_d2_nn_meal_e', '接着是午餐那一场（固定事件，不是菜单）');
+  t.eq(toNextHub(skip), 'dy_d2_nn_hub', '午餐演完推到午餐后的菜单');
   const rec = D.offstageFor(whole, skip, 2);
   t.eq(rec.map((x) => x.node), ['b12_morning', 'b17_scream'],
-    '早晨那两段原著补记进来了：旧链入口 + 授课线');
+    '早晨那两段原著补记进来了 —— 补记按它自己挂的时辰走：b16 挂中午、b21 挂午后，还没到');
   t.eq(rec.map((x) => x.slot), ['早晨', '早晨'], '补记挂在她错过的那个时辰上');
-  t.eq(rec[0].offstage, true, '哪一条是补记的，数据里标得出来');
+  t.eq(rec.every((x) => x.offstage === true), true, '哪一条是补记的，数据里标得出来');
   const texts = D.eventTexts(whole, skip, 2);
   t.ok(!texts.includes(byId.get('dy_d2_mo_r').choices[0].diary)
     && !texts.includes(byId.get('dy_d2_mo_r').choices[1].diary),
-    '授课段自己那两条日记没有被写进去 —— 旗是默认结算落下的，节点没进过 visited，不作数');
-  /* 亲历过的那天：授课段不写补记，另外三份旧链补记照写 */
-  t.eq(D.offstageFor(whole, e2, 2).map((x) => x.node), ['b12_morning', 'b16_montage', 'b23_corridor'],
-    '亲历过的授课段（b17）不写补记 —— 另外三段旧链照写');
+    '下线的旧节点（dy_d2_mo_r）一个字都没漏进来 —— 它没进过 visited，旗也没人写过');
+  /* 亲历过的那天：授课线不写补记，只有走廊那一份照写 */
+  t.eq(D.offstageFor(whole, e2, 2).map((x) => x.node), ['b23_corridor'],
+    '亲历过的授课线不写补记 —— 走廊那一段（b23）仍照写');
 }
 
 /* =====================================================================
@@ -920,7 +1099,9 @@ const bodies = (dailyStory.diary.entries || []).flatMap((e) => (e.body || [])
   .concat(Object.keys(e.tiers || {}).sort().flatMap((k) => e.tiers[k])));
 /* 补记也是她写的，一起查 —— 它最容易写成「剧情摘要」，正是要防的那种口气 */
 const offstageTexts = Object.values(dailyStory.diary.offstage || {}).map((r) => r.text);
-t.eq(diaryTexts.length, 10, '10 条题材（5 个处理选择各两条）一条不落');
+t.eq(diaryTexts.length, 15,
+  '15 条题材一条不落：活着的四处（大厅两条、外院三条、后坡两条、任务簿两条、傍晚后坡两条）' +
+  '＋ 下线留档那两处（旧中午大厅、旧「谁来收拾残局」各两条）—— 留在文件里的字也是字，一样要查');
 t.eq((dailyStory.nodes || []).filter((n) => n._scaffold).length, 0, '脚手架一个不剩');
 t.eq(bodies.length, 69, '正文查的是每一档（第 1 天 4 段 + 第 2~6 天各 13 段），不只是 body');
 t.eq(offstageTexts.length, 9, '九份补记（第 2 天原著段五份 + 第 3~6 天的课堂各一份）');
@@ -1036,15 +1217,16 @@ t.ok(b.DailyUI.isOpen(), '点了【日记】，书摊开了');
 t.eq(inBook('dy-diary-title').textContent, '西比拉手记', '书名');
 t.eq(inBook('dy-diary-day').textContent, '第 2 日', '日期用的是数据里写死的那个（不引入随机，读档之后不会变）');
 t.eq(inBook('dy-diary-weather').textContent, '阴', '天气同理');
-t.eq(inBook('dy-diary-events').children.length, 2,
-  '今日事件两条：早晨那一笔（授课）与她自己补的旧链入口（b12 那一段没亲历）');
+t.eq(inBook('dy-diary-events').children.length, 0,
+  '中午这一刻还没有一笔记事：上午走的是原著授课线，而**原著段的选项不记日记**' +
+  '（新稿又把原先挂在早晨末尾的那一问去掉了）；补记只在她**错过**那一段时才写');
 t.eq(D.tierOf(b.engine), 1, '刚开局关系还没动过，落的是档 1');
 /* 打开的这一天就是**当前这天**，所以只看得到已经形成的记录：
    她那一页是夜里写的，白天翻开还是空的 —— 它第一次露面是第二天早上那场总结。 */
 t.eq(inBook('dy-diary-note').textContent, '',
   '当前的这一天，「她写的」那一页还不露面（她自己还没写）');
 t.eq(inBook('dy-diary-note').style.display, 'none', '整段收掉，纸上不留一块空白');
-t.eq(inBook('dy-diary-empty').style.display, 'none', '今天已经有记录了，不画「今天还没有记下什么」');
+t.eq(inBook('dy-diary-empty').style.display, '', '一时段里还没记下什么，就照实说 —— 不画空行');
 t.eq(screen.getElementsByClassName('dy-diary-cover').length, 1, '书皮也在（「缓缓打开」全靠它绕着书脊转）');
 
 /* 往前翻：前一天（第 1 日）那一页是写完的，看得见她自己的字。
@@ -1097,14 +1279,21 @@ t.section('界面 · 进新一天时先把上一天摊开');
   const sIn = (cls) => sScreen.getElementsByClassName(cls)[0];
 
   s.engine.enterNode('dy_d2_mo_hub');
-  for (let i = 0; i < 3; i++) finishSlot(s);
-  t.eq(s.engine.node.id, 'dy_d2_ni_hub', '走完前三个时段，落在夜晚的菜单上');
+  for (let i = 0; i < 2; i++) finishSlot(s);
+  t.eq(s.engine.node.id, 'dy_d2_af_hub', '走完早晨与午餐后，落在午后的菜单上');
   t.ok(!s.DailyUI.isOpen(), '第 2 天里书不会自己摊开 —— 总结是「翻篇」那一刻才有的事');
 
-  s.engine.choose(0);                              // 夜晚：本时段的地点（现在就休息）
-  for (let g = 0; g < 800; g++) { if (s.engine.advance().type === 'choices') break; }
+  s.engine.choose(0);                              // 午后：去后坡
+  for (let g = 0; g < 800; g++) {
+    const v = s.engine.advance();
+    if (v.type === 'end') break;
+    if (v.type === 'choices') {
+      if (s.engine.node.id === 'dy_d3_mo_intro') break;
+      s.engine.choose(Number.isInteger(s.engine.node.defaultPick) ? s.engine.node.defaultPick : 0);
+    }
+  }
   t.eq(s.engine.node.id, 'dy_d3_mo_intro',
-    '第二天走完，advance() 直接穿过空过场 b25_end，落在第 3 天的开场（查看笔记）');
+    '第二天走完（傍晚那场熬药收束、穿过空过场 b25_end），落在第 3 天的开场（查看笔记）');
   t.ok(!s.DailyUI.isOpen(), '开场戏还没演完：书还合着');
 
   s.engine.choose(0);                              // 不看 → 第 3 天早晨的菜单
@@ -1112,7 +1301,8 @@ t.section('界面 · 进新一天时先把上一天摊开');
   t.ok(s.DailyUI.isOpen(), '进新一天的第一个菜单：先把「第 2 日总结」摊开');
   t.eq(sIn('dy-diary-title').textContent, '第 2 日总结', '标题写的是总结（不是书名）');
   t.eq(sIn('dy-diary-day').textContent, '第 2 日', '摊开的是**被总结的那一天**');
-  t.eq(sIn('dy-diary-events').children.length, 6, '那一天记下的六条事件都在');
+  t.eq(sIn('dy-diary-events').children.length, 3,
+    '那一天记下的三条都在：午餐后大厅那一笔、午后后坡那一笔、还有走廊那份补记');
   t.eq(sIn('dy-diary-note').textContent, D.bodyFor(whole, s.engine, 2).join('\n\n'),
     '她自己写的那一页第一次露面 —— 第 2 天里翻开是看不到的（所以总结非看不可）');
   t.eq(s.engine.node.id, 'dy_d3_mo_hub', '书摊开的时候，剧情一步没动（合上就回到这个菜单）');
@@ -1270,37 +1460,37 @@ t.section('界面 · 第一天的册子（剧情入口，不是按钮）');
   const gIn = (cls) => gScreen.getElementsByClassName(cls)[0];
   const gClock = g.doc.body.children.filter((e) => e._class.has('dy-clock'))[0];
 
-  g.engine.enterNode('dy_d2_mo_intro');
+  g.engine.enterNode('b8_diary_writing');
   g.pokeObservers();
-  t.eq(g.DailyUI.introPhase(), 'idle', '刚跨进引入场：这一轮还是待命的');
+  t.eq(g.DailyUI.introPhase(), 'idle', '刚跨进这一场：这一轮还是待命的');
   t.ok(!g.DailyUI.isOpen(), '书没开');
 
   // 还在前几句上：这一下空格该交给 ui.js 推台词，不该摊开册子
   const early = g.fireKey(' ');
   t.ok(!early.__stopped, '还没到最后一句，空格不被拦');
-  t.ok(!g.DailyUI.isOpen(), '册子还没摊开 —— 人还没把册子递上来');
+  t.ok(!g.DailyUI.isOpen(), '册子还没摊开 —— 她还没写完');
   t.eq(g.DailyUI.introPhase(), 'idle', '这一轮没被消耗掉，后面还认');
 
   const total = g.engine.visibleLines().length;
   while (g.engine.lineIndex < total) g.engine.advance();
   g.pokeObservers();
-  t.ok(D.atLastLine(g.engine, 'dy_d2_mo_intro'), '推到「最后一句已经播完」那一格');
+  t.ok(D.atLastLine(g.engine, 'b8_diary_writing'), '推到「最后一句已经播完」那一格');
 
   const fired = g.fireKey(' ');
   t.ok(fired.__stopped, '这一下被捕获阶段拦住了（不然 ui.js 会先把人推出这一场）');
   t.ok(g.DailyUI.isOpen(), '册子摊开了');
   t.eq(g.DailyUI.introPhase(), 'open', '阶段进到 open');
-  t.eq(gClock.getElementsByClassName('dy-clock-day')[0].textContent, '第 2 天',
-    'HUD 上这会儿是第 2 天早晨 —— 这场戏发生在天刚亮');
+  t.eq(gClock._class.has('on'), false,
+    '第 1 天还没有时间牌子 —— 这一场发生在进日常层之前');
   t.eq(gIn('dy-diary-day').textContent, '第 1 日',
-    '摊开的却是第 1 日那一页：日记的日期记的是**被写的那一天**');
+    '摊开的是第 1 日那一页：日记的日期记的是**被写的那一天**');
   t.eq(gIn('dy-diary-weather').textContent, '雨', '那天在下雨（原著里到普里森堡就是一整天的雨）');
   t.eq(gIn('dy-diary-events').style.display, 'none', '那天一件记事都没有：今日事件整块收掉');
   t.eq(gIn('dy-diary-rule').style.display, 'none', '连分隔线也一起收掉，不留一块空白');
   t.eq(gIn('dy-diary-note').textContent, dailyStory.diary.entries[0].body.join('\n\n'),
     '一页纸上只有她自己的字');
-  t.eq(g.doc.getElementById('hud').children[0].disabled, false,
-    '这会儿【日记】按钮是亮的 —— 她刚把册子递上来，玩家随时能再翻开看');
+  t.eq(g.doc.getElementById('hud').children[0].style.display, 'none',
+    '这会儿还没有【日记】按钮 —— 第 1 天是剧情，不是按钮（它要等进了日常层才在）');
 
   g.DailyUI.closeDiary();
   t.ok(!g.DailyUI.isOpen(), '合上');
@@ -1309,8 +1499,10 @@ t.section('界面 · 第一天的册子（剧情入口，不是按钮）');
   const after = g.fireKey(' ');
   t.ok(!after.__stopped, '合上之后再按空格，照常交给 ui.js');
   t.ok(!g.DailyUI.isOpen(), '不会又摊开一次');
-  t.eq(g.engine.node.id, 'dy_d2_mo_hub',
-    '这一下推进到第 2 天早晨的菜单 —— 背后那句台词是念给玩家听的，不跳');
+  t.eq(g.engine.node.id, 'b8_diary_writing', '人还停在写手记这一场 —— 这一下不会把人推走');
+  t.eq(g.engine.availableChoices().map((c) => c.text),
+    ['歇一歇 · 捏一捏那个枕头', '不歇了 · 直接走到书桌前'],
+    '写完之后才是那两个选项（书摊在最后一句与选项之间）');
 }
 
 t.section('界面 · 书开着的时候，空格不许漏到背后去');

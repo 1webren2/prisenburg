@@ -118,10 +118,13 @@
     };
   }
 
-  /* 日记的**剧情入口**（设计稿 §4 的第一个入口）。挂在 act2 的 b11_sleep.next 上：
-     第一夜睡下 → 这一场（她敲门把册子递上来）→ dy_d2_mo_hub。
-     它翻开来的是**第 1 日**那一页 —— 她刚领到册子写下的第一笔。 */
-  var INTRO_NODE = 'dy_d2_mo_intro';
+  /* 日记的**剧情入口**（设计稿 §4 的第一个入口）。第二轮回填之后挂在
+     b11_sleep → b8_study_diary（书房里的吩咐）→ **b8_diary_writing** 上：
+     她领到册子、回房写下第一笔，这一节的最后一句播完，书当场摊开。
+     它翻开来的是**第 1 日**那一页 —— 她刚写下的那一笔。
+     （首轮这场戏在第 2 天早晨的 dy_d2_mo_intro 里；作者的新稿把它挪回第一夜，
+     所以入口跟着挪 —— 第 2 天早晨不再交代写日记。） */
+  var INTRO_NODE = 'b8_diary_writing';
   var INTRO_DAY = 1;
 
   var clockEl = null;
@@ -196,6 +199,10 @@
     '门':          /* 一扇门 */
       '<rect x="6.4" y="4.2" width="11.2" height="15.6" rx="1"/>' +
       '<path d="M14.6 12.4v.1"/>',
+    '厨房':        /* 一口吊锅 + 灶上的火 */
+      '<path d="M4.4 11.6h15.2v4.2a4.6 4.6 0 0 1-4.6 4.6H9a4.6 4.6 0 0 1-4.6-4.6z"/>' +
+      '<path d="M2.6 11.6h3.4M18 11.6h3.4"/>' +
+      '<path d="M12 3.4c1.5 1.7 1.5 2.9 0 3.8-1.5-.9-1.5-2.1 0-3.8z"/>',
     '会客厅':      /* 茶几上的两只杯盏 */
       '<path d="M4.6 13.6h14.8"/>' +
       '<path d="M6.4 13.6v6M17.6 13.6v6"/>' +
@@ -225,7 +232,7 @@
   var ICON_ORDER = [
     '伊莎贝尔小姐门前',
     '伊莎贝尔', '西比拉的房间', '洗衣房', '账房',
-    '教室', '走廊', '马厩', '大厅', '外院', '书房', '后坡', '绿荫', '餐桌', '门',
+    '教室', '走廊', '马厩', '厨房', '大厅', '外院', '书房', '后坡', '绿荫', '餐桌', '门',
     '会客厅', '档案室', '城墙', '休息', '文书',
   ];
 
@@ -512,7 +519,12 @@
     //
     // **当前这一天不露**：这一页是她夜里写的，白天翻开只看得见已经形成的记录。
     // 第二天早上那场总结才是它第一次露面的地方，也正因为如此，总结才非看不可。
-    var showNote = opts.summary ? true : (day < curDay);
+    //
+    // 两个例外：
+    //   · summary —— 翻篇那一刻摊开的上一天，本来就是要给她那一页看的；
+    //   · written —— 剧情入口那一场：她刚在第一夜写下这一笔，书是**当面摊开**的。
+    //     （那会儿还没进日常层，curDay 是 0，按「当前这天不露」算会把刚写的那页藏起来。）
+    var showNote = (opts.summary || opts.written) ? true : (day < curDay);
     var body = showNote ? (D.bodyFor(api.story, api.engine, day) || []) : [];
     setText(book.note, body.join('\n\n'));
     show(book.note, body.length > 0);
@@ -593,7 +605,7 @@
     var api = window.act1;
     if (!api || !api.engine || !api.story) return false;
     introPhase = 'open';
-    if (!showBook(api, INTRO_DAY, { summary: false })) { introPhase = 'done'; return false; }
+    if (!showBook(api, INTRO_DAY, { summary: false, written: true })) { introPhase = 'done'; return false; }
     return true;
   }
 

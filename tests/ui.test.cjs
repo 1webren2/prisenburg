@@ -291,11 +291,14 @@ for (;;) {
 }
 t.ok(seenOutfits.includes('url("../images/chr_sibylla.webp")'), '第二幕前半段西比拉穿女仆装（chr_sibylla）');
 t.ok(seenOutfits.includes('url("../images/chr_sibylla_teacher.webp")'), '换上牧师服（＝教师服）后左槽换成那张');
-/* 首轮回填后主线里只剩第二幕那一处牧师服：第三幕整条链（c1～c27）脱链了 ——
-   正文一字未动、仍在原文核对的名单里，只是新时间线改走日常层第 3~6 天与狩猎篇。
-   所以「两段牧师服」变成「一段」，中间也没有来回闪的余地。 */
-t.eq(seenOutfits.filter((s) => s === 'url("../images/chr_sibylla_teacher.webp")').length, 1,
-  '牧师服只剩第二幕授课那一段（第三幕那条链已脱链）');
+/* 牧师服在现在的时间线上是两处：
+   · 第二天早晨那堂礼仪课（b12_morning ~ b16_montage，原著第二幕）——
+     第二轮回填按新稿把 b12~b16 接回了授课线，这一段重新走得到；
+   · 第九章收束那节课（h9_lesson）。
+   第三幕整条链（c1～c27）仍然脱链：正文一字未动、仍在原文核对的名单里，
+   新时间线改走日常层第 3~6 天与狩猎篇。两处之间隔着整条日常层，不会来回闪。 */
+t.eq(seenOutfits.filter((s) => s === 'url("../images/chr_sibylla_teacher.webp")').length, 2,
+  '牧师服两处：第二天早晨的礼仪课与第九章那一节');
 t.eq(
   seenOutfits[seenOutfits.length - 1],
   'url("../images/chr_sibylla.webp")',
@@ -371,40 +374,54 @@ t.ok(seenBg.has('url("../images/bg_classroom.webp")'), '第二幕的教室有自
 
 t.section('选项');
 
-const ch = bootUI();
+const ch = bootUI(wholeStory);
 ch.ui.begin();
-while (ch.ui.view.type !== 'choices') ch.ui.step();
+/* 第二轮回填后**第一天不再有玩家选择**（作者定稿：不设置奥布里幕间、不进行玩家选择），
+   所以第一个决策点是第二幕门口那一问（b2_haier_knock，西比拉视角，两个选项）。
+   中间隔着第一幕的收束屏，走的时候要像玩家那样按「继续下一幕」过去 —— autoStep 管这件。 */
+let g1 = 0;
+while (ch.ui.view.type !== 'choices') {
+  if (++g1 > 900) break;
+  if (!autoStep(ch.ui)) break;
+}
 
 const btns = ch.ui.els.choices.children;
-t.eq(btns.length, 4, '第一个决策点（o1_wait）有 4 个选项');
-t.eq(btns.map((b) => b.getAttribute('data-index')), ['0', '1', '2', '3'], '按钮带着 data-index');
+t.eq(btns.length, 2, '第一个决策点是第二幕门口那一问（b2_haier_knock），两个选项');
+t.eq(btns.map((b) => b.getAttribute('data-index')), ['0', '1'], '按钮带着 data-index');
 t.ok(btns[0].children.some((c) => c.className.includes('choice-text')), '选项按钮里有正文');
+/* 数值只在浮字里说，选项上不报数字 —— 提示文案（hint）数据里还留着，但按钮上压根不画
+   （「选项不解释自己」那一节专门查这件事）。 */
 t.empty(
-  btns.filter((b) => b.children.some((c) => c.className.includes('choice-hint'))).map((b) => b.getAttribute('data-index')),
-  '第一幕的选项不带数值 hint（改了数值靠浮字提示，选项上不报数字）'
+  btns.flatMap((b) => b.children.filter((c) => c.className.includes('choice-hint'))).map(() => '有 hint'),
+  '选项按钮上不画 hint（数值只在浮字里说）'
 );
 t.ok(ch.ui.els['dialogue-box'].classList.contains('collapsed'), '出选项时对话框整个收起来（不再半透明地挂在底部）');
 
-// 第一幕的决策点全在奥布里的幕间里：替奥布里做决定，左槽亮着、右槽空着
-t.ok(litLeft(ch.ui), '幕间决策是奥布里的视角，左槽亮着');
+// 第一夜门口那一问是西比拉的主场：左槽是她、右槽空着
+t.ok(litLeft(ch.ui), '她自己的选项点，左槽亮着');
 t.ok(rightSlotEmpty(ch.ui), '出选项时没人说话，右槽收起来');
-t.eq(ch.engine.pov, '奥布里', '第一个决策点确实是奥布里视角');
-t.eq(leftBG(ch.ui), 'url("../images/chr_aubrey.webp")', '选项点上左槽是主视角角色奥布里');
+t.eq(ch.engine.pov, '西比拉', '第一个决策点是西比拉视角（第一夜，她在自己的房里）');
+t.eq(leftBG(ch.ui), 'url("../images/chr_sibylla.webp")', '选项点上左槽是主视角角色西比拉');
 
-// 用键盘 1/2/3/4 也能选
-const kb = bootUI();
+// 用键盘 1/2 也能选
+const kb = bootUI(wholeStory);
 kb.ui.begin();
-while (kb.ui.view.type !== 'choices') kb.ui.step();
+let g1b = 0;
+while (kb.ui.view.type !== 'choices') {
+  if (++g1b > 900) break;
+  if (!autoStep(kb.ui)) break;
+}
 kb.fireKey('2');
-t.eq(kb.engine.history[kb.engine.history.length - 1], 'o1_files', '按 2 选了第二个选项（翻旧卷宗）');
+t.eq(kb.engine.history[kb.engine.history.length - 1], 'b3_letgo', '按 2 选了第二个选项（作罢 · 下次再见）');
 
 // 主场的选项点：替奥布里做决定，立绘压暗
-const main = bootUI();
+// （第一天不再有奥布里的幕间，第一个奥布里的选择点在日常层第 2 天早晨那个菜单上。）
+const main = bootUI(wholeStory);
 main.ui.begin();
 let g2 = 0;
 while (!(main.ui.view.type === 'choices' && main.engine.pov === '奥布里')) {
-  if (++g2 > 900) break;
-  if (main.ui.view.type === 'choices') main.ui.choose(0); else main.ui.step();
+  if (++g2 > 2000) break;
+  if (main.ui.view.type === 'choices') main.ui.choose(0); else if (!autoStep(main.ui)) break;
 }
 t.eq(main.engine.pov, '奥布里', '走到了奥布里的选项点');
 t.eq(leftBG(main.ui), 'url("../images/chr_aubrey.webp")', '主视角换成奥布里后，左槽站的是奥布里（不再借西比拉的脸）');
@@ -419,12 +436,14 @@ t.section('结局与重来');
 
 const fin = bootUI();
 fin.ui.begin();
+/* 第一天不再有结束屏（第一章直接接第一夜，见「幕间衔接」那一节），主线走到
+   第一幕最后一节就完事了。所以这一节改成：先走到 s4_portrait，再把那张**留档**的
+   收束节点 o4_end 直接摆上台 —— 结算屏自己的渲染逻辑照旧要查。 */
 let g3 = 0;
-while (fin.ui.view.type !== 'end') {
-  if (++g3 > 900) break;
-  if (fin.ui.view.type === 'choices') fin.ui.choose(0); else fin.ui.step();
-}
-t.eq(fin.ui.view.type, 'end', '能走到结局');
+while (fin.engine.node.id !== 's4_portrait' && g3++ < 400) fin.ui.step();
+t.eq(fin.engine.node.id, 's4_portrait', '主线走到第一幕的最后一节');
+showAct1EndCard(fin);
+t.eq(fin.ui.view.type, 'end', '留档的 o4_end 仍然弹结局屏（渲染逻辑还在）');
 t.ok(fin.ui.els['end-screen'].classList.contains('on'), '结局界面打开了');
 t.ok(fin.ui.els['end-stats'].children.length > 0, '结局界面列出了数值');
 t.eq(litLeft(fin.ui), false, '结局不是谁在说话，左槽压暗');
@@ -462,19 +481,31 @@ t.section('幕间衔接');
 const bridge = bootUI(wholeStory);
 bridge.ui.begin();
 let g4 = 0;
-while (bridge.ui.view.type !== 'end') {
-  if (++g4 > 2000) break;
+let sawEnd = false;
+while (bridge.engine.node.id !== 's4_portrait' && g4++ < 600) {
+  if (bridge.ui.view.type === 'end') { sawEnd = true; break; }
   if (bridge.ui.view.type === 'choices') bridge.ui.choose(0); else bridge.ui.step();
 }
-t.eq(bridge.ui.view.type, 'end', '第一幕照常走到结局屏');
-t.eq(bridge.ui.view.node.id, 'o4_end', '停的是第一幕的结局节点');
-t.eq(bridge.ui.els['end-title'].textContent, '第一章 · 普里森堡的阴雨', '结局标题是第一幕的');
-t.eq(bridge.ui.els['end-continue'].style.display, '', '有下一幕时按钮显示出来');
-t.eq(bridge.ui.els['end-continue'].getAttribute('data-next'), 'b1_room', '按钮记着要去的节点');
-t.eq(bridge.ui.els['end-continue'].textContent, '继续第二幕 ▶', '按钮上写着下一幕的名字');
+t.eq(bridge.engine.node.id, 's4_portrait', '第一幕走到最后一节');
+t.eq(sawEnd, false, '一路没有弹过任何结束屏 —— 第一章与第一夜是连续演出（作者定稿）');
+t.eq(bridge.ui.view.type, 'line', '此刻还在第一幕的台词上，没有被打断');
 
-bridge.fire(bridge.ui.els['end-continue'], 'click');
-t.eq(bridge.engine.node.id, 'b1_room', '点一下接着演第二幕');
+bridge.ui.step();
+t.eq(bridge.engine.node.id, 'b1_room', '再推一下就进了第一夜（第二幕的第一节）—— 不用点任何按钮');
+
+/* 那张卡片上「继续下一幕」这颗按钮：**整场戏里再也看不到了**（第一章直接接第一夜），
+   但机制还活着 —— 另起一局站到留档卡片上按一次，免得这条路径从缺了没人管。 */
+{
+  const card = bootUI(wholeStory);
+  card.ui.begin();
+  toAct1EndCard(card);
+  t.eq(card.engine.node.id, 'o4_end', '站到留档的收束屏上');
+  t.eq(card.ui.els['end-continue'].style.display, '', '有下一幕时按钮照旧显示出来');
+  t.eq(card.ui.els['end-continue'].getAttribute('data-next'), 'b1_room', '按钮记着要去的节点');
+  t.eq(card.ui.els['end-continue'].textContent, '继续第二幕 ▶', '按钮上写着下一幕的名字');
+  card.fire(card.ui.els['end-continue'], 'click');
+  t.eq(card.engine.node.id, 'b1_room', '点一下接着演第二幕');
+}
 // 刚跨进第二幕那一刻的数值 —— 从前留到第二幕结尾去比（那会儿中间一个 effects 都没有）。
 // 现在第一夜与第 2 天之间夹着日常层，中间本来就要变，这条比法作废，
 // 「第二幕自己不碰数值」改在 engine.test.cjs 里直接盯着 b 开头节点上的变化查。
@@ -581,10 +612,15 @@ t.eq(cutOn(), false, '点一下画面也能把插画收掉');
 
 t.section('选项框立刻消失');
 
-/** 一直 step 到某个视图类型为止（推不动就报错，免得死循环） */
+/** 一直 step 到某个视图类型为止（推不动就报错，免得死循环）。
+    撞上幕与幕之间的收束屏就按「继续下一幕」过去 —— 玩家就是这么走的。 */
 function stepTo(ui, type, limit) {
-  for (let i = 0; i < (limit || 400); i++) {
+  for (let i = 0; i < (limit || 900); i++) {
     if (ui.view && ui.view.type === type) return ui.view;
+    if (ui.view && ui.view.type === 'end') {
+      if (!ui.continueNextAct()) throw new Error('推不到 ' + type + '（卡在收束屏上）');
+      continue;
+    }
     ui.step();
   }
   throw new Error('推不到 ' + type);
@@ -618,10 +654,31 @@ function playTo(ui, nodeId, limit) {
 /** 在菜单里按文字找下标 */
 const findText = (list, text) => list.findIndex((c) => c.text === text);
 
-const gone = bootUI();
+/**
+ * 把那张**留档**的第一天收束屏（o4_end）摆上台。
+ *
+ * 第一章现在直接接第一夜（作者定稿：两段连续演出），主线**不再经过**这张卡片 ——
+ * 可是结局卡的渲染、自由活动的入口都还挂在它身上，量 UI 的时候仍然得站上去。
+ * 走的仍然是引擎自己的 enterNode + 界面自己的 render，不另开一条渲染路径。
+ */
+function showAct1EndCard(env) {
+  env.engine.enterNode('o4_end');
+  env.ui.render(env.engine.advance());
+}
+
+/** 走到第一幕的最后一节（不弹卡片），再把留档的收束屏摆上来。 */
+function toAct1EndCard(env) {
+  let g = 0;
+  while (env.engine.node.id !== 's4_portrait' && g++ < 800) {
+    if (env.ui.view.type === 'choices') env.ui.choose(0); else env.ui.step();
+  }
+  showAct1EndCard(env);
+}
+
+const gone = bootUI(wholeStory);           // 第一天不再有玩家选择，第一个选项点在第二幕
 gone.ui.begin();
 stepTo(gone.ui, 'choices');
-t.eq(gone.ui.els.choices.children.length, 4, '选项画出来了（第一章是四选一）');
+t.eq(gone.ui.els.choices.children.length, 2, '选项画出来了（第二幕门口那一问是二选一）');
 t.eq(gone.ui.view.type, 'choices', '确实停在选项屏上');
 
 // 走真浏览器里的那条路：点按钮 -> 冒泡到 #choices 上的事件代理
@@ -644,18 +701,27 @@ t.section('幕间自由活动');
 t.ok(HTML.includes('自由活动 ▶'), '结局卡片上摆着「自由活动 ▶」这个按钮');
 
 // 剧本里没写 freeRoam（比如只载入第一幕）时，按钮不该冒出来
+// （第一天不再有结束屏：走到第一幕最后一节，再把留档的 o4_end 摆出来）
 const solo = bootUI();
 solo.ui.begin();
 let gSolo = 0;
-while (solo.ui.view.type !== 'end' && gSolo++ < 4000) {
-  if (solo.ui.view.type === 'choices') solo.ui.choose(0); else solo.ui.step();
-}
-t.eq(solo.ui.view.type, 'end', '只载入第一幕也能走到结局');
+while (solo.engine.node.id !== 's4_portrait' && gSolo++ < 400) solo.ui.step();
+showAct1EndCard(solo);
+t.eq(solo.ui.view.type, 'end', '只载入第一幕也能走到结局屏');
 t.eq(solo.ui.els['end-roam'].style.display, 'none', '剧本里没写自由活动，结局卡片上就不出现这个按钮');
 
 const fr = bootUI(wholeStory);
 fr.ui.begin();
-playTo(fr.ui, 'o4_end');
+/* 第一天不再有结束屏（第一章直接接第一夜），所以主线走到第一幕最后一节为止，
+   再把那张**留档**的 o4_end 摆上台 —— 自由活动的入口挂在它身上，这一节要的正是那张卡片。 */
+{
+  let gf = 0;
+  while (fr.engine.node.id !== 's4_portrait' && gf++ < 600) {
+    if (fr.ui.view.type === 'choices') fr.ui.choose(0); else fr.ui.step();
+  }
+  showAct1EndCard(fr);
+}
+t.eq(fr.engine.node.id, 'o4_end', '站到第一幕的收束屏上（留档的那张，主线不再经过）');
 t.eq(fr.ui.view.type, 'end', '先走到第一幕的结局（出的是结局卡片，不是黑屏）');
 t.eq(fr.ui.els['end-continue'].style.display, '', '「继续下一幕」照旧在');
 t.eq(fr.ui.els['end-roam'].style.display, '', '结局卡片上多了「自由活动 ▶」');
@@ -721,10 +787,11 @@ t.eq(
 );
 
 // ---- 好感低：触摸 -> 警惕上升，并且只给「感觉」不给数字 ----
-// 这一段是照固定选项一路走到幕间来的，-7 就是那一条路带进来的底数。
-// 断言的意思不是「等于 7」，而是「自由活动不清零重来」——v1 那会儿主线从 0 起，
-// 所以这儿才写着 0；第一章重构后好感从 -10 起步，落到这儿是 -7。
-t.eq(fr.engine.getStat('西比拉_好感'), -7, '刚进来好感就是主线带过来的那个数，没被重置');
+// 这一段是照固定选项一路走到幕间来的，带进来多少就是多少。
+// 断言的意思不是「等于某个数」，而是「自由活动不清零重来」——v1 那会儿主线从 0 起，
+// 所以这儿才写着 0；第一章重构后好感从 -10 起步。第二轮回填把第一天的奥布里幕间
+// 摘掉之后，这一路（都按第一项走）一个好感都不再动，于是落到这儿就是**起步那一个 -10**。
+t.eq(fr.engine.getStat('西比拉_好感'), -10, '刚进来好感就是主线带过来的那个数，没被重置');
 fr.engine.setStat('西比拉_好感', -10); // 落到「≥-49」那一档（0 那一档台词照说，但不动数值）
 // 警惕也有主线带下来的底数（第一章从 80 起步），所以后面都按「涨了多少」来断言
 const baseWatch = fr.engine.getStat('西比拉_警惕');
@@ -949,13 +1016,13 @@ t.eq(pz.ui.els['end-screen'].classList.contains('on'), false, '没有误弹结�
 // 结局屏上按不动
 const pzEnd = bootUI(wholeStory);
 pzEnd.ui.begin();
-playTo(pzEnd.ui, 'o4_end');
+toAct1EndCard(pzEnd);
 t.eq(pzEnd.ui.els['pause-btn'].style.display, 'none', '结局屏上没有暂停按钮');
 
 // 从结局卡片进的自由活动也没有可回的地方
 const pzRoam = bootUI(wholeStory);
 pzRoam.ui.begin();
-playTo(pzRoam.ui, 'o4_end');
+toAct1EndCard(pzRoam);
 pzRoam.fire(pzRoam.ui.els['end-roam'], 'click');
 t.eq(pzRoam.engine.node.id, 'fr_hub', '从结局卡片进了自由活动');
 t.eq(pzRoam.ui.els['pause-btn'].style.display, 'none', '这里没有「原来的剧情」，按钮不显示');
@@ -1066,9 +1133,9 @@ t.eq(menu.ui.menuOpen, false, '点菜单外侧收起菜单');
 
 t.section('选项不解释自己');
 
-const plain = bootUI();
+const plain = bootUI(wholeStory);          // 第一天没有选项了，第一个选项屏在第二幕
 plain.ui.begin();
-for (let step = 0; step < 40 && plain.ui.view.type !== 'choices'; step++) plain.fireKey(' ');
+stepTo(plain.ui, 'choices');
 t.eq(plain.ui.view.type, 'choices', '走几步碰到一个选项屏');
 t.empty(
   plain.ui.els.choices.children.flatMap((b) => b.children
@@ -1083,31 +1150,224 @@ t.ok(withHint.length > 0,
   `剧本里还留着 ${withHint.length} 条 hint 数据（本任务只改画面，不删剧情数据）`);
 
 /* ===================================================================
- * 7.7 ↑↓ 选选项
+ * 7.7 选项：默认不选中、方向键才选中、回车只确认选中的那一项
  * =================================================================== */
 
 t.section('上下选择');
 
-const arrows = bootUI();
+/** 走到一个「至少 n 个选项」的选项屏（沿路按第一项走，幕与幕之间的收束屏按「继续下一幕」过去）。 */
+function toChoiceScreen(env, n) {
+  for (let i = 0; i < 4000; i++) {
+    const v = env.ui.view;
+    if (v && v.type === 'choices' && v.choices.length >= n) return v;
+    if (v && v.type === 'choices') env.ui.choose(0);
+    else if (v && v.type === 'end') { if (!env.ui.continueNextAct()) break; }
+    else env.ui.step();
+  }
+  throw new Error(`走不到有 ${n} 个选项的选项屏`);
+}
+
+const arrows = bootUI(wholeStory);         // 第一天不再有玩家选择，第一个选项点在第二幕
 arrows.ui.begin();
-for (let step = 0; step < 40 && arrows.ui.view.type !== 'choices'; step++) arrows.fireKey(' ');
+toChoiceScreen(arrows, 2);
+t.eq(arrows.ui.view.type, 'choices', '走几步碰到一个选项屏');
 const nChoices = arrows.ui.view.choices.length;
+const keyedCount = () =>
+  arrows.ui.els.choices.children.filter((b) => b.className.includes('keyed')).length;
+
+/* ---- 1. 刚出现：一项都不选中、也不高亮 ---- */
+t.eq(arrows.ui.keyIndex, -1, '选项刚出现时没有默认选中项（keyIndex 是 -1）');
+t.eq(keyedCount(), 0, '屏幕上一项都不亮 —— 不自动高亮第一项');
+t.eq(arrows.ui.keyedIndex(), -1, 'keyedIndex() 也报「一项都没选中」');
+
+/* ---- 2. 没选中时按回车：不确认第一项，也不推进剧情 ---- */
+const noPickNode = arrows.engine.node.id;
+const noPickView = arrows.ui.view;
+const noPickHist = arrows.engine.history.length;
+const noPickEnter = arrows.fireKey('Enter');
+t.ok(noPickEnter.__prevented, '没选中时按回车：preventDefault（这一下被拦下来了）');
+t.eq(arrows.ui.view, noPickView, '没选中时按回车：还停在同一个选项屏上（没往后推）');
+t.eq(arrows.engine.node.id, noPickNode, '没选中时按回车：节点一步没动（更没替玩家选第一项）');
+t.eq(arrows.engine.history.length, noPickHist, '没选中时按回车：引擎的来路一步没动');
+t.eq(arrows.ui.els.choices.children.length, nChoices, '选项按钮原样挂着，没被选掉');
+t.eq(arrows.ui.keyIndex, -1, '回车过后仍然没有选中项');
+
+// 空格在选项屏上同理：它不该把还没做决定的选项屏推过去
+const noPickSpaceEv = arrows.fireKey(' ');
+t.ok(noPickSpaceEv.__prevented, '选项屏上按空格：同样被拦下');
+t.eq(arrows.ui.view, noPickView, '选项屏上按空格：不推进剧情');
+t.eq(arrows.engine.node.id, noPickNode, '选项屏上按空格：节点原地不动');
+
+/* ---- 3. 方向键：从「没选中」进第一个 / 最后一个可用项 ---- */
 arrows.fireKey('ArrowDown');
-t.eq(arrows.ui.keyIndex, 1, '按 ↓ 高亮挪到第 2 项');
-t.eq(arrows.ui.els.choices.children.filter((b) => b.className.includes('keyed')).length, 1,
-  '屏幕上只有一个高亮');
+t.eq(arrows.ui.keyIndex, 0, '还没选中时按 ↓：进第一个可用项');
+t.eq(keyedCount(), 1, '屏幕上只有一个高亮');
+t.ok(((arrows.ui.els.choices.children[0] || {}).className || '').includes('keyed'), '亮着的正是第一项');
+t.eq(arrows.ui.keyedIndex(), 0, '它同时就是「明确选中」的那一项');
+arrows.fireKey('ArrowDown');
+t.eq(arrows.ui.keyIndex, 1, '再按 ↓：挪到第 2 项');
+t.eq(keyedCount(), 1, '高亮仍然只有一个（旧的那个灭了）');
 arrows.fireKey('ArrowUp');
 t.eq(arrows.ui.keyIndex, 0, '按 ↑ 挪回来');
 arrows.fireKey('ArrowUp');
 t.eq(arrows.ui.keyIndex, nChoices - 1, '在第 1 项上按 ↑ 绕到最后一项');
 
-// Enter = 确认选中的那一项
-const pickedText = arrows.ui.view.choices[arrows.ui.keyIndex].text;
-arrows.fireKey('ArrowUp');
-const wanted = arrows.ui.view.choices[arrows.ui.keyIndex].text;
-arrows.fireKey('Enter');
-t.ne(arrows.ui.view.type, 'choices', '按 Enter 之后选项屏就过了（真的选了）');
-t.ok(!!wanted && pickedText !== undefined, '选的是高亮那一项（高亮位置在选之前就定好了）');
+// ↑ 从「没选中」直接进最后一项（另一局，免得受上面走过的路影响）
+const upOnly = bootUI(wholeStory);
+upOnly.ui.begin();
+toChoiceScreen(upOnly, 2);
+upOnly.fireKey('ArrowUp');
+t.eq(upOnly.ui.keyIndex, upOnly.ui.view.choices.length - 1, '还没选中时按 ↑：进最后一个可用项');
+t.eq(upOnly.ui.keyedIndex(), upOnly.ui.view.choices.length - 1, '方向键一按下去就算「明确选中」了');
+
+/* ---- 4. 选中之后按回车：确认的就是高亮那一项 ---- */
+const pick = bootUI(wholeStory);
+pick.ui.begin();
+toChoiceScreen(pick, 3);
+const pickIdx = 2;
+t.ok(pick.ui.view.choices.length > pickIdx, '这个决策点至少有 3 项');
+const pickNext = pick.ui.view.choices[pickIdx].choice.next;
+const firstNext = pick.ui.view.choices[0].choice.next;
+for (let i = 0; i <= pickIdx; i++) pick.fireKey('ArrowDown');
+t.eq(pick.ui.keyIndex, pickIdx, `连按 ${pickIdx + 1} 次 ↓，高亮落在第 ${pickIdx + 1} 项`);
+pick.fireKey('Enter');
+t.ne(pick.ui.view.type, 'choices', '选中之后按回车：选项屏过了（真的选了）');
+t.ok(pick.engine.history.indexOf(pickNext) >= 0, '进的是高亮那一项的 next');
+t.ok(pick.engine.history.indexOf(firstNext) < 0, '没有走成第一项的分支');
+
+/* ===================================================================
+ * 7.8 「先选中、再确认」这套规矩的其余几条：锁着的项、换装浮层、
+ *     鼠标 / 数字键、以及不在选项屏上时的原有功能
+ * =================================================================== */
+
+t.section('选项屏的键盘规矩');
+
+/* ---- 锁着的项：选不中、也确认不了 ---- */
+const lockedUI = bootUI();
+lockedUI.ui.begin();
+lockedUI.ui.render({
+  type: 'choices',
+  choices: [
+    { index: 0, text: '锁着的', hint: '', enabled: false, lockedHint: '条件不足', effects: [] },
+    { index: 1, text: '能点的', hint: '', enabled: true, lockedHint: '', effects: [] },
+  ],
+});
+t.eq(lockedUI.ui.keyIndex, -1, '这一屏也不预选（哪怕是第一项能点的时候也不选）');
+lockedUI.fireKey('ArrowDown');
+t.eq(lockedUI.ui.keyIndex, 1, '按 ↓ 跳过锁着的第一项，落在第一个可用项上');
+t.eq(((lockedUI.ui.els.choices.children[0] || {}).className || '').includes('keyed'), false,
+  '锁着的那一项没有被高亮');
+t.eq(lockedUI.ui.keyedIndex(), 1, '明确选中的是能点的那一项');
+lockedUI.fireKey('ArrowUp');
+t.eq(lockedUI.ui.keyIndex, 1, '↑ 上不去锁着的那一项（只有一项可用时原地不动）');
+const lockedToast = lockedUI.ui.els.toast.children.length;
+lockedUI.fire(lockedUI.ui.els.choices, 'click', { target: lockedUI.ui.els.choices.children[0] });
+t.eq(lockedUI.ui.els.toast.children.length, lockedToast, '点锁着的那一项：什么也不发生（连提示都不弹）');
+
+// 高亮理论上落不到锁着的那一项上（↑↓ 会跳过它）；这里直接把它摆上去，
+// 证实「摆上去了也不算选中」—— 回车确认不了它，也不会漏成「继续下一句」
+const lockedView = lockedUI.ui.view;
+const lockedNode = lockedUI.engine.node.id;
+const lockedToast2 = lockedUI.ui.els.toast.children.length;
+lockedUI.ui.keyIndex = 0;
+t.eq(lockedUI.ui.keyedIndex(), -1, '锁着的那一项不算「明确选中」（keyedIndex 给 -1）');
+const lockedEnter = lockedUI.fireKey('Enter');
+t.ok(lockedEnter.__prevented, '高亮停在锁着的那一项上时按回车：被拦下');
+t.eq(lockedUI.ui.view, lockedView, '还停在原地（没确认，也没往下推一句）');
+t.eq(lockedUI.engine.node.id, lockedNode, '引擎一步没动');
+t.eq(lockedUI.ui.els.toast.children.length, lockedToast2, '连「选不了」的提示都没弹 —— 界面这一层就没让它走到 choose()');
+
+// 一项都点不动的时候，方向盘和回车都选不出东西来
+const allLockedUI = bootUI();
+allLockedUI.ui.begin();
+allLockedUI.ui.render({
+  type: 'choices',
+  choices: [
+    { index: 0, text: '锁着的甲', hint: '', enabled: false, lockedHint: '条件不足', effects: [] },
+    { index: 1, text: '锁着的乙', hint: '', enabled: false, lockedHint: '条件不足', effects: [] },
+  ],
+});
+const allLockedNode = allLockedUI.engine.node.id;
+allLockedUI.fireKey('ArrowDown');
+t.eq(allLockedUI.ui.keyIndex, -1, '一个可用项都没有时，↓ 也选不出东西来');
+const allLockedView = allLockedUI.ui.view;
+const allLockedEnter = allLockedUI.fireKey('Enter');
+t.ok(allLockedEnter.__prevented, '一个可用项都没有时按回车：同样被拦下');
+t.eq(allLockedUI.ui.view, allLockedView, '一个可用项都没有时按回车：原地不动');
+t.eq(allLockedUI.engine.node.id, allLockedNode, '引擎一步没动');
+
+/* ---- 换装浮层（#outfit-choices）走的是同一套规矩 ---- */
+const outfitKeys = bootUI(wholeStory);
+outfitKeys.ui.begin();
+toAct1EndCard(outfitKeys);
+outfitKeys.fire(outfitKeys.ui.els['end-roam'], 'click');
+toMenu(outfitKeys.ui);
+outfitKeys.ui.choose(findText(outfitKeys.ui.view.choices, '去西比拉的房间'));
+toMenu(outfitKeys.ui);
+outfitKeys.ui.choose(findText(outfitKeys.ui.view.choices, '换装'));
+t.eq(outfitKeys.ui.view.type, 'outfit', '进了换装浮层');
+t.eq(outfitKeys.ui.keyIndex, -1, '浮层里同样不预选第一件衣服');
+t.eq(
+  outfitKeys.ui.els['outfit-choices'].children.filter((b) => b.className.includes('keyed')).length,
+  0,
+  '浮层里没有任何一件衣服带高亮'
+);
+const outfitView = outfitKeys.ui.view;
+const outfitNode = outfitKeys.engine.node.id;
+const outfitEnter = outfitKeys.fireKey('Enter');
+t.ok(outfitEnter.__prevented, '浮层里没选中时按回车：被拦下');
+t.eq(outfitKeys.ui.view, outfitView, '浮层里没选中时按回车：还留在浮层上（没换装）');
+t.eq(outfitKeys.engine.node.id, outfitNode, '浮层里没选中时按回车：一步没动');
+outfitKeys.fireKey('ArrowDown');
+t.eq(outfitKeys.ui.keyIndex, 0, '按 ↓ 才进第一件衣服');
+outfitKeys.fireKey('ArrowDown');
+t.eq(outfitKeys.ui.keyIndex, 1, '再按 ↓ 挪到第二件');
+const wantWear = outfitKeys.ui.view.choices[1].text;
+outfitKeys.fireKey('Enter');
+t.eq(
+  (outfitKeys.ui.view.choices || []).filter((c) => c.worn).map((c) => c.text),
+  [wantWear],
+  '选中之后按回车：换上的正是高亮那一件'
+);
+
+/* ---- 鼠标点击 / 数字键：照旧一步选掉，不用先按方向键 ---- */
+const mousePick = bootUI(wholeStory);
+mousePick.ui.begin();
+toChoiceScreen(mousePick, 3);
+const mouseNext = mousePick.ui.view.choices[2].choice.next;
+mousePick.fire(mousePick.ui.els.choices, 'click', { target: mousePick.ui.els.choices.children[2] });
+t.ok(mousePick.engine.history.indexOf(mouseNext) >= 0, '鼠标点第 3 项：选的就是它（不必先选中）');
+
+const digitPick = bootUI(wholeStory);
+digitPick.ui.begin();
+toChoiceScreen(digitPick, 2);
+const digitNext2 = digitPick.ui.view.choices[1].choice.next;
+digitPick.fireKey('2');
+t.ok(digitPick.engine.history.indexOf(digitNext2) >= 0, '数字键 2：直接选第 2 项（不必先选中）');
+
+/* ---- 不在选项屏上时，空格 / 回车 / 点对话框照旧推进（回归红线） ---- */
+const plainLine = bootUI();
+plainLine.ui.begin();
+t.eq(plainLine.ui.view.type, 'line', '开场是一句台词，不是选项屏');
+const lineIdx0 = plainLine.engine.lineIndex;
+const lineSpaceEv = plainLine.fireKey(' ');
+t.ok(lineSpaceEv.__prevented, '台词上按空格：照旧 preventDefault（免得滚页）');
+t.eq(plainLine.engine.lineIndex, lineIdx0 + 1, '台词上按空格：照旧推进一行');
+const lineIdx1 = plainLine.engine.lineIndex;
+plainLine.fireKey('Enter');
+t.eq(plainLine.engine.lineIndex, lineIdx1 + 1, '台词上按回车：照旧推进一行');
+const lineIdx2 = plainLine.engine.lineIndex;
+plainLine.fire(plainLine.ui.els['dialogue-box'], 'click');
+t.eq(plainLine.engine.lineIndex, lineIdx2 + 1, '点对话框：照旧推进一行');
+
+/* ---- 快捷键说明得和改完之后的实际按键对得上 ---- */
+const keysAfter = bootUI();
+keysAfter.ui.renderKeysPanel(true);
+const rowsAfter = keysAfter.ui.els['sys-keys-panel'].children.map((r) => r.children.map((c) => c._text));
+const descOf = (key) => ((rowsAfter.find((r) => r[0] === key) || [])[1] || '');
+t.ok(/选项/.test(descOf('空格 / 回车 / 左键')), '「继续下一句」那行注明了选项出现时不算（和 onKeyDown 一致）');
+t.ok(/第一项/.test(descOf('↑ / ↓')), '方向键那行写了「还没选中时 ↓ 进第一项」');
+t.ok(/选中/.test(descOf('Enter')), '回车那行写了「要先选中才确认」');
 
 /* ===================================================================
  * 8. 存档 / 读档

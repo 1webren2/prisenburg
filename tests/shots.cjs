@@ -45,7 +45,9 @@ const RESOLUTIONS = [
 const TARGETS = [
   { name: '01-开始界面', mode: 'title' },
   { name: '02-双立绘-西比拉与布朗', node: 's1_rain', mode: 'first', speaker: '布朗' },
-  { name: '03-选项点-奥布里视角', node: 'o1_wait', mode: 'choices' },
+  // 第二轮回填把第一天的奥布里幕间整批摘掉（作者定稿：不设置奥布里幕间、不进行玩家选择），
+  // 所以「奥布里视角的选项点」现在最靠前的一处是第二天三楼教室那一问（b19_aubrey，三选一）。
+  { name: '03-选项点-奥布里视角', node: 'b19_aubrey', mode: 'choices' },
   { name: '04-跨幕第一眼', node: 'b1_room', via: 'o4_end', mode: 'first' },
   { name: '05-牧师服', node: 'b12_morning', mode: 'first' },
   { name: '06-教室-伊莎贝尔', node: 'b18_classroom', mode: 'first', speaker: '伊莎贝尔' },
@@ -82,10 +84,12 @@ const TARGETS = [
   // 顺带确认菜单铺开时底下那层还在（不是一块纯黑）。
   { name: '29-系统菜单', node: 'b1_room', mode: 'first', openMenu: true },
   { name: '30-系统菜单-快捷键', node: 'b1_room', mode: 'first', openMenu: true, openKeys: true },
-  // 第一天那场册子（设计稿 §4）：末句「你开了门。她站在门外，把一本册子递了上来。」
+  // 第一天那场册子（设计稿 §4）：末句「…随后轻轻退出书房，回到自己的房间。」
   // 播完之后摊开，摊开的是第 1 日那一页 —— 那天一件记事都没有，整页只有她自己的字。
-  { name: '22-第一天-她敲门递上册子', mode: 'intro', node: 'dy_d2_mo_intro' },
-  { name: '23-第一天的日记', mode: 'intro', node: 'dy_d2_mo_intro', openBook: true },
+  // 第二轮回填后这场戏在第一夜（b8_diary_writing），不再在第 2 天早晨的
+  // dy_d2_mo_intro 里 —— 入口跟着挪，这里也跟着挪。
+  { name: '22-第一夜-写下第一篇手记', mode: 'intro', node: 'b8_diary_writing' },
+  { name: '23-第一天的日记', mode: 'intro', node: 'b8_diary_writing', openBook: true },
   // 同样是第 2 天那一页，把关系推上去再翻一遍：四档「她写的」是四份不一样的字
   { name: '24-日记本-档4的正文', mode: 'daily', node: 'dy_d2_mo_hub', openDiary: true,
     stats: { 西比拉_好感: 60, 西比拉_亲密: 45, 西比拉_恨意: 10 } },
@@ -802,7 +806,7 @@ async function endToEnd(cdp) {
   log(`  · boot() 自己读进来的剧本：${loaded.nodes} 个节点，第二幕${loaded.hasAct2 ? '在' : '不在'}，第三幕${loaded.hasAct3 ? '在' : '不在'}`);
   if (!loaded.hasAct2) bad.push('boot() 没把第二幕读进来（meta.continues 的路径解错了）');
   if (!loaded.hasAct3) bad.push('boot() 没把第三幕读进来（meta.continues 的路径解错了）');
-  if (loaded.nodes !== 328) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 328（三幕 + 日常层 + 狩猎篇五章 + 第九章合起来）`);
+  if (loaded.nodes !== 351) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 351（三幕 + 日常层 + 狩猎篇五章 + 第九章合起来）`);
 
   await cdp.eval(PLAY_JS);
 
@@ -870,13 +874,14 @@ async function endToEnd(cdp) {
   // （摊开过的**不止**这一格：往后每天头一个菜单上还会弹上一日总结，所以看的是
   //   「这一格在不在名单里」，不是「最后摊开的是哪一格」。）
   log(`  · 日记本在 ${diaryNodes.length} 处摊开过（${diaryNodes.join('、')}），共 ${diarySteps} 次停顿`);
-  if (!diaryNodes.includes('dy_d2_mo_intro')) {
-    bad.push(`第一天的册子该在 dy_d2_mo_intro（第一夜之后那一场）摊开，实际只在 ${diaryNodes.join('、')} 摊开过`);
+  // 第二轮回填后这一格挪到了第一夜写手记那一场（b8_diary_writing）。
+  if (!diaryNodes.includes('b8_diary_writing')) {
+    bad.push(`第一天的册子该在 b8_diary_writing（第一夜写下第一笔那一场）摊开，实际只在 ${diaryNodes.join('、')} 摊开过`);
   }
   if (!walked.includes('dy_d2_mo_hub')) bad.push('全程没有走进第 2 天早晨的菜单（册子合上之后接不上）');
-  // 时段菜单：走过 14 个，每一个都得是「图标卡 + 每张卡一个图标」
+  // 时段菜单：走过 13 个（第 2 天按新稿收在傍晚那场熬药上），每一个都得是「图标卡 + 每张卡一个图标」
   log(`  · 一路走过 ${cardHubs.length} 个时段菜单，都是图标卡`);
-  if (cardHubs.length !== 14) bad.push(`走过了 ${cardHubs.length} 个时段菜单，该是 14 个`);
+  if (cardHubs.length !== 13) bad.push(`走过了 ${cardHubs.length} 个时段菜单，该是 13 个`);
   if (cardBad.length) bad.push(`有 ${cardBad.length} 个时段菜单不是图标卡：${cardBad.join('、')}`);
   // 进第 3 天的第一个菜单时，上一日（第 2 日）的总结要自己摊开
   log(`  · 上一日总结在 ${summaryAt} 上弹出来（${summaryTitle}）`);
@@ -943,8 +948,17 @@ async function probeChoicesVanish(cdp) {
   const r = await cdp.eval(`(() => {
     const a = window.act1, ui = a.ui, e = a.engine;
     ui.begin();
+    // 第一天不再有玩家选择（作者定稿：不进行玩家选择），第一个选项屏在第二幕门口 ——
+    // 中间隔着第一幕的收束屏，得像玩家那样按一下「继续下一幕」才过得去。
     let v = e.advance();
-    for (let i = 0; i < 80 && v.type !== 'choices'; i++) v = e.advance();
+    for (let i = 0; i < 600 && v.type !== 'choices'; i++) {
+      if (v.type === 'end') {
+        if (!ui.continueNextAct()) break;
+        v = ui.view;
+        continue;
+      }
+      v = e.advance();
+    }
     ui.renderStats(); ui.render(v);
     const count = () => document.querySelectorAll('#choices .choice-btn').length;
     const before = count();
