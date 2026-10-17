@@ -291,14 +291,34 @@ for (;;) {
 }
 t.ok(seenOutfits.includes('url("../images/chr_sibylla.webp")'), '第二幕前半段西比拉穿女仆装（chr_sibylla）');
 t.ok(seenOutfits.includes('url("../images/chr_sibylla_teacher.webp")'), '换上牧师服（＝教师服）后左槽换成那张');
-/* 牧师服在现在的时间线上是两处：
-   · 第二天早晨那堂礼仪课（b12_morning ~ b16_montage，原著第二幕）——
-     第二轮回填按新稿把 b12~b16 接回了授课线，这一段重新走得到；
-   · 第九章收束那节课（h9_lesson）。
-   第三幕整条链（c1～c27）仍然脱链：正文一字未动、仍在原文核对的名单里，
-   新时间线改走日常层第 3~6 天与狩猎篇。两处之间隔着整条日常层，不会来回闪。 */
-t.eq(seenOutfits.filter((s) => s === 'url("../images/chr_sibylla_teacher.webp")').length, 2,
-  '牧师服两处：第二天早晨的礼仪课与第九章那一节');
+/* 这条查的是**原著自己**换过几次衣裳（日常层整段跳过不记，见上面的循环）。
+   牧师服在原著里只剩一处：第九章收束那节课（h9_lesson）。
+   第二天早晨那堂礼仪课第四轮起搬进了日常层（改成奥布里的视角），
+   她在那边站的是**右槽**，另有一条专门的断言盯着，见下面「逐句立绘」。 */
+t.eq(seenOutfits.filter((s) => s === 'url("../images/chr_sibylla_teacher.webp")').length, 1,
+  '原著里牧师服只剩第九章那一处（第二天早晨那堂挪进了日常层）');
+
+/* ---- 逐句立绘：第二天早晨那堂礼仪课，她在右槽、穿的是教师服 ----
+   右槽平常取 characters[谁].portrait（女仆装），而她那天穿的是教师服
+   （稿子：「身上穿着那身教师服」）。所以那几节里西比拉的每一句都写了
+   dialogues[].portrait —— 引擎照它覆盖人物表那一张。 */
+{
+  const cls = bootUI(wholeStory);
+  cls.engine.enterNode('dy_d2_mo_cls_stand_e');
+  let cv = cls.engine.advance();
+  let herPortrait = null;
+  for (let i = 0; i < 60; i++) {
+    cls.ui.renderStats();
+    cls.ui.render(cv);
+    if (cv.type === 'line' && cv.speaker === '西比拉' && !cv.narration) { herPortrait = cv.portrait; break; }
+    if (cv.type === 'end' || cv.type === 'choices') break;
+    cv = cls.engine.advance();
+  }
+  t.eq(herPortrait, 'chr_sibylla_teacher', '台词自己指定了立绘（没有用人物的默认那张）');
+  t.eq(rightBG(cls.ui), urlOf('chr_sibylla_teacher', wholeStory), '右槽画的就是教师服');
+  t.eq(leftBG(cls.ui), urlOf('chr_aubrey', wholeStory), '左槽还是奥布里 —— 这一幕是他的视角');
+  t.eq(rightSlotEmpty(cls.ui), false, '右槽没被收起来（她不是主视角）');
+}
 t.eq(
   seenOutfits[seenOutfits.length - 1],
   'url("../images/chr_sibylla.webp")',
@@ -1556,9 +1576,33 @@ t.eq(good.store.size(), 0, '探针键用完就删掉，不留垃圾');
   t.eq(box['align-self'], 'stretch', '对话框撑满左栏整行');
   t.eq(box['width'], 'auto', '对话框宽度交给 stretch，不再限制在 940px');
   t.eq(box['border-radius'], '0', '铺满底部的对话框不再是圆角卡片');
-  t.ok(/var\(--dialogue-bg\)/.test(box.background || ''), '对话框底色是渐变（上沿淡出，没有硬边）');
   t.ok(/var\(--dialogue-gutter\)/.test(box.padding || ''), '对话框正文仍然收在中间那一栏');
   t.ok(/--dialogue-gutter:\s*max\(\d+px/.test(CSS), '窄屏时留白有固定下限（--dialogue-gutter 用 max() 兜底），文字不会贴着窗口边');
+
+  /* 对话框那一块「皮」：**整块只有一层**（::before），从窗口最左铺到最右。
+     底色 / 毛玻璃 / 上沿描边 / 柔光 四样必须都在这一层上 ——
+     曾经拆成两块（本体一块 + 右边补一条）来铺满，两层各算一次模糊与柔光，
+     接缝处就露出两块板子的味道（用户看到的「两个对话框」）。
+     这条按「只有一个盒子在画背景」机械化地钉死。 */
+  const skin = declsFor('#dialogue-box::before');
+  t.ok(/var\(--dialogue-bg\)/.test(skin.background || ''), '那块皮的底色是渐变（上沿淡出，没有硬边）');
+  t.ok(/blur/.test(skin['backdrop-filter'] || ''), '毛玻璃也在这块皮上（跟底色同一层，接缝才不会露）');
+  t.ok(/rgba/.test(skin['border-top'] || ''), '上沿那道细描边也在这块皮上');
+  t.ok(/rgba/.test(skin['box-shadow'] || ''), '往上打的柔光也在这块皮上');
+  t.ok(/--panel-w/.test(skin.right || ''), '皮的右边越过左栏、铺到窗口右边缘（--app 的栅格给面板留了一栏）');
+  t.eq(skin.left, '0', '皮的左边从对话框自己那一栏的最左边起');
+  t.eq(skin['pointer-events'], 'none', '皮不参与命中测试（点到对话框还是原来那一下）');
+
+  // 拆开对另一半：本体自己**不许**再画背景/描边/柔光
+  for (const k of ['background', 'background-color', 'box-shadow', 'backdrop-filter', 'border-top']) {
+    t.ok(!box[k], `#dialogue-box 自己不再画 ${k}（背景整块交给 ::before，避免两层拼出接缝）`);
+  }
+  t.ok(!rulesFor('#dialogue-box::after').length, '没有第二条补丁（::after 那条撤了）');
+  // 皮是绝对定位，会盖住没定位的正文 —— 正文与另外两样得浮上去
+  t.eq(declsFor('#dialogue-text').position, 'relative', '正文是定位的（不然会被那块皮盖住）');
+  t.eq(declsFor('#dialogue-text')['z-index'], '1', '正文 z-index 抬到皮之上');
+  t.eq(declsFor('#speaker-plate')['z-index'], '1', '姓名牌也抬到皮之上');
+  t.eq(declsFor('#next-hint')['z-index'], '1', '「继续」提示也抬到皮之上');
 
   t.ok(/#portrait-layer:not\(\.speaking\)/.test(CSS), '有「左槽没在说话时」的立绘规则');
   t.ok(/#portrait-layer-r:not\(\.speaking\)/.test(CSS), '有「右槽没在说话时」的立绘规则');

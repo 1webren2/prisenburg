@@ -321,39 +321,48 @@ t.empty(dailyNodes.flatMap((n) => (n.choices || []).filter((c) => c.lockedHint).
 }
 
 t.section('剧本 · 主线不可跳过');
-// 第 2 天早晨：原著授课线（b12～b22）只从本时段的菜单进；另两处标成「没亲历」走默认结算。
+// 第 2 天早晨：教室线（第四轮按作者稿重写的 dy_d2_mo_cls_*，奥布里视角）只从本时段的菜单进；
+// 另两处标成「没亲历」走默认结算。原著那条同名线（b12～b22）整条脱链留档，不再被走。
 {
   const wrong = [];
+  const ENTRY = 'dy_d2_mo_cls_door_e';
   const d2hub = byId.get('dy_d2_mo_hub');
-  if (d2hub.choices[0].next !== 'b12_morning') wrong.push('第一项不是 b12_morning');
-  for (const c of d2hub.choices.slice(1)) if (c.skip !== 'b12_morning') wrong.push(`「${c.text}」没写 skip`);
-  const sources = whole.nodes.filter((n) => n.next === 'b12_morning' || n.continueTo === 'b12_morning'
-    || (n.choices || []).some((c) => c.next === 'b12_morning')).map((n) => n.id).sort();
+  if (d2hub.choices[0].next !== ENTRY) wrong.push(`第一项不是 ${ENTRY}`);
+  for (const c of d2hub.choices.slice(1)) if (c.skip !== ENTRY) wrong.push(`「${c.text}」没写 skip`);
+  const sources = whole.nodes.filter((n) => n.next === ENTRY || n.continueTo === ENTRY
+    || (n.choices || []).some((c) => c.next === ENTRY)).map((n) => n.id).sort();
   if (JSON.stringify(sources) !== JSON.stringify(['dy_d2_mo_hub'])) {
-    wrong.push(`b12_morning 的来路是 ${sources}`);
+    wrong.push(`${ENTRY} 的来路是 ${sources}`);
   }
-  /* 新稿的「活动 A」是**整条**原著授课线：b12_morning → … → b15_hair → b16_montage
-     → b17_scream → … → b22_after → 午餐。首轮把 b12~b16 脱了链（那会儿只走对抗段），
-     本轮接回来 —— 一间一节地对一遍，免得半路又断在哪里。 */
+  /* 稿子的「活动 A」是七节：走廊 → 伊莎贝尔的房间 → 回到书房 → 教室僵持 → 介入（三选一）
+     → 敲门与就餐 → 教室里只剩西比拉 → 午餐。一间一节地对一遍，免得半路又断在哪里。 */
   const CHAIN = [
-    ['b12_morning', 'b13_door'], ['b13_door', 'b14_dressing'], ['b14_dressing', 'b15_hair'],
-    ['b15_hair', 'b16_montage'], ['b16_montage', 'b17_scream'], ['b17_scream', 'b18_classroom'],
-    ['b18_classroom', 'b19_aubrey'], ['b20_lesson', 'b21_haier_calls'],
-    ['b21_haier_calls', 'b22_after'], ['b22_after', 'dy_d2_nn_meal_e'],
+    ['dy_d2_mo_cls_door_e', 'dy_d2_mo_cls_room_e'], ['dy_d2_mo_cls_room_e', 'dy_d2_mo_cls_desk_e'],
+    ['dy_d2_mo_cls_desk_e', 'dy_d2_mo_cls_stand_e'], ['dy_d2_mo_cls_stand_e', 'dy_d2_mo_cls_r'],
+    ['dy_d2_mo_cls_call_e', 'dy_d2_mo_cls_after_e'], ['dy_d2_mo_cls_after_e', 'dy_d2_nn_meal_e'],
+    ['dy_d2_mo_strict_e', 'dy_d2_mo_cls_call_e'], ['dy_d2_mo_plain_e', 'dy_d2_mo_cls_call_e'],
+    ['dy_d2_mo_soft_e', 'dy_d2_mo_cls_call_e'],
   ];
   for (const [from, to] of CHAIN) {
     const n = byId.get(from);
     if (!n || n.next !== to) wrong.push(`${from} → ${n && n.next}，应当是 ${to}`);
   }
-  t.eq(byId.get('b19_aubrey').choices.length, 3, '对抗段那个三选一还在（旗_授课方式 1/2/3）');
-  t.empty(wrong, '授课线只从第 2 天早晨的菜单进，一路接回午餐 —— 一节不落');
+  const react = byId.get('dy_d2_mo_cls_r');
+  t.eq(react.choices.map((c) => c.next),
+    ['dy_d2_mo_strict_e', 'dy_d2_mo_plain_e', 'dy_d2_mo_soft_e'],
+    '介入那一节的三选一还在（旗_授课方式 1/2/3），三个走向各接回「敲门」');
+  /* 整条线都是奥布里的镜头 —— 从菜单走进去不弹视角横幅（以前前半段是西比拉，会闪一下）。
+     稿子这一轮的重写就是为了这件事。 */
+  t.empty(whole.nodes.filter((n) => n.id.indexOf('dy_d2_mo_cls') === 0 && n.pov !== '奥布里').map((n) => n.id),
+    '教室线七节全是奥布里视角（从早晨菜单走进去不切视角）');
+  t.empty(wrong, '教室线只从第 2 天早晨的菜单进，一路接回午餐 —— 一节不落');
 }
 
 t.section('剧本 · 处理选择节点');
 /* 处理选择（_r）只在作者写了「选择：」的地方落 —— 第二轮回填后一共 10 个：
    第 2 天 6 个（早晨 2 + 午餐后 3 + 午后 1）、第 3 天 1 个、
    第 4 天 2 个、第 5 天 1 个。没有「选择：」的活动就是一段 _e 直连下一拍。 */
-t.eq(reactions.length, 10, '10 个 _r 节点（第 2 天 6 + 第 3 天 1 + 第 4 天 2 + 第 5 天 1）');
+t.eq(reactions.length, 11, '11 个 _r 节点（第 2 天 7 + 第 3 天 1 + 第 4 天 2 + 第 5 天 1）');
 /* 记日记的是「她的日子」那五处（午餐后的大厅 / 外院 / 后坡、任务簿、傍晚的后坡）；
    其余是政务与别人的事（修桥、马匹、账册、伊莎贝尔偷吃甜点……）——
    玩家怎么处理世界的事，日记不重述，两项也就不挂记录旗。 */
@@ -428,8 +437,15 @@ for (const n of reactions.filter((x) => DIARY_R.indexOf(x.id) >= 0)) {
   }
 }
 t.empty(flagProblems, '记录旗每项一面、定义过、静默、值分得开（0 / 1），而且旗名带着自己的时段');
+/* 「旗_授课方式」不是日记的记录旗 —— 它是 1/2/3 的**模式**（第 3~6 天的课堂与午餐按它分岔），
+   只是同样借了旗_ 前缀。D.isRecordStat() 只认前缀，认不出这个区别，所以这里单独摘掉。
+   真正算数的判据还是 choice.diary：教室线那三项一个都没写（她不会把「你怎么处理课堂」
+   写进自己的本子里）。 */
+const MODE_FLAGS = ['旗_授课方式'];
+const recordEffects = (c) => (c.effects || [])
+  .filter((e) => D.isRecordStat(e.stat) && MODE_FLAGS.indexOf(e.stat) < 0);
 t.empty(reactions.filter((n) => DIARY_R.indexOf(n.id) < 0).flatMap((n) => (n.choices || [])
-  .filter((c) => c.diary || (c.effects || []).some((e) => D.isRecordStat(e.stat)))
+  .filter((c) => c.diary || recordEffects(c).length)
   .map((c) => `${n.id}「${c.text}」`)),
   '不记日记的政务选择：两项都不写 diary、也不挂记录旗 —— 日记不重述玩家的每个动作');
 
@@ -583,7 +599,7 @@ function witnessedDefaults(entry) {
   }
   return e;
 }
-const SEG_ENTRIES = ['b12_morning'];
+const SEG_ENTRIES = ['dy_d2_mo_cls_door_e'];
 const segProblems = [];
 for (const entry of SEG_ENTRIES) {
   const a = witnessedDefaults(entry);             // 亲历，每个岔口按 defaultPick
@@ -601,15 +617,19 @@ for (const entry of SEG_ENTRIES) {
   t.eq([Number(rec.day), rec.slot], [2, 'mo'], `${entry} 的补记落在第 2 天早晨（她错过的那一刻）`);
   t.ok(rec.text.length >= 30, `${entry} 的补记不是一个字`);
 }
-t.empty(segProblems, '授课段：跳过时的数值与「亲历 + 按默认选」逐项相同');
+t.empty(segProblems, '教室段：跳过时的数值与「亲历 + 按默认选」逐项相同');
 
-/* 九份补记（第 2 天原著段五份 + 第 3~6 天的课堂各一份）：
-   每一份都指着一个真节点；日常层自己那些（dy_）的天/时段要和节点 id 对得上。 */
+/* 九份补记（第 2 天教室段四份 + 第 3~6 天的课堂各一份）：
+   每一份都指着一个真节点；日常层自己那些（dy_）的天/时段要和节点 id 对得上 ——
+   **除了教室段那两份**：它们是按稿子重接过来的（原来挂在 b16_montage / b21_haier_calls 上），
+   时段是**作者定的**（她什么时候把这件事写进本子），不是场景所在的时段：
+   上课那一节她记在中午，海尔来叫吃饭那一节记在午后。所以那两处不跟着节点 id 走。 */
+const OFFSTAGE_SLOT_FREE = ['dy_d2_mo_cls_desk_e', 'dy_d2_mo_cls_call_e'];
 const recProblems = [];
 for (const [entryId, rec] of Object.entries(dailyStory.diary.offstage)) {
   if (!byId.has(entryId)) { recProblems.push(`${entryId} 在合起来的剧本里不存在`); continue; }
   if (!slotCn[rec.slot]) { recProblems.push(`${entryId} 的补记写在没有的时段 ${rec.slot}`); continue; }
-  const st = /^dy_/.test(entryId) ? D.stampOf(entryId) : null;
+  const st = (/^dy_/.test(entryId) && OFFSTAGE_SLOT_FREE.indexOf(entryId) < 0) ? D.stampOf(entryId) : null;
   if (st && (Number(rec.day) !== st.day || rec.slot !== st.key)) {
     recProblems.push(`${entryId} 的补记写在 第${rec.day}天/${rec.slot}，应当是 第${st.day}天/${st.key}`);
   }
@@ -695,7 +715,60 @@ const AUTHOR_FILES = [
     'dy_d2_af_yard_e', 'dy_d2_af_yard_r', 'dy_d2_af_yard_a_e', 'dy_d2_af_yard_b_e',
     'dy_d2_ev_brew_e',
   ]],
+  /* 第四轮：第二天早晨的教室线按同一份作者稿重写成奥布里视角。
+     七个新节点 + 首轮那三个「授课方式」走向（正文没动，一起钉住）。 */
+  ['第二天早晨教室线.txt', [
+    'dy_d2_mo_cls_door_e', 'dy_d2_mo_cls_room_e', 'dy_d2_mo_cls_desk_e', 'dy_d2_mo_cls_stand_e',
+    'dy_d2_mo_cls_r', 'dy_d2_mo_cls_call_e', 'dy_d2_mo_cls_after_e',
+    'dy_d2_mo_strict_e', 'dy_d2_mo_plain_e', 'dy_d2_mo_soft_e',
+  ]],
 ];
+/* =====================================================================
+   账册那一处是**本轮唯一被授权扩写的正文**
+   ---------------------------------------------------------------------
+   熬药那一轮的任务书 §4.2 明确允许扩充府邸账目（药房常例那一笔是固定采购的
+   出处，必须写在账面上），但要求「最小必要改动」。所以规矩一点没松：
+
+     · store/第二天新场景.txt 里那份**原文一个字都没改** —— 它还是核对基准
+       （任务 §3.5：不许为了让核对通过去动基准）
+     · 原文**一字不少、一字不改**地留在节点里：前半段与收尾那半句各查各的
+     · 夹在中间的那一段在下面**明写着**，多一个字少一个字都红
+
+   想偷偷改原文，前两条立刻拦下；想偷偷往中间塞东西，第三条拦下。
+   ===================================================================== */
+const LEDGER_NODE = 'dy_d2_af_ledger_e';
+const LEDGER_TAIL = '你核对了一遍数目，又把账册合上。';
+const LEDGER_ADDED = [
+  '再往下翻，是这一周府里的日常开销，记的都是银币。厨房那一栏最长：',
+  '面粉与谷物、肉与腌货、蔬菜与果品、盐与香料、灶下柴炭，还有马料草料，合计一百八十九。',
+  '下人们的工钱另起一栏，府内仆人、厨房与马厩的帮工、门房与守夜，三笔加起来一百九十一。',
+  '灯油与蜡烛、劈柴与木炭、洗衣房用的碱和肥皂、缝补用的麻布与针线，再算上铁匠来修过一次门轴，',
+  '这一栏合计六十八。',
+  '最后一栏是药房。这一项是定例：每月照旧方配齐柳树皮、苦根片、银脉草和蜂蜜，',
+  '另带一小包芥籽备着，这一笔九十六。',
+  '从头加到尾，这一周一共支出八百二十。药房那一份今天已经送到，就搁在你房间的桌边。',
+];
+
+/** 账册节点的三段对照；全对返回 ''，否则返回哪里不对 */
+function checkLedgerNode(sourceGroups, node) {
+  const raw = stripAll((sourceGroups || [])[0] || '');
+  const cut = raw.indexOf(stripAll(LEDGER_TAIL));
+  if (cut < 0) return '源文里找不到收尾那半句，没法切前后段';
+  const head = raw.slice(0, cut);
+  const got = stripAll((node.dialogues || []).map((d) => d.text || '').join(''));
+  const added = stripAll(LEDGER_ADDED.join(''));
+
+  if (got.slice(0, head.length) !== head) return '前半段与作者原文对不上了（原文被改过）';
+  if (got.slice(-stripAll(LEDGER_TAIL).length) !== stripAll(LEDGER_TAIL)) {
+    return '收尾那半句与作者原文对不上了（原文被改过）';
+  }
+  if (got.slice(head.length, got.length - stripAll(LEDGER_TAIL).length) !== added) {
+    return '夹在中间的那一段与这里登记的「本轮新增」对不上（多写或少写了）';
+  }
+  if (got.length <= head.length + stripAll(LEDGER_TAIL).length) return '中间那一段是空的';
+  return '';
+}
+
 for (const [file, ids] of AUTHOR_FILES) {
   const src = readSource(file);
   // 「手记 · …」那一节不是节点（它是册子上的一页），下面单独对
@@ -707,6 +780,19 @@ for (const [file, ids] of AUTHOR_FILES) {
     const want = src.get(id) || [];
     const got = groupDialogues(node);
     t.eq(got.length, want.length, `${id}：台词的组数与源文对得上`);
+
+    /* 账册那一节走三段对照（见上面那张说明），其余仍是逐字相同 */
+    if (id === LEDGER_NODE) {
+      const line = LEDGER_ADDED.join('');
+      t.eq(checkLedgerNode(want, node), '',
+        `${id}：原文一字未动，新增的那一段与登记在案的一字不差`);
+      t.ok(line.indexOf('购置马匹') < 0 && line.indexOf('送入酒窖的酒') < 0,
+        '新增那一段没有重述原文已有的两笔（马匹 / 酒）');
+      t.ok(byId.get(LEDGER_NODE).next === 'dy_d2_af_hub',
+        `${id}：出口没动，账册看完照旧回午后菜单`);
+      continue;
+    }
+
     got.forEach((g, i) => t.eq(stripAll(g), stripAll(want[i] || ''),
       `${id} 第 ${i + 1} 组与作者原文逐字相同`));
   }
@@ -821,12 +907,13 @@ function toDayEnd(e) {
   return e.node.id;
 }
 
-/* 第 2 天三个时段：早晨走原著授课线（它自己没有 _r，选择权在 b19_aubrey 那个三选一上），
+/* 第 2 天三个时段：早晨走教室线（第四轮起它自己就带一处处理选择 ——
+   介入那一节的三选一，以前那处选择在原著 b19_aubrey 上），
    午餐后与外院各有自己的处理选择。 */
-const d2want = [['mo', null], ['nn', 'dy_d2_nn_hall_r'], ['af', 'dy_d2_af_hil_r']];
+const d2want = [['mo', 'dy_d2_mo_cls_r'], ['nn', 'dy_d2_nn_hall_r'], ['af', 'dy_d2_af_hil_r']];
 d2want.forEach(([s, want], k) => {
   const r = playSlot(e2, 0);
-  t.eq(r, want, `${slotCn[s]}：${want ? '落到本时段的处理选择 ' + want : '本时段没有处理选择（授课线的选择在 b19 上）'}`);
+  t.eq(r, want, `${slotCn[s]}：落到本时段的处理选择 ${want}`);
   if (r) {
     // 站在处理选择上、还没迈步的时候：这一笔还不该出现（旗是 0，和「选了 A」同形）
     const standing = D.eventTexts(whole, e2, 2);
@@ -860,8 +947,8 @@ for (let k = 0; k < 3; k++) {
 t.eq(toDayEnd(e2b), 'dy_d3_mo_intro', '第二天走完，穿过 b25_end 落进第 3 天开场（查看笔记）');
 const day2b = D.collect(whole, e2b, 2);
 t.eq(day2b.filter((x) => x.offstage).map((x) => x.node).sort(),
-  ['b12_morning', 'b16_montage', 'b17_scream', 'b21_haier_calls', 'b23_corridor'],
-  '授课段整段没亲历：那五段由她自己补记');
+  ['b23_corridor', 'dy_d2_mo_cls_call_e', 'dy_d2_mo_cls_desk_e', 'dy_d2_mo_cls_door_e', 'dy_d2_mo_cls_stand_e'],
+  '教室段整段没亲历：那四段由她自己补记（另加放学回房那一段）');
 t.eq(day2b.filter((x) => !x.offstage).length, 0,
   '厨房与外院那两处都不进她的册子（她不在场，或者那件事不值得记）');
 t.eq([...new Set(day2b.map((x) => x.slot))].sort(), ['午后', '中午', '夜晚', '早晨'].sort(),
@@ -891,18 +978,18 @@ t.section('端到端 · 没亲历的那一段');
 {
   const skip = new StoryEngine(whole);
   skip.enterNode('dy_d2_mo_hub');
-  skip.choose(1);                                  // 本时段去书房，授课线整段错过
-  t.eq(skip.node.id, 'dy_d2_mo_doc_e', '落在书房那处活动上（不是原著段）');
+  skip.choose(1);                                  // 本时段去书房，教室线整段错过
+  t.eq(skip.node.id, 'dy_d2_mo_doc_e', '落在书房那处活动上（不是教室线）');
   t.eq(skip.getStat('旗_授课方式'), 2,
-    '授课线按默认走法结掉了 —— b19_aubrey 的 defaultPick 是 1（「照原来的节奏教下去」→ 旗 2）');
+    '教室线按默认走法结掉了 —— dy_d2_mo_cls_r 的 defaultPick 是 1（「照原来的节奏教下去」→ 旗 2）');
   t.eq(toReaction(skip), 'dy_d2_mo_doc_r', '书房活动自己的处理选择');
   t.eq(D.offstageFor(whole, skip, 2), [], '这个时段还没过去，补记先不写（不然是提前剧透）');
   skip.choose(0);                                  // 处理完，推到午餐
   t.eq(skip.node.id, 'dy_d2_nn_meal_e', '接着是午餐那一场（固定事件，不是菜单）');
   t.eq(toNextHub(skip), 'dy_d2_nn_hub', '午餐演完推到午餐后的菜单');
   const rec = D.offstageFor(whole, skip, 2);
-  t.eq(rec.map((x) => x.node), ['b12_morning', 'b17_scream'],
-    '早晨那两段原著补记进来了 —— 补记按它自己挂的时辰走：b16 挂中午、b21 挂午后，还没到');
+  t.eq(rec.map((x) => x.node), ['dy_d2_mo_cls_door_e', 'dy_d2_mo_cls_stand_e'],
+    '早晨那两段补记进来了 —— 补记按它自己挂的时辰走：上课那一段挂中午、海尔来叫吃饭那一段挂午后，还没到');
   t.eq(rec.map((x) => x.slot), ['早晨', '早晨'], '补记挂在她错过的那个时辰上');
   t.eq(rec.every((x) => x.offstage === true), true, '哪一条是补记的，数据里标得出来');
   const texts = D.eventTexts(whole, skip, 2);

@@ -22,6 +22,7 @@ const SUITES = [
   ['server', 'tests/server.test.cjs', '存档服务器'],
   ['fidelity', 'tests/fidelity.cjs', '原文核对'],
   ['daily', 'tests/daily.test.cjs', '日常层（时段 / 日记 / HUD）'],
+  ['brew', 'tests/brew.test.cjs', '熬药（材料 / 药方 / 引擎 / 账目 / 界面）'],
 ];
 
 const ROOT = path.join(__dirname, '..');

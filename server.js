@@ -104,11 +104,25 @@ const BLOCKED_PREFIXES = [
   '/node_modules', '/.',
   '/act1/source', '/act2/source', '/act3/source',
   '/store',
+  // 文稿归了类之后又多了几个能下到原文的地方：作者资料包里就带着第六～九章的
+  // 原著副本，废件里的首轮修改指令.zip 也是同一批。一并挡住。
+  '/游戏实际运行稿', '/游戏小说原稿', '/废件',
 ];
 
 app.use((req, res, next) => {
   const p = req.path;
-  if (BLOCKED_PATHS.has(p) || BLOCKED_PREFIXES.some((pre) => p.startsWith(pre))) {
+  // 上面这三条前缀是中文，浏览器会先 percent-encode 再发过来，req.path 拿到的是
+  // 没解码的 %E6%B8%B8%E6%88%8F...，只比原串会整条漏掉。解一次码再比一遍。
+  let decoded = p;
+  try {
+    decoded = decodeURIComponent(p);
+  } catch {
+    // 非法转义（%ZZ 这种）就按原样比，交给 express 自己报错
+  }
+  const hit = [p, decoded].some(
+    (raw) => BLOCKED_PATHS.has(raw) || BLOCKED_PREFIXES.some((pre) => raw.startsWith(pre))
+  );
+  if (hit) {
     return res.status(403).json({ ok: false, error: 'FORBIDDEN', message: '该路径不允许访问' });
   }
   next();

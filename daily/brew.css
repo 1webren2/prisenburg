@@ -1,0 +1,620 @@
+/* =====================================================================
+   熬药界面（加在 act1/style.css 与 daily/daily.css 后面加载）
+   ---------------------------------------------------------------------
+   只增不改：所有选择器都带 dy-brew- 前缀，撞不到前面两份里的任何一条。
+   颜色一律用 act1/style.css 里已有的那些变量（--gold / --parchment /
+   --panel / --panel-edge / --font-serif…），不另立一套调色板。
+
+   层次（和 daily.css 记的同一张表）：
+     开始界面 18 / 熬药 13 / 日记本 12 / 结算屏 8 / HUD 5
+   熬药压着日记本，是因为熬药期间键盘与点击都归它 —— 玩家不该在火上的
+   时候翻开头一天的册子（那会儿剧情也没往前走）。
+   ===================================================================== */
+
+.dy-brew-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 13;
+  display: none;
+  font-family: var(--font-sans);
+  color: var(--parchment);
+}
+
+/* 摊开/收起走同一套：显示用 .on，别处（比如 show() 的 display）也能关 */
+.dy-brew-screen.on { display: block; }
+
+.dy-brew-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 5, 4, 0.74);
+  backdrop-filter: blur(3px);
+}
+
+.dy-brew-card {
+  position: absolute;
+  inset: 4vh max(18px, var(--dialogue-gutter)) calc(var(--hud-h) + var(--hud-bottom) + 14px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  background: linear-gradient(180deg, rgba(18, 15, 12, 0.97), rgba(11, 10, 8, 0.97));
+  border: 1px solid var(--panel-edge);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* =====================================================================
+   头
+   ===================================================================== */
+
+.dy-brew-head { flex: 0 0 auto; }
+
+.dy-brew-title {
+  font-family: var(--font-name);
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  color: var(--gold-bright);
+}
+
+.dy-brew-desc {
+  margin: 6px 0 0;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--parchment);
+  opacity: 0.92;
+}
+
+.dy-brew-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--parchment-dim);
+}
+
+/* =====================================================================
+   正文两栏：左＝材料栏，右＝这一段工序
+   ===================================================================== */
+
+.dy-brew-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.dy-brew-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding-right: 16px;
+  border-right: 1px solid rgba(201, 160, 90, 0.16);
+}
+
+.dy-brew-sidehead {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+}
+
+.dy-brew-mats {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.dy-brew-mat { margin-bottom: 6px; }
+
+.dy-brew-matbtn {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 9px;
+  text-align: left;
+  background: rgba(28, 24, 19, 0.6);
+  border: 1px solid rgba(201, 160, 90, 0.14);
+  border-radius: 8px;
+  color: var(--parchment);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.dy-brew-matbtn:hover:not(:disabled),
+.dy-brew-matbtn:focus-visible:not(:disabled) {
+  border-color: var(--gold);
+  background: rgba(46, 38, 28, 0.72);
+}
+
+.dy-brew-matbtn:disabled { cursor: default; opacity: 0.62; }
+/* 用不上的那一味（这一锅不投它）压得更暗一档，一眼看得出是备着的 */
+.dy-brew-mat:not(.dy-brew-mat--used) .dy-brew-matbtn { opacity: 0.44; }
+.dy-brew-mat--out .dy-brew-matbtn { opacity: 0.34; }
+.dy-brew-mat--out .dy-brew-matcount { color: #a4625a; }
+
+.dy-brew-matbody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.dy-brew-matname { font-size: 14px; letter-spacing: 0.04em; }
+
+.dy-brew-matkey {
+  display: inline-block;
+  min-width: 15px;
+  margin-right: 6px;
+  padding: 0 3px;
+  font-size: 11px;
+  color: var(--gold);
+  border: 1px solid rgba(201, 160, 90, 0.4);
+  border-radius: 3px;
+  text-align: center;
+}
+
+.dy-brew-matdesc {
+  font-family: var(--font-serif);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--parchment-dim);
+}
+
+.dy-brew-matcount {
+  font-size: 12.5px;
+  color: var(--gold-soft);
+  white-space: nowrap;
+}
+
+.dy-brew-matneed {
+  margin-left: 6px;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--parchment-dim);
+}
+
+.dy-brew-manualbtn,
+.dy-brew-btn {
+  padding: 8px 16px;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: var(--parchment);
+  background: rgba(32, 27, 21, 0.86);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.dy-brew-manualbtn:hover,
+.dy-brew-btn:hover:not(:disabled),
+.dy-brew-btn:focus-visible:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+
+.dy-brew-btn:disabled { opacity: 0.38; cursor: default; }
+
+.dy-brew-sidehint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--parchment-dim);
+}
+
+/* =====================================================================
+   右栏：这一段工序
+   ===================================================================== */
+
+.dy-brew-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.dy-brew-dots { display: flex; gap: 8px; }
+
+.dy-brew-dot {
+  width: 22px;
+  height: 22px;
+  line-height: 20px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--parchment-dim);
+  border: 1px solid rgba(201, 160, 90, 0.24);
+  border-radius: 50%;
+}
+
+.dy-brew-dot.done { color: var(--gold-soft); border-color: var(--gold-soft); }
+.dy-brew-dot.now {
+  color: var(--ink);
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+.dy-brew-stagelabel {
+  font-family: var(--font-name);
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  color: var(--gold-bright);
+}
+
+.dy-brew-brief {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--parchment);
+  opacity: 0.9;
+}
+
+.dy-brew-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.dy-brew-chip {
+  padding: 3px 9px;
+  font-size: 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 160, 90, 0.28);
+  color: var(--parchment-dim);
+}
+
+.dy-brew-chip.todo { border-style: dashed; }
+.dy-brew-chip.ok { color: var(--gold-bright); border-color: var(--gold); }
+.dy-brew-chip.bad { color: #d09088; border-color: rgba(196, 110, 100, 0.7); }
+
+.dy-brew-pickhint {
+  align-self: center;
+  font-size: 12px;
+  color: var(--parchment-dim);
+}
+
+/* ---- 两根条：火候（填充）与火口（来回扫的指针） ---- */
+
+.dy-brew-gauge { display: flex; flex-direction: column; gap: 4px; }
+
+.dy-brew-gaugehead {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--parchment-dim);
+}
+
+.dy-brew-gaugename { color: var(--gold); }
+
+.dy-brew-track {
+  position: relative;
+  height: 16px;
+  background: rgba(8, 7, 6, 0.8);
+  border: 1px solid rgba(201, 160, 90, 0.18);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+/* 目标区间（要停在这一段里） */
+.dy-brew-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(201, 160, 90, 0.22);
+  border-left: 1px solid rgba(201, 160, 90, 0.5);
+  border-right: 1px solid rgba(201, 160, 90, 0.5);
+}
+
+/* 火候：从左边涨上来的那一段 */
+.dy-brew-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(90deg, #6b3a2a, #b07a48);
+  transition: width 0.08s linear;
+}
+
+.dy-brew-fill.in-band {
+  background: linear-gradient(90deg, #8a5a2a, var(--gold));
+  box-shadow: 0 0 10px rgba(201, 160, 90, 0.5);
+}
+
+/* 火口：来回扫的指针 */
+.dy-brew-sweephead {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  margin-left: -1px;
+  background: var(--parchment-dim);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+}
+
+.dy-brew-sweephead.on {
+  background: var(--gold-bright);
+  box-shadow: 0 0 10px rgba(227, 199, 143, 0.9);
+}
+
+/* ---- 倒计时 ---- */
+
+.dy-brew-timer { display: flex; align-items: center; gap: 10px; }
+
+.dy-brew-timerbar {
+  flex: 1 1 auto;
+  height: 3px;
+  background: var(--gold-soft);
+  border-radius: 2px;
+  transition: width 0.08s linear;
+}
+
+.dy-brew-timerbar.urgent { background: #b4553f; }
+
+.dy-brew-timertext {
+  min-width: 62px;
+  text-align: right;
+  font-size: 12.5px;
+  color: var(--parchment-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 反馈 ---- */
+
+.dy-brew-feedback {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dy-brew-fb {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  line-height: 1.6;
+  padding-left: 1.1em;
+  text-indent: -1.1em;
+}
+
+.dy-brew-fb::before { content: "· "; color: var(--parchment-dim); text-indent: 0; }
+.dy-brew-fb--good { color: var(--gold-bright); }
+.dy-brew-fb--ok { color: var(--parchment); }
+.dy-brew-fb--bad { color: #c98e86; }
+
+/* ---- 动作区 ---- */
+
+.dy-brew-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.dy-brew-fire.on {
+  border-color: var(--gold);
+  color: var(--ink);
+  background: var(--gold);
+}
+
+.dy-brew-confirm {
+  border-color: rgba(201, 160, 90, 0.55);
+  color: var(--gold-bright);
+}
+
+.dy-brew-confirm.wait { opacity: 0.72; }
+
+.dy-brew-skip { margin-left: auto; color: var(--parchment-dim); }
+
+/* 材料没投完就按确认：抖一下，别让那一下白按 */
+@keyframes dy-brew-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.dy-brew-confirm.shake { animation: dy-brew-shake 0.16s ease 2; }
+
+/* =====================================================================
+   熬药手册：盖在卡片上的一层纸。**翻开不停表**（引擎那边一无所知）
+   ===================================================================== */
+
+/* 收起时 display:none，摊开由 JS 写成 display:flex（它是个 flex 居中框，
+   所以不能用 style.display = '' 那套 —— 那会落回这里的 none）。 */
+.dy-brew-manual {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 5, 4, 0.62);
+}
+
+.dy-brew-manualpaper {
+  width: min(560px, 92%);
+  max-height: 88%;
+  overflow-y: auto;
+  padding: 22px 26px 18px;
+  background: linear-gradient(180deg, #efe7d6, #ded3bd);
+  color: #241f18;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.dy-brew-manualtitle {
+  font-family: var(--font-name);
+  font-size: 15px;
+  letter-spacing: 0.16em;
+  color: #6b5636;
+  margin-bottom: 8px;
+}
+
+.dy-brew-manuallist,
+.dy-brew-manualneed {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.dy-brew-manualrow { display: flex; gap: 9px; margin-bottom: 8px; }
+
+.dy-brew-manualno {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  line-height: 17px;
+  text-align: center;
+  font-size: 11px;
+  color: #6b5636;
+  border: 1px solid #6b5636;
+  border-radius: 50%;
+}
+
+.dy-brew-manualbody { display: flex; flex-direction: column; gap: 1px; }
+.dy-brew-manualname { font-size: 13.5px; }
+.dy-brew-manualtext { font-family: var(--font-serif); font-size: 12.5px; line-height: 1.6; color: #4a3f2e; }
+
+.dy-brew-needrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.dy-brew-needqty { font-size: 12px; color: #6b5636; }
+
+/* 手册里那几张小图在浅底上要用深色描边 */
+.dy-brew-manualpaper .dy-brew-art { color: #3a3020; }
+
+.dy-brew-manualclose { margin-top: 4px; color: #241f18; background: #cfc3a9; border-color: #8a7550; }
+
+/* =====================================================================
+   两屏整张的纸：开头（起火 / 料不够）与收尾（结算）
+   ===================================================================== */
+
+.dy-brew-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 26px 28px;
+  background: linear-gradient(180deg, rgba(18, 15, 12, 0.99), rgba(11, 10, 8, 0.99));
+  overflow-y: auto;
+}
+
+.dy-brew-paneltitle {
+  font-family: var(--font-name);
+  font-size: 20px;
+  letter-spacing: 0.1em;
+  color: var(--gold-bright);
+}
+
+.dy-brew-panelbody {
+  max-width: 62ch;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--parchment);
+}
+
+.dy-brew-resultpanel .dy-brew-paneltitle { font-size: 26px; }
+
+.dy-brew-resultrows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 62ch;
+}
+
+.dy-brew-resultrow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0;
+  font-size: 13.5px;
+  border-bottom: 1px solid rgba(201, 160, 90, 0.12);
+}
+
+.dy-brew-resultkey { color: var(--parchment-dim); letter-spacing: 0.08em; }
+.dy-brew-resultval { display: flex; align-items: center; gap: 8px; color: var(--parchment); }
+.dy-brew-resultname { font-family: var(--font-serif); }
+
+/* =====================================================================
+   物品图（占位 / 正式图共用一只壳）
+   ===================================================================== */
+
+.dy-brew-art {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--gold-soft);
+}
+
+.dy-brew-art-svg { display: block; width: 100%; height: 100%; }
+.dy-brew-art-svg svg { display: block; width: 100%; height: 100%; }
+.dy-brew-art-img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+/* 占位图上那枚角标：**明写「占位」**，别让人把它当成正式素材 */
+.dy-brew-art-tag {
+  position: absolute;
+  right: -2px;
+  bottom: -3px;
+  padding: 0 2px;
+  font-size: 8px;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: #d9cba8;
+  background: rgba(10, 9, 8, 0.82);
+  border: 1px solid rgba(201, 160, 90, 0.35);
+  border-radius: 2px;
+  transform: scale(0.92);
+  pointer-events: none;
+}
+
+.dy-brew-manualpaper .dy-brew-art-tag {
+  color: #f2ead6;
+  background: rgba(58, 48, 32, 0.86);
+  border-color: rgba(58, 48, 32, 0.5);
+}
+
+/* =====================================================================
+   窄屏 / 矮屏
+   ===================================================================== */
+
+@media (max-width: 860px) {
+  .dy-brew-card { inset: 2vh 12px calc(var(--hud-h) + var(--hud-bottom) + 10px); padding: 16px 14px; }
+  .dy-brew-main { grid-template-columns: minmax(0, 1fr); overflow-y: auto; }
+  .dy-brew-side {
+    border-right: 0;
+    border-bottom: 1px solid rgba(201, 160, 90, 0.16);
+    padding: 0 0 12px;
+  }
+  .dy-brew-mats { max-height: 168px; }
+  .dy-brew-title { font-size: 19px; }
+}
+
+@media (max-height: 620px) {
+  .dy-brew-card { inset: 10px 14px calc(var(--hud-h) + var(--hud-bottom) + 8px); }
+  .dy-brew-desc { display: none; }
+  .dy-brew-track { height: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dy-brew-fill, .dy-brew-timerbar { transition: none; }
+  .dy-brew-confirm.shake { animation: none; }
+}

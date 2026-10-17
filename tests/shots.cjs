@@ -46,14 +46,19 @@ const TARGETS = [
   { name: '01-开始界面', mode: 'title' },
   { name: '02-双立绘-西比拉与布朗', node: 's1_rain', mode: 'first', speaker: '布朗' },
   // 第二轮回填把第一天的奥布里幕间整批摘掉（作者定稿：不设置奥布里幕间、不进行玩家选择），
-  // 所以「奥布里视角的选项点」现在最靠前的一处是第二天三楼教室那一问（b19_aubrey，三选一）。
-  { name: '03-选项点-奥布里视角', node: 'b19_aubrey', mode: 'choices' },
+  // 奥布里视角的选项点现在最靠前的一处是第二天早晨教室线里那一问
+  // （dy_d2_mo_cls_r，三选一：课堂怎么处理）。
+  { name: '03-选项点-奥布里视角', node: 'dy_d2_mo_cls_r', mode: 'choices' },
   { name: '04-跨幕第一眼', node: 'b1_room', via: 'o4_end', mode: 'first' },
-  { name: '05-牧师服', node: 'b12_morning', mode: 'first' },
-  { name: '06-教室-伊莎贝尔', node: 'b18_classroom', mode: 'first', speaker: '伊莎贝尔' },
+  // 牧师服（＝教师服）：第二天那堂挪进日常层、改成奥布里视角之后，
+  // 原著里只剩第九章这一处她还是主视角的（那边走 art.portrait 换装）。
+  { name: '05-牧师服', node: 'h9_lesson', mode: 'first' },
+  { name: '06-教室-伊莎贝尔', node: 'dy_d2_mo_cls_stand_e', mode: 'first', speaker: '伊莎贝尔' },
   { name: '07-换回女仆装', node: 'b24_change', mode: 'first' },
   { name: '08-第二幕选项点', node: 'b2_haier_knock', mode: 'choices' },
-  { name: '11-双立绘-西比拉与奥布里', node: 'b19_aubrey', mode: 'first', speaker: '奥布里' },
+  // 双立绘：这一刻左槽是奥布里的视角，她在右槽 —— 穿的还是教师服那一张
+  // （dialogues[].portrait 逐句挂的，见 ui.test.cjs 里那条「逐句立绘」）
+  { name: '11-双立绘-西比拉与奥布里', node: 'dy_d2_mo_cls_stand_e', mode: 'first', speaker: '西比拉' },
   { name: '09-第一幕结局屏', node: 'o4_end', mode: 'end' },
   // b25_end 不再有结算屏（它退成了通往第 3 天的零台词过场），
   // 第一幕真正的收束屏挪到了第九章末 h9_end 那一格
@@ -96,6 +101,14 @@ const TARGETS = [
   // 狩猎篇：第六章返营那一格的插画过场。这一层是 ui.js 运行时造的（不带 id），
   // 整屏铺满 + 缓慢推进，所以要量的是「盖没盖满、文字有没有出画」。
   { name: '25-插画过场-第六章返营', mode: 'cut', node: 'h6_ride' },
+  // 熬药浮层（第四轮）：起锅前 / 火上（两根条都在动）/ 手册摊开 / 结算。
+  // 四屏都是 daily/brew-ui.js 运行时造的卡，量的是「卡有没有出画、两根条画没画出来、
+  // 材料栏那一列挤不挤、窄屏下会不会塌成一团」。手册那一屏还要盯一件事：
+  // **翻开手册不停表**，倒计时那一行得是在走的（不是冻住的）。
+  { name: '31-熬药-起火前', mode: 'brew', node: 'dy_d2_ev_brew_e', brewAt: 'ready' },
+  { name: '32-熬药-火上-投了半味', mode: 'brew', node: 'dy_d2_ev_brew_e', brewAt: 'running', pickCount: 1 },
+  { name: '33-熬药-手册摊开', mode: 'brew', node: 'dy_d2_ev_brew_e', brewAt: 'manual', pickCount: 1 },
+  { name: '34-熬药-结算', mode: 'brew', node: 'dy_d2_ev_brew_e', brewAt: 'result' },
 ];
 
 /* ===================================================================
@@ -283,6 +296,41 @@ function jumpExpr(target) {
     lines.push(`e.enterNode(${JSON.stringify(target.node)});`);
     lines.push('let v = e.advance();');
     lines.push('ui.renderStats(); ui.render(v);');
+  } else if (target.mode === 'brew') {
+    /* 熬药浮层：站到熬药那一格，推到**最后一句之前**（浮层就挂在那一句上），
+       再用界面自己的入口把它端出来 —— 就是玩家按空格时走的那条路
+       （window.BrewUI.openAtStory），不是手工摆 DOM。
+       之后按 target.brewAt 停在要看的那一步：
+         ready   起火前那一屏
+         running 火候与火口那两根条（界面在浏览器里每帧自推，所以量到的是活的）
+         manual  手册摊开（**表照走**，倒计时那一行得是在动的）
+         result  结算
+
+       点的是**界面自己那几颗按钮**（.click()），所以走的还是玩家那条路 ——
+       引擎的 skip() 只是把阶段跳过去，结算那一片是界面画出来的。 */
+    lines.push('ui.begin();');
+    lines.push(`e.enterNode(${JSON.stringify(target.node)});`);
+    lines.push('let v = e.advance();');
+    lines.push('for (let i = 0; i < 20 && e.lineIndex < e.visibleLines().length - 1; i++) v = e.advance();');
+    lines.push('ui.renderStats(); ui.render(v);');
+    lines.push('window.BrewUI.openAtStory();');
+    const at = target.brewAt || 'running';
+    if (at === 'result') {
+      lines.push('window.BrewUI.nodes().readySkip.click();');       // 跳过 → 按普通结算
+    } else if (at !== 'ready') {
+      lines.push('window.BrewUI.nodes().readyStart.click();');      // 起火
+      /* 停在「火烧起来了、药投了一半」那一屏上：有指针、有读数、有已投的筹码。
+         火候那根条要往上走，得按住添柴 —— 截图脚本量之前会 sleep 一下，
+         界面在浏览器里每帧自推，所以这一会是活的。 */
+      lines.push('{ const be = window.BrewUI.engine();');
+      lines.push('  const st = be.stage;');
+      lines.push('  const b = st.heat.band, sb = st.sweep.band;');
+      lines.push('  be.holdHeat(true);');
+      lines.push('  const want = be.expectedPicks();');
+      lines.push(`  for (let i = 0; i < ${Number(target.pickCount || 0)} && be.picksLeft() > 0; i++) be.pick(want[be.picks.length]);`);
+      lines.push('}');
+      if (at === 'manual') lines.push('window.BrewUI.toggleManual(true);');
+    }
   } else {
     lines.push('ui.begin();');
     if (target.via) lines.push(`e.enterNode(${JSON.stringify(target.via)});`);
@@ -334,6 +382,30 @@ const MEASURE = `(() => {
     right: rect('#portrait-layer-r'),
     title: rect('#title-bar'),
     dlg: rect('#dialogue-box'),
+    /* 对话框那块「皮」铺到窗口右边缘了没有。
+       皮是 #dialogue-box::before 一层（底色 / 毛玻璃 / 描边 / 柔光全在它身上）——
+       #app 是两栏 grid，对话框只铺得满左栏，右边那一栏（--panel-w）得靠它越过去。
+       伪元素量不到 rect，用盒子的左边界 + 伪元素的宽度推。 */
+    dlgStrip: (() => {
+      const el = document.querySelector('#dialogue-box');
+      if (!el) return null;
+      const cs = getComputedStyle(el, '::before');
+      const b = el.getBoundingClientRect();
+      const w = parseFloat(cs.width) || 0;
+      return {
+        w: +w.toFixed(1),
+        right: +(b.left + w).toFixed(1),
+        bg: cs.backgroundImage.slice(0, 20),
+        blur: cs.backdropFilter || cs.webkitBackdropFilter || 'none',
+      };
+    })(),
+    /* 正文得浮在那层皮之上（它绝对定位，会盖住没定位的内容）—— 量的是那两条规则在不在 */
+    dlgText: (() => {
+      const t = document.querySelector('#dialogue-text');
+      if (!t) return null;
+      const cs = getComputedStyle(t);
+      return { pos: cs.position, z: cs.zIndex };
+    })(),
     text: rect('#dialogue-text'),
     choices: rect('#choices'),
     choice0: rect('#choices .choice-btn'),
@@ -354,6 +426,61 @@ const MEASURE = `(() => {
     cutOpen: (() => {
       const el = document.querySelector('.cut-screen');
       return !!(el && el.classList.contains('on'));
+    })(),
+    /* ---- 熬药浮层（daily/brew-ui.js 运行时造出来的那一整张卡） ---- */
+    brew: (() => {
+      const screen = document.querySelector('.dy-brew-screen');
+      if (!screen || !screen.classList.contains('on')) return null;
+      const q = (sel) => document.querySelector(sel);
+      const card = q('.dy-brew-card');
+      const cb = card ? card.getBoundingClientRect() : null;
+      const bar = (sel) => {
+        const el = q(sel);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        const p = el.parentNode.getBoundingClientRect();
+        return { w: +r.width.toFixed(1), h: +r.height.toFixed(1),
+          // 这一条占它那条轨道的百分之几（0 就是没画出来）
+          ratio: p.width ? +(r.width / p.width).toFixed(3) : 0 };
+      };
+      const mats = [].slice.call(document.querySelectorAll('.dy-brew-mat'));
+      const buttons = [].slice.call(card ? card.querySelectorAll('.dy-brew-btn') : []);
+      return {
+        card: cb ? { left: +cb.left.toFixed(1), top: +cb.top.toFixed(1),
+          right: +cb.right.toFixed(1), bottom: +cb.bottom.toFixed(1),
+          w: +cb.width.toFixed(1), h: +cb.height.toFixed(1) } : null,
+        title: (q('.dy-brew-title') || {}).textContent || '',
+        matRows: mats.length,
+        matH: mats.length ? +mats[0].getBoundingClientRect().height.toFixed(1) : 0,
+        /* 只数**材料栏里那一列**的图（整张卡上还有手册那一页、起火前那一屏的
+           「要用到的药」，三处加起来才是全部 —— 这里要盯的是材料栏本身） */
+        arts: document.querySelectorAll('.dy-brew-mats .dy-brew-art').length,
+        placeholders: document.querySelectorAll('.dy-brew-mats .dy-brew-art[data-art="placeholder"]').length,
+        tags: document.querySelectorAll('.dy-brew-mats .dy-brew-art-tag').length,
+        fill: bar('.dy-brew-fill'),
+        sweepHead: bar('.dy-brew-sweephead'),
+        timerBar: bar('.dy-brew-timerbar'),
+        timerText: (q('.dy-brew-timertext') || {}).textContent || '',
+        manualOn: (() => { const m = q('.dy-brew-manual'); return !!m && m.style.display === 'flex'; })(),
+        readyOn: (() => { const p = q('.dy-brew-panel'); return !!p && p.style.display !== 'none'; })(),
+        resultOn: (() => {
+          const p = q('.dy-brew-resultpanel');
+          return !!p && p.style.display !== 'none';
+        })(),
+        resultTitle: (q('.dy-brew-resultpanel .dy-brew-paneltitle') || {}).textContent || '',
+        // 卡上有没有哪颗按钮被卡片切掉（窄屏最容易出的毛病）。
+        // **在会滚的那两栏里不算**：材料栏与手册那页纸本来就 overflow-y:auto，
+        // 滚出视野的那几颗不是「被切掉」，是「要滚一下」。
+        clipped: buttons.filter((el) => {
+          const r = el.getBoundingClientRect();
+          if (!cb || !(r.right > cb.right + 0.5 || r.left < cb.left - 0.5 || r.bottom > cb.bottom + 0.5)) return false;
+          for (let p = el.parentNode; p && p !== card; p = p.parentNode) {
+            const oy = getComputedStyle(p).overflowY;
+            if (oy === 'auto' || oy === 'scroll') return false;
+          }
+          return true;
+        }).length,
+      };
     })(),
     /* ---- 日常层（daily/daily.js 运行时造出来的那几块） ---- */
     hud: rect('#hud'),
@@ -547,6 +674,21 @@ function inspect(label, m, target) {
   }
 
   if (dlgTop) notes.push(`对话框上沿 ${dlgTop}${dlg.opacity === '0' ? '（收起）' : ''}`);
+  /* 那块皮要铺满整个界面宽（右边那一栏也不能空着）—— 除非这一屏压根没有对话框
+     （开始界面 / 结局屏 / 幕间自由活动那些，量不到 #dialogue-box）。
+     顺带钉两件：皮是**一层**（底色与毛玻璃都在同一个伪元素上 —— 拆成两块拼起来
+     会在接缝处露出两道柔光，看着像两个对话框），正文浮在它上面。 */
+  if (m.dlgStrip && m.dlg && dlgTop) {
+    if (m.dlgStrip.w <= 0) bad.push('对话框那块皮没铺开（量不到 ::before 的宽度）');
+    else if (m.dlgStrip.right < vw - 0.5) {
+      bad.push(`对话框那块皮没铺到窗口右边缘（到 ${m.dlgStrip.right}，窗口宽 ${vw}）`);
+    } else notes.push(`对话框的皮铺到 ${m.dlgStrip.right}（窗口宽 ${vw}）`);
+    if (!m.dlgStrip.bg || m.dlgStrip.bg === 'none') bad.push('皮上没有底色（渐变没写在 ::before 上）');
+    if (String(m.dlgStrip.blur).indexOf('blur') < 0) bad.push('皮上没有毛玻璃（backdrop-filter 没写在 ::before 上）');
+    if (!m.dlgText || m.dlgText.pos !== 'relative' || m.dlgText.z !== '1') {
+      bad.push(`正文没浮在皮之上（#dialogue-text 是 ${m.dlgText && m.dlgText.pos} / z-index ${m.dlgText && m.dlgText.z}）`);
+    }
+  }
   if (m.choicesJump !== null) notes.push(`收起前后选项位移 ${m.choicesJump}px`);
 
   // 时段菜单那三张卡是**故意**钉在右下角的（#choices.dy-cards 把整排摘出文档流），
@@ -684,6 +826,47 @@ function inspect(label, m, target) {
     }
     notes.push(`活动卡 ${dc.n} 张·${dc.rows} 行 @ (${dc.left}~${dc.right}, ${dc.top}~${dc.bottom}) · 图标 ${dc.icons} · 「${dc.label}」`);
   }
+  /* ---- 熬药浮层（daily/brew-ui.js）：卡不许出画、材料栏那五缕要在、
+          两根条要真的画出来、六张小图现在全是占位（带角标）、按钮不许被切掉 ---- */
+  if (target.mode === 'brew') {
+    const b = m.brew;
+    if (!b || !b.card) {
+      bad.push('熬药浮层没开出来');
+    } else {
+      const c = b.card;
+      if (c.left < -0.5 || c.top < -0.5 || c.right > vw + 0.5 || c.bottom > vh + 0.5) {
+        bad.push(`熬药卡出画了：(${c.left}, ${c.top}) ~ (${c.right}, ${c.bottom})，窗口 ${vw}×${vh}`);
+      }
+      if (c.bottom > vh - 40) bad.push(`熬药卡下沿压到 HUD 上了（bottom ${c.bottom} / 窗口高 ${vh}）`);
+      if (b.clipped) bad.push(`熬药卡上有 ${b.clipped} 颗按钮被卡片切掉`);
+      if (!b.title) bad.push('熬药卡上没写方子名');
+      if (b.matRows !== 5) bad.push(`材料栏该摆 5 味，实际 ${b.matRows} 味`);
+      if (!b.arts) bad.push('材料栏上没画图标');
+      if (b.placeholders !== b.arts || b.tags !== b.arts) {
+        bad.push(`占位标记对不上：${b.arts} 张图里 ${b.placeholders} 张标着 data-art=placeholder、${b.tags} 枚角标`);
+      }
+      notes.push(`熬药卡 ${c.w}×${c.h} @ (${c.left}, ${c.top}) · 材料栏 ${b.matRows} 行（首行高 ${b.matH}）· 图 ${b.arts} 张（全是占位，带角标）`);
+
+      if (target.brewAt === 'running' || target.brewAt === 'manual') {
+        if (!b.fill || b.fill.w < 1) bad.push('火候那一根条没画出来');
+        if (!b.sweepHead || b.sweepHead.w < 1) bad.push('火口那个指针没画出来');
+        if (!b.timerText) bad.push('倒计时那一行是空的');
+        notes.push(`火候条 ${b.fill ? b.fill.w : 0}px · 指针 ${b.sweepHead ? b.sweepHead.w : 0}px · 倒计时「${b.timerText}」`);
+      }
+      if (target.brewAt === 'manual') {
+        if (!b.manualOn) bad.push('手册没摊开');
+        if (!b.timerText) bad.push('手册开着的时候倒计时那行没了 —— 翻手册不该让表停（也不该把它藏掉）');
+        notes.push('手册摊开着，表照走');
+      }
+      if (target.brewAt === 'ready' && !b.readyOn) bad.push('起火前那一屏（.dy-brew-panel）没显示');
+      if (target.brewAt === 'result') {
+        if (!b.resultOn) bad.push('结算那一片没显示');
+        if (!b.resultTitle) bad.push('结算上没写品质');
+        notes.push(`结算品质「${b.resultTitle}」`);
+      }
+    }
+  }
+
   if (m.diaryOpen) {
     const bk = m.diaryBook;
     if (!bk || bk.w <= 0) {
@@ -764,12 +947,45 @@ const PLAY_JS = `(() => {
       })(),
       // 插画过场铺着没有（第六章返营那一格要在这一条路上真的铺过一次）
       cut: !!ui().cutsceneOpen,
+      // 熬药浮层这会儿是不是开着（第 2 天傍晚那一场要在这一条路上真的开过一次）
+      brew: !!(window.BrewUI && window.BrewUI.isActive()),
+      // ……开到了哪一步（READY / RUNNING / STAGE_RESULT / COMPLETED）
+      brewState: (window.BrewUI && window.BrewUI.isActive() && window.BrewUI.engine())
+        ? window.BrewUI.engine().state : '',
     }),
     step: () => {
       // 册子摊着的时候它是模态的：日/月/数字键都被 daily.js 在捕获阶段吞掉。
       // 玩家这时会按 Esc（或空格）把它合上 —— 脚本也走同一条路。
       if (window.DailyUI && window.DailyUI.isOpen()) {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return 'ok';
+      }
+      // 熬药浮层开着的时候它也是模态的（剧情那套空格/回车先被它收下）。
+      // 这里照着**界面自己那几颗按钮**走，等价于一个手很稳的玩家在点：
+      // 先起火，然后按册子的次序投药、把火候守在带心、指针进命中区就确认，
+      // 末了按「收好」把浮层合上。走的是公开那条把手（window.BrewUI），
+      // 一条规则都不在这里重写。
+      if (window.BrewUI && window.BrewUI.isActive()) {
+        const d = window.BrewUI.nodes();
+        const be = window.BrewUI.engine();
+        if (!be) {                                   // READY 那一屏：起火了（没料就回房去）
+          const go = d.readyStart && !d.readyStart.disabled ? d.readyStart : d.readySkip;
+          if (go) go.click();
+          return 'ok';
+        }
+        if (be.state === 'RUNNING') {
+          const st = be.stage;
+          const band = st.heat.band, center = (band[0] + band[1]) / 2;
+          be.holdHeat(be.heat < center);
+          const want = be.expectedPicks();
+          if (be.picksLeft() > 0) be.pick(want[be.picks.length]);
+          const pos = be.sweepPos(), sb = st.sweep.band;
+          if (Math.abs(be.heat - center) <= (band[1] - band[0]) * 0.08 &&
+              pos >= sb[0] && pos <= sb[1] && be.picksLeft() === 0) be.confirm();
+          return 'ok';
+        }
+        if (be.state === 'STAGE_RESULT') { d.confirmBtn.click(); return 'ok'; }
+        d.resultClose.click();                       // COMPLETED：收好，回剧情
         return 'ok';
       }
       const v = ui().view;
@@ -806,7 +1022,7 @@ async function endToEnd(cdp) {
   log(`  · boot() 自己读进来的剧本：${loaded.nodes} 个节点，第二幕${loaded.hasAct2 ? '在' : '不在'}，第三幕${loaded.hasAct3 ? '在' : '不在'}`);
   if (!loaded.hasAct2) bad.push('boot() 没把第二幕读进来（meta.continues 的路径解错了）');
   if (!loaded.hasAct3) bad.push('boot() 没把第三幕读进来（meta.continues 的路径解错了）');
-  if (loaded.nodes !== 351) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 351（三幕 + 日常层 + 狩猎篇五章 + 第九章合起来）`);
+  if (loaded.nodes !== 358) bad.push(`boot() 读到的节点数是 ${loaded.nodes}，该是 358（三幕 + 日常层 + 狩猎篇五章 + 第九章合起来）`);
 
   await cdp.eval(PLAY_JS);
 
@@ -823,6 +1039,7 @@ async function endToEnd(cdp) {
   const diaryNodes = [];              // 日记本在哪些节点上摊开过（按先后去重）
   let diarySteps = 0;
   let cutAt = null;                   // 插画过场在哪个节点上铺开过
+  const brewStates = new Set();       // 熬药浮层在这一条路上露出过哪几步
   const cardHubs = [];                // 走过的时段菜单（该拿着三张活动卡）
   const cardBad = [];                 // 卡不对的时段菜单
   let summaryAt = null;               // 上一天总结在第几天的第一个菜单上弹出来
@@ -838,6 +1055,7 @@ async function endToEnd(cdp) {
       if (!diaryNodes.includes(s.node)) diaryNodes.push(s.node);
     }
     if (s.cut) cutAt = s.node;
+    if (s.brew) brewStates.add(s.brewState || 'READY');
     if (s.cards && s.cards.on && !cardHubs.includes(s.node)) {
       // 同一格会 peek 好几次（合上总结的那一下不动剧情），按节点去重
       cardHubs.push(s.node);
@@ -868,11 +1086,33 @@ async function endToEnd(cdp) {
   if (!walked.includes('b1_room')) bad.push('全程没有进过第二幕');
   // 换牧师服那一场在第二幕原著授课线里（b17_scream 起，b18 是教室）；
   // b12_morning 那条旧链首轮回填后已脱链，主线不再从它进来。
-  if (!walked.includes('b18_classroom')) bad.push('全程没有走到换牧师服那一天（第二幕授课线 b18_classroom）');
+  // 换牧师服那一天：第四轮起走的是日常层的教室线（奥布里视角），不再走原著那条 b12 ~ b22
+  if (!walked.includes('dy_d2_mo_cls_stand_e')) bad.push('全程没有走到第二天早晨那堂礼仪课（教室线 dy_d2_mo_cls_stand_e）');
+  if (!walked.includes('dy_d2_mo_cls_after_e')) bad.push('教室线没有演到「教室里只剩西比拉」那一节');
   // 第一天那本册子：走空格走到底，它得在引入场那一格自己摊开（daily.js 的捕获阶段），
   // 摊开之后再按一下就合上、接着往下走 —— 既不漏开，也不能把人卡在最后一句上。
   // （摊开过的**不止**这一格：往后每天头一个菜单上还会弹上一日总结，所以看的是
   //   「这一格在不在名单里」，不是「最后摊开的是哪一格」。）
+  // 熬药那一场（第 2 天傍晚）：浮层得在那条路上真的端出来过，而且真的走完，
+  // 末了把料扣掉、成品发下来 —— 这一条是「键盘不串台 + 主线不被卡住」的现场证据。
+  log(`  · 熬药浮层露出过这几步：${[...brewStates].join(' → ') || '（一次都没开）'}`);
+  if (!brewStates.has('RUNNING')) bad.push('第 2 天傍晚那口锅没有真的烧起来（浮层没开到 RUNNING）');
+  if (!brewStates.has('COMPLETED')) bad.push('熬药没有走到 COMPLETED');
+  if (!walked.includes('dy_d2_ev_brew_e')) bad.push('全程没有经过熬药那一格（dy_d2_ev_brew_e）');
+  {
+    const brew = await cdp.eval(`(() => {
+      const e = window.act1.engine;
+      return { flag: e.getStat('旗_熬药结算'), bought: e.getStat('旗_账册药材结算'),
+               willow: e.getStat('药材_ing_willow_bark'), made: e.getStat('药材_item_daily_decoction') };
+    })()`);
+    log(`  · 药这一路：账册结过=${brew.bought} 这一锅结过=${brew.flag} 柳树皮剩 ${brew.willow} 份、煎剂 ${brew.made} 份`);
+    if (brew.bought !== 1) bad.push('走完一趟账册却没有结算固定采购（旗_账册药材结算 不是 1）');
+    if (brew.flag !== 1) bad.push('熬完那一锅却没有落结算旗（旗_熬药结算 不是 1）');
+    if (brew.made !== 1) bad.push('熬完却没有成品（日常调养煎剂该有 1 份）');
+    // 初始 3 份 + 账册发 2 份 − 这一锅用掉 1 份 = 4
+    if (brew.willow !== 4) bad.push(`柳树皮该剩 4 份（3 + 采购 2 − 用掉 1），实际 ${brew.willow}`);
+  }
+
   log(`  · 日记本在 ${diaryNodes.length} 处摊开过（${diaryNodes.join('、')}），共 ${diarySteps} 次停顿`);
   // 第二轮回填后这一格挪到了第一夜写手记那一场（b8_diary_writing）。
   if (!diaryNodes.includes('b8_diary_writing')) {

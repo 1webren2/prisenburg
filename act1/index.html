@@ -8,6 +8,9 @@
 <!-- 日常层的样式（HUD 时间显示 / 【日记】按钮 / 日记本）。只增不改，
      全部挂在 dy- 前缀的类上，撞不到 style.css 里的任何一条 -->
 <link rel="stylesheet" href="../daily/daily.css">
+<!-- 熬药界面的样式（浮层 / 火候与火口那两根条 / 手册 / 结算）。
+     同样只增不改，全部挂在 dy-brew- 前缀的类上 -->
+<link rel="stylesheet" href="../daily/brew.css">
 </head>
 <body>
 
@@ -156,5 +159,14 @@
 <!-- 日常层的界面层：HUD 左上角的时间显示 + HUD 上的【日记】按钮 + 摊开的册子。
      排在 ui.js 后面，DOM 全是运行时 createElement 造的，不往这个页面加新 id -->
 <script src="../daily/daily.js"></script>
+<!-- 熬药那一路，三份的次序不能换：目录（材料与药方）→ 引擎（判定与结算）→ 界面。
+     加起来的规矩与上面一样：DOM 全是运行时建的，index.html 一个新 id 都没添 -->
+<script src="../daily/alchemy.js"></script>
+<!-- 六张物品图（现在是占位，带「占位」角标）。有正式图就把 src 写进 story.json -->
+<script src="../daily/item-icons.js"></script>
+<!-- 制作执行引擎：状态机、三条工序处理器、评分、结算计划。纯逻辑，Node 里也能跑 -->
+<script src="../daily/brew.js"></script>
+<!-- 熬药浮层：挂在 dy_d2_ev_brew_e 的倒数第二句之后；账册那条固定采购也在这层结 -->
+<script src="../daily/brew-ui.js"></script>
 </body>
 </html>

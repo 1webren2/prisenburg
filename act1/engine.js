@@ -304,6 +304,7 @@
     const actsMeta = [];
     let roamData = null;      // 幕间自由活动：整块合并，不做深合并
     let diaryData = null;     // 日常层的日记数据：同上，整块认
+    let pharmacyData = null;  // 府邸账目与固定采购（熬药那一路的数据源）：同上
 
     const mergeTable = (target, src, label, actNo) => {
       for (const key of Object.keys(src || {})) {
@@ -343,6 +344,16 @@
         }
         diaryData = story.diary;
       }
+      /* 府邸账目与固定采购（daily/story.json 里的 pharmacy 块）同理，而且**只可能
+         写在日常层那一份里** —— 写在 act1 的话它就成了 first，反而更绕。
+         引擎同样**不认识它的内部结构**：账目怎么算、采购发多少，那是 alchemy/brew
+         那两层的事（daily/brew.js 的 purchasePlan）。这里只是别让它在拼接时被丢掉。 */
+      if (story.pharmacy) {
+        if (pharmacyData && JSON.stringify(pharmacyData) !== JSON.stringify(story.pharmacy)) {
+          throw new Error(`第 ${actNo} 幕的府邸账目和前面那一幕定义得不一样`);
+        }
+        pharmacyData = story.pharmacy;
+      }
       const m = story.meta || {};
       actsMeta.push({ act: m.act || null, title: m.title || null, start: m.start || null });
     });
@@ -360,6 +371,7 @@
     });
     if (roamData) composed.freeRoam = roamData;
     if (diaryData) composed.diary = diaryData;
+    if (pharmacyData) composed.pharmacy = pharmacyData;
     return composed;
   }
 
@@ -634,7 +646,11 @@
           name: (this.characters[line.speaker] || {}).displayName || line.speaker,
           color: (this.characters[line.speaker] || {}).color || null,
           narration: !!(this.characters[line.speaker] || {}).narration,
-          portrait: (this.characters[line.speaker] || {}).portrait || null,
+          /* 台词可以自己指定立绘（`dialogues[].portrait`）：右槽平常画的是
+             characters[谁].portrait 那一张**固定的**，但同一个人换过衣服的那些场次
+             —— 比如奥布里视角下的那堂礼仪课，西比拉穿的是教师服 ——
+             需要一个逐句的例外。没写就还是照人物表来。 */
+          portrait: line.portrait || (this.characters[line.speaker] || {}).portrait || null,
           context: this.currentArt(),
         };
         this.emit('line', payload);
@@ -1484,7 +1500,9 @@
       push(art.bg);
       push(art.portrait);
       for (const d of node.dialogues || []) {
-        push((this.characters[d.speaker] || {}).portrait);
+        // 逐句指定的那张优先（见 advance() 里那条）；提前拉的名单要跟着它走，
+        // 不然换过衣服的那几句要等到播到才现拉
+        push(d.portrait || (this.characters[d.speaker] || {}).portrait);
       }
 
       // 自由活动的锚点：右槽站的是房间里那个人此刻的样子，换装浮层还要一张全身像

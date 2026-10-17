@@ -26,6 +26,8 @@ const daily = require(path.join(__dirname, '..', 'daily', 'story.json'));
 // 狩猎篇：一章一文件，加载链排在日常层之后（首轮回填后第八章接第九章；第三幕的旧链留档不再进入主线）
 const hunt = [4, 5, 6, 7, 8].map((n) => require(path.join(__dirname, '..', 'hunt', `ch${n}.json`)));
 const ch9 = require(path.join(__dirname, '..', 'hunt', 'ch9.json'));
+// 熬药那一路的材料目录：库存数值（药材_…）那一类的「归属」在这里查
+const alchemy = require(path.join(__dirname, '..', 'daily', 'alchemy.js'));
 
 // 一幕一个 story.json，引擎只认一个 —— 和浏览器里 boot() 一样先拼起来。
 // 第一幕改造后多了一层日常层（daily/story.json），它的加载位置排在第三幕之后，
@@ -248,17 +250,19 @@ t.eq(
   report.warnings,
   ['o1_wait 没有任何节点指向它，走不到', 'o2_watch 没有任何节点指向它，走不到',
     'o3_watch 没有任何节点指向它，走不到', 'o4_review 没有任何节点指向它，走不到',
+    'b12_morning 没有任何节点指向它，走不到', 'b20_lesson 没有任何节点指向它，走不到',
     'b23_corridor 没有任何节点指向它，走不到', 'c1_door 没有任何节点指向它，走不到',
     'dy_d2_mo_r 没有任何节点指向它，走不到', 'dy_d2_nn_hl_e 没有任何节点指向它，走不到',
     'dy_d2_nn_guest_e 没有任何节点指向它，走不到', 'dy_d2_nn_account_e 没有任何节点指向它，走不到',
     'dy_d2_af_archive_e 没有任何节点指向它，走不到', 'dy_d2_af_wall_e 没有任何节点指向它，走不到'],
-  '自检的 warning 涨到十二条「留档链入口走不到」的登记（幕间四条 + 旧日终 / 旧第三幕两条 + 第二天重排下线六条）'
+  '自检的 warning 十四条「留档链入口走不到」的登记（幕间四条 + 旧教室线两条链首 + '
+  + '旧日终 / 旧第三幕两条 + 第二天重排下线六条）'
 );
 t.eq(act1.nodes.length, 30, '第一幕 30 个节点（西比拉 12 + 奥布里 18）');
 t.eq(act2.nodes.length, 41, '第二幕 41 个节点（27 段剧情 + 13 个自由活动锚点 + 报仇结局 fr_revenge —— fr_end_hub 已删）');
 t.eq(act3.nodes.length, 33, '第三幕 33 个节点（27 段主线 + 3 个决定点各岔出的 2 条支线）');
-t.eq(daily.nodes.length, 112,
-  '日常层 112 个节点（第二轮回填后的第 2~6 天：49 + 16 + 18 + 13 + 12，含取消线第 7、8 天各一个占位节点'
+t.eq(daily.nodes.length, 119,
+  '日常层 119 个节点（第二轮回填后的第 2~6 天：56 + 16 + 18 + 13 + 12，含取消线第 7、8 天各一个占位节点'
   + '；第 2 天那 49 个里有 14 个是本次重排下线的留档，另外两个 b8_ 节点是第一夜那场戏）');
 t.eq(hunt.map((h) => h.nodes.length), [22, 26, 28, 33, 18], '狩猎篇五章各 22 / 26 / 28 / 33 / 18 个节点（store 第四～第八章，一章一文件）');
 t.eq(
@@ -267,7 +271,9 @@ t.eq(
   '狩猎篇的加载链一章接一章，第八章接上第九章'
 );
 t.eq(ch9.meta.start, 'h9_start', '第九章从 h9_start 开始（清晨，西比拉视角）');
-t.eq(report.stats.nodes, 351, '拼起来是 351 个节点（30 + 41 + 33 + 112 + 127 + 8）');
+t.eq(report.stats.nodes, 358,
+  '拼起来是 358 个节点（30 + 41 + 33 + 日常层 119 + 狩猎篇 127 + 8）'
+  + '（第四轮按作者稿把第二天早晨的教室线重写成奥布里视角，日常层 +7）');
 t.eq(
   report.stats.endings,
   ['o4_end', 'fr_the_end', 'fr_revenge', 'h9_end'],
@@ -328,9 +334,10 @@ t.eq(hubIds.length, 17, '日常层一共 17 个 _hub 节点（第 2 天 4 + 第 
   + '其中第 2 天夜晚那个 dy_d2_ni_hub 随重排下线 —— 活着的 16 个见下面 MENU_COUNTS 与收束 hub');
 t.eq(
   liveDaily.filter((n) => /^dy_d\d+_(mo|nn|af|ev|ni)(_[a-z0-9]+)*_r$/.test(n.id)).map((n) => n.id),
-  ['dy_d2_nn_hall_r', 'dy_d2_nn_yard_r', 'dy_d2_af_yard_r', 'dy_d2_mo_doc_r', 'dy_d2_mo_stable_r',
-    'dy_d2_af_hil_r', 'dy_d3_nn_hall_r', 'dy_d4_nn_meal_r', 'dy_d4_ev_hill_r', 'dy_d5_nn_meal_r'],
-  '处理选择 _r 只在作者写了「选择：」的地方落 —— 活的一共 10 个（第 2 天 6 + 第 3 天 1 + 第 4 天 2 + 第 5 天 1，'
+  ['dy_d2_nn_hall_r', 'dy_d2_nn_yard_r', 'dy_d2_af_yard_r', 'dy_d2_mo_cls_r', 'dy_d2_mo_doc_r',
+    'dy_d2_mo_stable_r', 'dy_d2_af_hil_r', 'dy_d3_nn_hall_r', 'dy_d4_nn_meal_r', 'dy_d4_ev_hill_r',
+    'dy_d5_nn_meal_r'],
+  '处理选择 _r 只在作者写了「选择：」的地方落 —— 活的一共 11 个（第 2 天 7 + 第 3 天 1 + 第 4 天 2 + 第 5 天 1，'
   + '不再每个活动一个；另有 7 个随第二天重排下线留档）'
 );
 // 第一夜那两节是唯一的两处例外：它们写在日常层的文件里（作者新稿的正文不进 act1/act2
@@ -375,17 +382,35 @@ t.empty(
   '没有选项的收束 hub 都要写 next（煎药完就该进下一天）'
 );
 
-/* 第 2 天早晨：主线是授课线（b12～b22，前半段是她的镜头），另两处标「没亲历」再走默认结算 */
+/* 第 2 天早晨：主线是**稿子新写的**教室线（dy_d2_mo_cls_*，奥布里视角，七节），
+   另两处标「没亲历」再走默认结算。
+   原著那条同名线（b12_morning ~ b22_after）第四轮起脱链留档 —— 正文一个字没动，
+   见下面的 LEGACY。 */
 const d2hub = nodeById.get('dy_d2_mo_hub');
 const d2bad = [];
-if (d2hub.choices[0].next !== 'b12_morning') d2bad.push('第一项应当直接进授课线开头 b12_morning');
-for (const c of d2hub.choices.slice(1)) {
-  if (c.skip !== 'b12_morning') d2bad.push(`「${c.text}」没写 skip: b12_morning`);
+if (d2hub.choices[0].next !== 'dy_d2_mo_cls_door_e') {
+  d2bad.push('第一项应当直接进教室线开头 dy_d2_mo_cls_door_e');
 }
-t.empty(d2bad, '第 2 天早晨：第一项进授课线，另两项把这一段标成默认结算（applySegmentDefaults）');
-t.eq(nodeById.get('b20_lesson').next, 'b21_haier_calls', '授课线在 b19 的三选一之后接回原著：b20 → b21');
-t.eq(nodeById.get('b22_after').next, 'dy_d2_nn_meal_e',
-  '授课线整段演完（b22 是它的末节），直接汇进午餐那场固定戏 —— 这一天不再有「谁来收拾残局」那一问');
+for (const c of d2hub.choices.slice(1)) {
+  if (c.skip !== 'dy_d2_mo_cls_door_e') d2bad.push(`「${c.text}」没写 skip: dy_d2_mo_cls_door_e`);
+}
+t.empty(d2bad, '第 2 天早晨：第一项进教室线，另两项把这一段标成默认结算（applySegmentDefaults）');
+
+// 教室线七节首尾相接：走廊 → 房间 → 书房 → 僵持 → 三选一 → 敲门 → 只剩她
+t.eq(
+  ['dy_d2_mo_cls_door_e', 'dy_d2_mo_cls_room_e', 'dy_d2_mo_cls_desk_e', 'dy_d2_mo_cls_stand_e',
+    'dy_d2_mo_cls_r', 'dy_d2_mo_cls_call_e', 'dy_d2_mo_cls_after_e']
+    .map((id) => (nodeById.get(id).choices ? 'CHOICE' : nodeById.get(id).next)),
+  ['dy_d2_mo_cls_room_e', 'dy_d2_mo_cls_desk_e', 'dy_d2_mo_cls_stand_e', 'dy_d2_mo_cls_r',
+    'CHOICE', 'dy_d2_mo_cls_after_e', 'dy_d2_nn_meal_e'],
+  '教室线首尾相接，末节汇进午餐那场固定戏 —— 这一天不再有「谁来收拾残局」那一问'
+);
+t.eq(nodeById.get('dy_d2_mo_cls_r').choices.map((c) => c.next),
+  ['dy_d2_mo_strict_e', 'dy_d2_mo_plain_e', 'dy_d2_mo_soft_e'],
+  '三选一落在新线的介入那一节上（旗_授课方式 1/2/3），三条走向各自接回「敲门」');
+t.eq(['dy_d2_mo_strict_e', 'dy_d2_mo_plain_e', 'dy_d2_mo_soft_e']
+  .map((id) => nodeById.get(id).next), ['dy_d2_mo_cls_call_e', 'dy_d2_mo_cls_call_e', 'dy_d2_mo_cls_call_e'],
+  '三条走向都接回教室线的「敲门与就餐」');
 
 /* 周六夜：route（条件路由）分流 —— 继续进狩猎、取消走占位链。在玩家眼里不是一次选择。 */
 const night = nodeById.get('dy_d6_ni_night_e');
@@ -397,11 +422,10 @@ t.eq(night.route[night.route.length - 1].if, undefined, 'route 的最后一条�
 t.eq(preds('dy_d6_ni_hunt_e'), ['dy_d6_ni_night_e'], '继续线只从周六夜的分流节点进来（没有旁路）');
 t.eq(preds('dy_d6_ni_cancel_e'), ['dy_d6_ni_night_e'], '取消线也只从周六夜的分流节点进来');
 
-// 原著段的入口入度恒为 1，且那条入边就是本时段的菜单 —— 这是「主线跳不过去」的真正保证。
-// 入口是 b12_morning（第一夜新戏之后它接回了主线）；b16 → b17 那根是段**内部**的指针，
-// 不算入口 —— 想上这条线只能从菜单走。
-t.eq(preds('b12_morning').sort(), ['dy_d2_mo_hub'],
-  '授课线唯一的入边来自本时段的菜单（主线跳不过去）');
+// 教室线的入口入度恒为 1，且那条入边就是本时段的菜单 —— 这是「主线跳不过去」的真正保证。
+// 内部那几节（房间 → 书房 → …）都是段**内部**的指针，不算入口 —— 想上这条线只能从菜单走。
+t.eq(preds('dy_d2_mo_cls_door_e').sort(), ['dy_d2_mo_hub'],
+  '教室线唯一的入边来自本时段的菜单（主线跳不过去）');
 t.eq(preds('h4_request').sort(), ['dy_d6_ni_hunt_e', 'h4_habit'],
   '狩猎的实质入口是周六夜的交付场景（h4_habit 那条是旧链的回边，旧链整条已脱链）');
 
@@ -442,11 +466,11 @@ gate.enterNode('dy_d2_mo_hub');
 const gateChoices = gate.availableChoices();
 t.eq(gateChoices.map((c) => c.enabled), [true, true, true], '第 2 天早晨三项全能点 —— 没有锁着的选项');
 t.eq(gate.choose(0).ok, true, '点课程线放行');
-t.eq(gate.node.id, 'b12_morning', '选了教室就直接落进授课线开头（b12，第一夜新戏之后它接回了主线）');
-// 授课线的前半段（b12～b16「她换好牧师服去上课」）是原著第二幕自己写的西比拉的镜头，
-// 从菜单这一步走进去会弹一次横幅；b16 → b17（进教室、转成奥布里）再弹回来。
-t.eq(gate.povSwitchInfo.from + '>' + gate.povSwitchInfo.to, '奥布里>西比拉',
-  '从菜单走进授课线会弹一次「奥布里>西比拉」—— 前半段（b12～b16）是她的镜头，不是奥布里的');
+t.eq(gate.node.id, 'dy_d2_mo_cls_door_e', '选了教室就直接落进教室线开头（走廊那一节）');
+// 整条教室线都是奥布里的镜头（稿子第四轮把它整段改写成了奥布里视角），
+// 所以从菜单走进去**不弹横幅** —— 以前前半段是西比拉的镜头，会闪一下「奥布里>西比拉」。
+t.eq(gate.povSwitchInfo, null, '走教室线不再弹视角横幅（整条线都是奥布里的镜头）');
+t.eq(gate.node.pov, '奥布里', '并且进来的这一节确实是奥布里视角');
 
 // 另外两处：先落进那个时段的活动，同时把没亲历的原著段按默认走法结掉
 // （「跳过的那一段用的是同一份数据」在 daily.test.cjs 里有逐项核对）
@@ -455,8 +479,9 @@ aside.enterNode('dy_d2_mo_hub');
 t.eq(aside.choose(1).ok, true, '第 2 天早晨的第二项也点得动');
 t.eq(aside.node.id, 'dy_d2_mo_doc_e', '没亲历的时候直接落在本时段那处活动的**事件**节点上（不是处理选择）');
 t.eq(aside.node.choices, undefined, '事件节点没有选项 —— 先演事件，再谈怎么处理');
-// 默认走法把这一段落结了：它从 b12_morning 起一路走到下一个时段菜单，中途的决定点
-// （b19 的授课方式三选一）按自己的 defaultPick 落值 —— 「照原来的节奏教下去」= 2。
+// 默认走法把这一段落结了：它从 dy_d2_mo_cls_door_e 起一路走到下一个时段菜单，
+// 中途的决定点（教室线介入那一节的授课方式三选一）按自己的 defaultPick 落值
+// —— 「照原来的节奏教下去」= 2。
 // （旧稿记在 dy_d2_mo_r 上的那面「旗_第2天早晨」随它一起下线，现在没人再写它。）
 t.eq(aside.getStat('旗_授课方式'), 2, '没亲历授课线时，默认走法（不插手）已经替她把这一段落结掉了');
 
@@ -472,9 +497,10 @@ const nextChoicePoint = (startId, pick) => {
   }
   throw new Error(`${startId} 之后走不到下一个决定点`);
 };
-t.eq(nextChoicePoint('dy_d2_mo_hub', 0), 'b19_aubrey', '第 2 天早晨：授课线从中段起有一个三选一（b19）');
-t.eq(nextChoicePoint('b19_aubrey', 1), 'dy_d2_nn_hub',
-  'b19 选完（普通方式）继续演到段尾，穿过午餐那场固定戏，才落到午餐后的菜单');
+t.eq(nextChoicePoint('dy_d2_mo_hub', 0), 'dy_d2_mo_cls_r',
+  '第 2 天早晨：教室线从介入那一节起有一个三选一');
+t.eq(nextChoicePoint('dy_d2_mo_cls_r', 1), 'dy_d2_nn_hub',
+  '那里选完（普通方式）继续演到段尾，穿过午餐那场固定戏，才落到午餐后的菜单');
 t.eq(nextChoicePoint('dy_d2_mo_stable_r', 1), 'dy_d2_nn_hub', '处理选择做完，自动推进到下一时段的菜单（同样穿过午餐）');
 t.eq(nextChoicePoint('dy_d2_mo_hub', 1), 'dy_d2_mo_doc_r', '书房活动：事件(_e)整段演完才落到处理选择(_r)');
 t.eq(nextChoicePoint('dy_d2_mo_doc_r', 1), 'dy_d2_nn_hub', '处理选择做完，照样推进到下一时段的菜单');
@@ -563,8 +589,18 @@ const RETIRED_ACT1 = [
   'o4_review', 'o4_r_a', 'o4_r_b', 'o4_r_c', 'o4_expect', 'o4_night',
   'o4_end',      // 第三天（本轮）连它自己那张收束屏也摘了：第一章直接接第一夜
 ];
+/* 第四轮：第二天早晨的教室线按作者稿重写成奥布里视角，原著那条同名线整条脱链留档。
+   **正文一个字都没动**（照旧由 tests/fidelity.cjs 对着 act2/source 核），
+   只是不再被走到 —— 现在走的是 daily/story.json 里的 dy_d2_mo_cls_* 七节。 */
+const RETIRED_CLASSROOM = [
+  'b12_morning', 'b13_door', 'b14_dressing', 'b15_hair',     // 伊莎贝尔的房间（西比拉的镜头）
+  'b16_montage',                                             // 府邸 · 各自的早晨
+  'b17_scream', 'b18_classroom', 'b19_aubrey', 'b20_lesson',  // 教室 · 僵持 / 介入 / 教典
+  'b21_haier_calls', 'b22_after',                            // 敲门声 / 一个人的时候
+];
 const LEGACY = new Set([
   'b23_corridor', 'b24_change',
+  ...RETIRED_CLASSROOM,
   ...act3.nodes.map((n) => n.id),
   'h4_knock', 'h4_habit',
   ...RETIRED_DAILY,
@@ -586,7 +622,7 @@ for (const n of story.nodes) {
   for (const o of outs) if (o && LEGACY.has(o)) intoLegacy.push(`${n.id} → ${o}`);
 }
 t.empty(intoLegacy, '活的节点一条边都不指向脱链集合');
-t.eq(reachable.size, 351 - LEGACY.size, `可达节点数 = 总数 − 脱链集合（351 − ${LEGACY.size}）`);
+t.eq(reachable.size, 358 - LEGACY.size, `可达节点数 = 总数 − 脱链集合（358 − ${LEGACY.size}）`);
 
 t.section('素材');
 
@@ -621,14 +657,15 @@ t.eq(
   ['西比拉_好感', '西比拉_健康', '西比拉_尊敬', '西比拉_亲密'],
   '面板上只有这四项关系（其余全部隐藏：警惕 / 力量 / 压力 / 埋怨 / 反抗 / 恨意 / 府里的名声…）'
 );
-t.eq(Object.keys(story.initialStats).length, 25, '初始数值有 25 项（原 23 项 + 奥布里_道德 / 伊莎贝尔_课程进度）');
-// 标签比初始值多 —— 多出来的 9 面是日常层的「记录旗」（旗_…）与两个剧情旗
-// （旗_授课方式 / 旗_狩猎继续 / 旗_狩猎取消）。它们不必进 initialStats：
-// getStat() 读不到就是 0，0 就是「这一笔还没记上 / 还没决定」。
+t.eq(Object.keys(story.initialStats).length, 31,
+  '初始数值有 31 项（25 项 + 熬药那一轮的 6 项药材与成品库存：柳树皮 / 苦根片 / 银脉草 / 蜂蜜 / 芥籽 / 日常调养煎剂）');
+// 标签比初始值多 —— 多出来的那些是日常层的「记录旗」（旗_…）与几面剧情旗
+// （旗_授课方式 / 旗_狩猎继续 / 旗_狩猎取消 / 旗_账册药材结算 / 旗_熬药结算）。
+// 它们不必进 initialStats：getStat() 读不到就是 0，0 就是「这一笔还没记上 / 还没决定」。
 // 但**必须**进 statLabels：引擎的 knownStats 取的是 Object.keys(statLabels)，
 // 写在 effects / if 里的数值不在里面，--validate 会拦。
-t.eq(Object.keys(story.config.statLabels).length, 35,
-  '标签 35 项 = 25 项数值 + 10 面记录/剧情旗（第二轮回填给午餐后的外院那一处补了「旗_第2天中午_外院」）');
+t.eq(Object.keys(story.config.statLabels).length, 43,
+  '标签 43 项 = 31 项数值 + 12 面记录/剧情旗（熬药那一轮补了两面结算旗：账册的药材采购、当天那一锅）');
 t.empty(
   Object.keys(story.config.statLabels).filter((k) => !/^(旗_|决斗_)/.test(k))
     .filter((k) => !(k in story.initialStats)),
@@ -648,9 +685,13 @@ t.empty(
 // 府里名声的 50 是中性起点，其余从 0 起。
 t.eq(
   Object.entries(story.initialStats).filter(([, v]) => v !== 0).sort().map(([k, v]) => `${k}=${v}`),
-  ['奥布里_道德=50', '普里森堡_声誉=50', '普里森堡_秩序=50', '西比拉_健康=60', '西比拉_力量=5',
+  ['奥布里_道德=50', '普里森堡_声誉=50', '普里森堡_秩序=50',
+    '药材_ing_bitter_root=3', '药材_ing_honey=3', '药材_ing_mustard_seed=2',
+    '药材_ing_silverleaf=3', '药材_ing_willow_bark=3',
+    '西比拉_健康=60', '西比拉_力量=5',
     '西比拉_反抗=20', '西比拉_好感=-10', '西比拉_尊敬=10', '西比拉_恨意=10', '西比拉_警惕=80'],
-  '只有这十项不从 0 起（奥布里_道德 的起点 50 是暂定值，等作者定阈值与联动）'
+  '只有这十五项不从 0 起（奥布里_道德 的起点 50 是暂定值，等作者定阈值与联动；'
+  + '药材那五项是熬药系统的初始库存，芥籽 2 份、其余各 3 份）'
 );
 // 警惕：v2 就在、语义是「对你的警惕」，这一轮只是退出面板，**没有改名也没有被「尊敬」顶替**
 t.eq(story.config.statLabels['西比拉_警惕'], '西比拉 · 对你的警惕', '警惕的标签一个字没改');
@@ -695,8 +736,8 @@ t.eq(
   '原著的决定点：第一幕 10 个 + 第二幕 3 个（第一夜的 2 个 = b2/b4，加 b19 的授课方式三选一）'
   + ' + 旧第三幕 3 个 + 第一夜新加的 b8_diary_writing（它演第一夜，但写在日常层的文件里）'
 );
-t.eq(choicePoints.length, 17 + 34 + 24,
-  '加上日常层那 34 个 dy_ 节点（13 张菜单 + 10 个处理选择 + 查看笔记 + 狩猎决定 + 自带选项的厨房 _e'
+t.eq(choicePoints.length, 17 + 35 + 24,
+  '加上日常层那 35 个 dy_ 节点（13 张菜单 + 11 个处理选择 + 查看笔记 + 狩猎决定 + 自带选项的厨房 _e'
   + ' + 8 个下线留档）与狩猎篇的 24 个');
 t.eq(ACT1_PATHS.length, 1,
   '第一幕内部只剩 1 条直路 —— 第一天不设玩家选择（作者定稿：不设置奥布里幕间、不进行玩家选择），'
@@ -884,8 +925,9 @@ t.empty(problems.start, '每条路径都从 s1_rain 开始');
 t.empty(problems.intoAct2, '每条路径都真的进过第二幕（免得 continueTo 断了却假性通过）');
 t.empty(problems.decision, '唯一一次狩猎决定：每条路都恰好经过 dy_d5_af_decision_e 一次（不复问、不重开）');
 t.empty(problems.route, '周六夜的两条路互斥：继续线不碰取消段、取消线不进狩猎、并且并回第九章');
-// 「亲历授课线」与「没亲历、由默认走法代走」都覆盖到了
-t.ok(ran.some((r) => r.nodes.includes('b17_scream')), '有人亲历了第 2 天早晨的授课线');
+// 「亲历教室线」与「没亲历、由默认走法代走」都覆盖到了
+t.ok(ran.some((r) => r.nodes.includes('dy_d2_mo_cls_stand_e')), '有人亲历了第 2 天早晨的教室线');
+t.ok(ran.some((r) => !r.nodes.includes('dy_d2_mo_cls_door_e')), '也有人没进去，由默认走法把这一段代走（见 applySegmentDefaults）');
 t.ok(ran.some((r) => !r.nodes.includes('b17_scream') && r.nodes.includes('dy_d2_mo_doc_e')),
   '也有人没亲历它 —— 那一段照样在数值上发生（默认走法），玩家去做了别的事');
 
@@ -995,15 +1037,23 @@ const FINAL_RANGES = [
   // 包络跟着整体收窄；下面每一行的数字都是按现剧本重跑出来的。
   // 【本轮：第一天幕间摘掉后再重测一次】—— 第一幕的 10 个幕间决策点整批下线，那批数值
   // （线索、佣兵_纪律、第一幕那几笔好感与警惕）不再有人写，包络进一步收窄。
-  ['西比拉_好感', 1, 23],         // 三条走法分别 +11 / +21 / +23（旧稿那条 +10 的已下线）
+  // 【本轮：教室线改写成奥布里视角后重测一次】授课方式那个三选一从原著的
+  // b19_aubrey（'b' 区，走法由 A2_PICKS 固定成「普通」）搬到了日常层的
+  // dy_d2_mo_cls_r（'d' 区，走法由 DAILY_PLANS 那三条代表路线决定）。
+  // 于是：只有 firstEnabled（先选「教室」）会亲历教室线，而它在那里选的是
+  // 严格（−1 伊莎贝尔_好感 / +1 礼仪成长 / +1 西比拉_好感）；
+  // 另外两条路线走的是书房 / 马厩，教室那段由默认走法代走（普通，+2 西比拉_好感）。
+  // 宽松（+3 西比拉_好感 / +1 伊莎贝尔_好感）**这三条代表路线一条都没采到** ——
+  // 所以下面那几行的上下限是「代表路线的包络」，不是设计上限（见上面那段注记）。
+  ['西比拉_好感', 1, 22],         // 三条走法分别 +11 / +21 / +22（旧稿那条 +10 的已下线）
   ['西比拉_警惕', 80, 83],        // 起点 80；会往上顶的那几个幕间决策一并下线，现在只 +3
   ['西比拉_亲密', 0, 15],         // 第 2、4 天那几处「走近她」的选择在加
   ['西比拉_力量', 5, 7],          // 狩猎篇两处 +1（他被藤蔓缠住时开路、第六天之后还跟得上）
   ['西比拉_压力', -7, 8],         // 狩猎篇两头都动：孩子的话能卸，主人的话只能接着
   ['西比拉_自主性', 0, 5],        // 「不插手 / 让她自己开口」的那几处
   ['佣兵_纪律', 0, 0],            // 只由「佣兵纪律」那个幕间写 —— 它下线了，现在恒为起点
-  ['伊莎贝尔_好感', -2, 11],      // b19 三选一（−1 / 0 / +1）+ 新稿的厨房偷吃、午后外院、午餐那几处
-  ['伊莎贝尔_礼仪成长', -1, 0],   // 厨房那处「当作没看见」会 −1；会加它的幕间下线了
+  ['伊莎贝尔_好感', -3, 11],      // 教室线三选一（−1 / 0 / +1）+ 新稿的厨房偷吃、午后外院、午餐那几处
+  ['伊莎贝尔_礼仪成长', -1, 1],   // 教室线选「严格」那一路会 +1（本轮三选一搬进日常层后才采到）；厨房那处 −1
   ['海尔_好感', -2, 3],           // 托她教海尔认字那一件事，答应与推一晚会各走一头
   ['布朗_好感', -1, 1],
   ['线索_克莱尔旧事', 0, 1],      // 这条还有别处在写，没跟着幕间一起归零
@@ -1122,46 +1172,37 @@ t.ok(story.config.statOrder.indexOf(AFF) >= 0, '好感仍然是面板上公开�
 
 t.section('视角切换');
 
-const switches = ran[0].povSwitches;      // ran[0] 走继续线（且从菜单亲历授课线）：含最后那次进狩猎篇
+const switches = ran[0].povSwitches;      // ran[0] 走继续线（且从菜单亲历教室线）：含最后那次进狩猎篇
 const SWITCH_SEQ = switches.map((s) => s.from + '>' + s.to).join(' | ');
-/* 第二轮回填把第一天的奥布里幕间整批摘掉（作者定稿：不设置奥布里幕间、不进行玩家选择）。
-   于是第一幕到第二幕前半段**全程西比拉**，一次都不切 —— 原先那七次幕间来回连同
-   第八次跨进第二幕一起消失。整场只剩三处：
-     · 从日常层的早晨菜单走进授课线：奥布里 → 西比拉（b12~b16 是她的镜头）；
-     · b16 → b17：进教室，回到奥布里的调度；
+/* 第二轮回填把第一天的奥布里幕间整批摘掉（作者定稿：不设置奥布里幕间、不进行玩家选择）——
+   于是第一幕到第二幕前半段**全程西比拉**，一次都不切。
+   第四轮又把第二天早晨的教室线按作者稿改写成奥布里视角，那一个来回也跟着没了。
+   整场只剩一处：
      · 周六夜进狩猎篇：奥布里 → 西比拉。
    取消线并回 h9_stairs 是静默的（第九章的节点都带 silent），上了狩猎篇也不再切。 */
-t.eq(switches.length, 3, '整场切三次视角（授课线一个来回 + 周六夜进狩猎篇一次）');
-t.eq(SWITCH_SEQ, '奥布里>西比拉 | 西比拉>奥布里 | 奥布里>西比拉',
-  '第一天到第二幕前半段全是西比拉，不再有幕间来回；剩下的三次都在第二天以后');
-t.eq(switches[0].from + '>' + switches[0].to, '奥布里>西比拉', '第一次：从早晨菜单走进授课线');
-t.eq(switches[1].from + '>' + switches[1].to, '西比拉>奥布里', '第二次：b16 → b17 进教室，回到奥布里的调度');
-t.eq(switches[1].line, '西比拉 视角结束 —— 奥布里 视角开始', '这一次走的是默认横幅文案');
-t.eq(switches[2].from + '>' + switches[2].to, '奥布里>西比拉', '第三次：从周六夜切进狩猎篇（转到西比拉）');
-t.eq(switches[2].line, '接下来是狩猎篇 —— 一次较长的特殊事件，视角转到西比拉；主线方向已由周五的决定定下。',
-  '最后一次（进狩猎篇）用自定义横幅，说明接下来是一段较长的特殊事件');
+t.eq(switches.length, 1, '整场只切一次视角（周六夜进狩猎篇那一次）');
+t.eq(SWITCH_SEQ, '奥布里>西比拉', '到第二天为止一次都不切 —— 教室线整条都是奥布里的镜头');
+t.eq(switches[0].from + '>' + switches[0].to, '奥布里>西比拉', '唯一那次：从周六夜切进狩猎篇（转到西比拉）');
 t.ok(switches.every((s) => !!s.line), '每次切换都有一行提示文字');
 t.eq(replay(ACT1_PATHS[0].picks, 's4_portrait').povSwitches.length, 0,
   '第一幕自己一次都不切（全程西比拉 —— 幕间摘掉之后没有别人插进来）');
 
-/* 整场的视角切换只由两件事决定：有没有走进教室、有没有进狩猎篇。
-   取消线一次都不多（并回第九章是静默的）。四种走法逐个钉住。 */
+/* 整场的视角切换只由**一件事**决定：有没有进狩猎篇。
+   进不进教室都不切（教室线是奥布里视角），取消线一次都不多（并回第九章是静默的）。
+   四种走法逐个钉住。 */
 const seqOf = (r) => r.povSwitches.map((s) => s.from + '>' + s.to).join(' | ');
 const wantSeq = (r) => []
-  .concat(r.nodes.includes('b12_morning') ? ['奥布里>西比拉', '西比拉>奥布里'] : [])
   .concat(r.nodes.some((id) => /^h[4-8]_/.test(id)) ? ['奥布里>西比拉'] : []);
 t.empty(
   ran.filter((r) => seqOf(r) !== wantSeq(r).join(' | ')).map((r) => `[${r.a1}]`),
-  '整场只剩进授课线那一个来回与进狩猎篇那一次 —— 没有第三种切法'
+  '整场只剩进狩猎篇那一次 —— 没有第二种切法'
 );
 t.empty(
   ran.filter((r) => {
     const inHunt = r.nodes.some((id) => /^h[4-8]_/.test(id));
-    const lesson = r.nodes.includes('b12_morning');
-    const want = (lesson ? 2 : 0) + (inHunt ? 1 : 0);
-    return r.povSwitches.length !== want;
+    return r.povSwitches.length !== (inHunt ? 1 : 0);
   }).map((r) => `[${r.a1}]`),
-  '继续线比取消线多一次（多出进狩猎篇那次），亲历授课线的再多两次（那一个来回）；取消线并回第九章是静默的'
+  '继续线比取消线多一次（多出进狩猎篇那次）；进不进教室都一样，取消线并回第九章是静默的'
 );
 
 // 前缀与视角的对应：s（第一幕西比拉线）/ c（旧第三幕留档）是西比拉；
@@ -1730,11 +1771,30 @@ t.empty(
 const drivenBySomeNode = (k) => story.nodes.some((n) => n.id[0] !== 'f'
   && (n.choices || []).some((c) => (c.effects || []).some((e) => e.stat === k)));
 
+/* 熬药那一轮的库存数值（药材_…）**不走 node 的 effects** —— 它们由两条系统路径驱动：
+   走到账册那一个节点时发料（daily/brew.js 的 purchasePlan）、这一锅做完时扣料发成品
+   （同文件的 settlementPlan）。所以这里换一条同样硬的判据：库存那一类必须在
+   **材料目录里真的有归属** —— 键能还原成物品 id、那个 id 在 catalog 里查得到。
+   查不到就是白定义的库存，跟「登记完不算数」是同一种毛病。
+   （芥籽现下没有方子用它，是**故意留的备选材料与错误选择的靶子**，
+     所以判据只要求它在目录里，不要求它出现在某张方子的 requires 里 ——
+     那条由 daily/brew.test.cjs 正面查。） */
+const catalogStats = new Set(
+  Object.keys(alchemy.ITEMS).map((id) => alchemy.statOf(id))
+);
+const drivenByPharmacy = (k) => alchemy.isInventoryStat(k) && catalogStats.has(k);
+
 t.empty(
   Object.keys(story.initialStats)
-    .filter((k) => ROAM_STATS.indexOf(k) < 0 && !drivenBySomeNode(k))
+    .filter((k) => ROAM_STATS.indexOf(k) < 0 && !drivenBySomeNode(k) && !drivenByPharmacy(k))
     .sort(),
-  '第一章那些数值全都由主线（幕间决策）或日常层的选择驱动，没有一个是白定义的'
+  '第一章那些数值全都由主线（幕间决策）、日常层的选择或熬药的库存那一路驱动，没有一个是白定义的'
+);
+t.empty(
+  Object.keys(story.initialStats).filter((k) => alchemy.isInventoryStat(k))
+    .map((k) => alchemy.itemIdOfStat(k))
+    .filter((id) => !alchemy.itemById(id)),
+  '每一面库存都还原得出目录里的物品（药材_ 前缀 + 物品 id，不许有对不上的键）'
 );
 // 日常层动的那几项，必须真的在 original 三幕之外 —— 三幕一个 effects 都没被改过
 const DAILY_DRIVEN = ['西比拉_健康', '西比拉_尊敬', '西比拉_埋怨', '西比拉_反抗',

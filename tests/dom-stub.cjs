@@ -96,11 +96,15 @@ function makeEl(tag, doc) {
   };
   el.blur = () => {};
   el.focus = () => {};
+  /* 只认两种最简选择器：`.类名` 与 `#id`（#id 是给 daily.js / brew-ui.js 那两处
+     「点对话框那一下」用的 —— 它们写的就是 closest('#dialogue-box')）。 */
   el.closest = (sel) => {
-    const want = String(sel).replace(/^\./, '');
+    const raw = String(sel).trim();
+    const byId = raw.charAt(0) === '#';
+    const want = byId ? raw.slice(1) : raw.replace(/^\./, '');
     let cur = el;
     while (cur) {
-      if (cur._class && cur._class.has(want)) return cur;
+      if (byId ? cur.id === want : (cur._class && cur._class.has(want))) return cur;
       cur = cur.parentNode;
     }
     return null;
@@ -159,6 +163,7 @@ function loadDom(htmlPath) {
   doc.__ids = ids;
 
   const timers = [];
+  const intervals = [];        // 排过队的那几个 setInterval（清掉之后不再排回来）
   let timerId = 0;
 
   // 假的 Image：ui.js 用它探测「这张图到底存不存在」。
@@ -204,8 +209,22 @@ function loadDom(htmlPath) {
     matchMedia: () => ({ matches: true, addListener() {}, removeListener() {} }),
     setTimeout: (fn) => { const id = ++timerId; timers.push({ id, fn }); return id; },
     clearTimeout: () => {},
-    setInterval: (fn) => { const id = ++timerId; timers.push({ id, fn }); return id; },
-    clearInterval: (id) => { const i = timers.findIndex((t) => t.id === id); if (i >= 0) timers.splice(i, 1); },
+    /* setInterval 与 setTimeout 的区别只有一个：**它排回来**。
+       runTimers() 每摇一次 = 真浏览器里走过一个间隔（brew-ui.js 的熬药循环
+       就是靠这个推时间的）。清了之后不再排回来 —— 和真浏览器一致。 */
+    setInterval: (fn) => {
+      const id = ++timerId;
+      const rec = { id, fn, repeat: true, cleared: false };
+      intervals.push(rec);
+      timers.push(rec);
+      return id;
+    },
+    clearInterval: (id) => {
+      const rec = intervals.find((t) => t.id === id);
+      if (rec) rec.cleared = true;
+      const i = timers.findIndex((t) => t.id === id);
+      if (i >= 0) timers.splice(i, 1);
+    },
     addEventListener: () => {},
     console,
     Image: FakeImage,
@@ -216,11 +235,15 @@ function loadDom(htmlPath) {
   /** 让接下来的 FakeImage 全部加载失败（模拟图片 404，退回像素占位） */
   function setImagesLoad(ok) { imageState.load = !!ok; }
 
-  /** 手摇定时器：跑掉所有排队中的回调（打字机需要） */
+  /** 手摇定时器：跑掉所有排队中的回调（打字机、熬药的每帧循环都靠它）。
+      摇一次 = 走一个间隔：setInterval 那些跑完再排回队尾，setTimeout 跑完就没了。 */
   function runTimers(rounds) {
     for (let n = 0; n < (rounds || 1); n++) {
       const snapshot = timers.splice(0, timers.length);
-      for (const t of snapshot) t.fn();
+      for (const t of snapshot) {
+        t.fn();
+        if (t.repeat && !t.cleared) timers.push(t);
+      }
     }
   }
 

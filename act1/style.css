@@ -351,6 +351,35 @@ body:not(.ready) #app { opacity: 0; }
   padding: 20px var(--dialogue-gutter) 22px;
   border-radius: 0;
   border: 0;
+  /* 底色 / 描边 / 柔光全挪到 ::before 那一层皮上，这里一条都不留 —— 见下面那段 */
+  cursor: pointer;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* 对话框的**皮**：一条从窗口最左铺到最右的暗带。
+   ---------------------------------------------------------------------
+   为什么要铺满整屏：#app 是两栏 grid（左＝剧情，右＝数值面板占 --panel-w），
+   对话框本身只是左栏的子元素，align-self: stretch 只铺得满左栏 ——
+   面板收起来的时候，右边会空出一条 240px 的口子。
+
+   **整块皮只有这一层。** 底色、毛玻璃、上沿描边、往上打的柔光，四样都写在
+   这一个伪元素上，一次算完。分成两块来补（本体一块 + 右边再补一条）是不行的：
+   两层的 backdrop-filter 各算各的、两道柔光在接缝处叠起来，看着就是
+   **两块板子拼在一起**（曾经就是这么写的，撤了）。
+
+   **内容一个像素都不挪**：正文的左右留白还是 --dialogue-gutter，
+   立绘的抬起高度还是 --portrait-lift。
+   ---------------------------------------------------------------------
+   层次：这一层是绝对定位、z-index auto，跟 #bg-layer（z-index: 0）同组，
+   靠 DOM 顺序（它在后）盖住背景；正文那几样在下面单独抬到 z-index: 1。
+   数值面板真展开时压在它上面（面板 z-index 5 > #stage 的 1）。 */
+#dialogue-box::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: calc(-1 * var(--panel-w));
   border-top: 1px solid rgba(201, 160, 90, 0.22);
   /* 半透明 + 毛玻璃：背后的像素块还看得见 */
   background: var(--dialogue-bg);
@@ -358,9 +387,14 @@ body:not(.ready) #app { opacity: 0; }
   -webkit-backdrop-filter: blur(7px);
   /* 纯黑的投影在这种铺满底部的长条上没有意义，换成往上打的一层柔光 */
   box-shadow: 0 -14px 40px rgba(0, 0, 0, 0.45);
-  cursor: pointer;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
 }
+
+/* 皮是绝对定位的，会盖住**没定位**的正文 —— 这三样抬到它上面去。
+   （姓名牌与「继续」提示本来就是 absolute，只补 z-index。） */
+#dialogue-text { position: relative; z-index: 1; }
+#speaker-plate,
+#next-hint { z-index: 1; }
 
 /* 出选项 / 走到结局时，对话框整个收起来（ui.js 的 setDialogueOpen(false)）。
    以前只是 opacity: .5，上一句话会以半透明状态赖在屏幕底部不走。
